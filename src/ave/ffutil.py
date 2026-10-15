@@ -55,7 +55,7 @@ def _filter_names(ffmpeg: str) -> frozenset[str]:
     names = set()
     for line in out.splitlines():
         parts = line.split()
-        if len(parts) >= 3 and re.fullmatch(r"[A-Z.|]{3}", parts[0]):   # " T.C name  V->V  description"
+        if len(parts) >= 3 and re.fullmatch(r"[A-Z.|]{2,3}", parts[0]):   # " T.C name  V->V  description" (newer ffmpeg prints 2 flag chars)
             names.add(parts[1])
     return frozenset(names)
 
