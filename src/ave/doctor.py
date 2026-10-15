@@ -55,7 +55,7 @@ def _importable(mod: str) -> bool:
 
 def _install_ffmpeg() -> str:
     if IS_MAC:
-        return "brew install ffmpeg"
+        return "brew install ffmpeg-full"
     if sys.platform.startswith("linux"):
         return "sudo apt-get install ffmpeg   (Debian/Ubuntu; dnf/pacman/apk have an `ffmpeg` package too)"
     return "install FFmpeg from https://ffmpeg.org/download.html and put it on PATH (or use WSL)"
@@ -71,6 +71,11 @@ def _checks() -> list[Check]:
     for tool in ("ffmpeg", "ffprobe"):
         p = config.binary(tool)
         add(OK if p else FAIL, tool, str(p) if p else "not found on PATH", _install_ffmpeg(), REQUIRED)
+    if config.binary("ffmpeg"):
+        from . import ffutil
+        has_ass = ffutil.has_filter("ass")
+        add(OK if has_ass else WARN, "FFmpeg libass (burned-in captions)", "`ass` filter available" if has_ass else
+            "this ffmpeg has no `ass` filter: captions cannot be burned into video (shorts, final cut with captions)", ffutil.install_hint(), REQUIRED)
     add(OK if sys.version_info >= (3, 11) else FAIL, "Python", sys.version.split()[0], "uv python install 3.12 && uv sync", REQUIRED)
     try:
         add(OK, "Bundled config, skills, motion-kit", resources.source(), "", REQUIRED)

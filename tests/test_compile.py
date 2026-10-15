@@ -15,7 +15,7 @@ from PIL import Image
 from ave import compile as comp
 from ave import editdoc, ffutil, presets
 from ave.episode import Episode
-from conftest import needs_ffmpeg
+from conftest import needs_ffmpeg, needs_libass
 
 pytestmark = needs_ffmpeg
 SR = 48000
@@ -682,6 +682,7 @@ Dialogue: 0,{start},{end},Default,,0,0,0,,WORDS WORDS WORDS
 """)
 
 
+@needs_libass
 def test_caption_burn_only_during_cue_and_can_be_disabled(synth_episode):
     write_ass(synth_episode.root / "captions.ass")
     doc = editdoc.load_latest(synth_episode, "assembly")

@@ -1,5 +1,6 @@
 """F2 regressions from the first real-episode shorts run (4K, two cameras, trial clips)."""
 
+from conftest import needs_libass  # noqa: E402
 import json
 
 import pytest
@@ -12,6 +13,7 @@ from test_shorts import NO_FACE, _make_clip
 pytestmark = pytest.mark.skipif(not __import__("shutil").which("ffmpeg"), reason="ffmpeg not installed")
 
 
+@needs_libass
 def test_trial_clip_without_select_is_cut_on_the_fly_and_exported_only_to_drafts(synth_episode):
     """--allow-unapproved: a never-built proposed clip gets a select EditDoc without touching clips.json, and its files go to
     exports/shorts_drafts/ (the publish folder exports/shorts/ stays empty)."""
@@ -42,6 +44,7 @@ def test_trial_clip_without_select_is_cut_on_the_fly_and_exported_only_to_drafts
     assert side["draft"] is True
 
 
+@needs_libass
 def test_short_loudness_lands_on_target_not_below_it(synth_episode):
     """Regression: the long-form limiter ceiling (-3.5 dBFS) left real shorts at -14.8/-14.9 LUFS; shorts start higher."""
     ep = synth_episode
@@ -111,6 +114,7 @@ def _pixel(mp4, t, x, y):
     return tuple(r.stdout[:3])
 
 
+@needs_libass
 def test_stack_layout_puts_both_speakers_on_screen_one_above_the_other(synth_episode):
     """Opt-in two-up: camera A (blue, S1) in the top 1080x960, camera B (red, S2) below, for the whole clip; captions on the seam."""
     ep = synth_episode
@@ -136,6 +140,7 @@ def test_stack_layout_puts_both_speakers_on_screen_one_above_the_other(synth_epi
     assert abs(ffutil.measure_loudness(mp4)["lufs"] + 14.0) <= 0.5
 
 
+@needs_libass
 def test_audiogram_fallback_short_has_waveform_captions_and_normal_audio(synth_episode):
     ep = synth_episode
     clip = _make_clip(ep)

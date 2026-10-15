@@ -9,7 +9,7 @@ import pytest
 import fixtures
 from ave import captions, cli, editdoc, transcribe
 from ave.episode import read_json
-from conftest import needs_ffmpeg
+from conftest import needs_ffmpeg, needs_libass
 from test_captions import make_edit
 
 pytestmark = needs_ffmpeg
@@ -92,6 +92,7 @@ def test_cli_check_reads_ass_too(synth_episode, tmp_path, capsys):
     assert rc == 0, out
 
 
+@needs_libass
 def test_cli_burn_renders_video_with_captions(synth_episode, capsys):
     ep = synth_episode
     doc = make_edit(ep, [(0.0, 6.0), (8.0, 12.0)])

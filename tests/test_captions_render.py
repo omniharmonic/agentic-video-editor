@@ -8,7 +8,7 @@ import pytest
 from PIL import Image
 
 from ave import captions
-from conftest import needs_ffmpeg
+from conftest import needs_ffmpeg, needs_libass
 
 pytestmark = needs_ffmpeg
 
@@ -68,6 +68,7 @@ def worst_case_cue(style_name, words=True):
 
 @pytest.mark.parametrize("style_name", ["podcast", "short", "minimal"])
 @pytest.mark.parametrize("size", [(1920, 1080), (1080, 1920)])
+@needs_libass
 def test_caption_pixels_stay_in_safe_zone(tmp_path, style_name, size):
     cue = worst_case_cue(style_name)
     style, info, bbox, _ = render(tmp_path, style_name, size, [cue])
@@ -83,6 +84,7 @@ def test_caption_pixels_stay_in_safe_zone(tmp_path, style_name, size):
     assert (y1 - y0) >= 0.03 * min(W, H)
 
 
+@needs_libass
 def test_short_style_sits_at_about_65_percent_height(tmp_path):
     for size in ((1080, 1920), (1920, 1080)):
         _, _, bbox, _ = render(tmp_path, "short", size, [worst_case_cue("short")])
@@ -90,11 +92,13 @@ def test_short_style_sits_at_about_65_percent_height(tmp_path):
         assert 0.61 <= cy <= 0.69, (size, cy)
 
 
+@needs_libass
 def test_podcast_style_is_bottom_centred(tmp_path):
     _, _, bbox, _ = render(tmp_path, "podcast", (1920, 1080), [worst_case_cue("podcast")])
     assert bbox[3] / 1080 > 0.85 and bbox[1] / 1080 > 0.6
 
 
+@needs_libass
 def test_karaoke_highlight_progresses(tmp_path):
     """Early in the cue the first word is already in the highlight colour and the last is still white."""
     cue = captions.Cue(0.0, 2.4, "alpha bravo\ncharlie delta",
@@ -109,6 +113,7 @@ def test_karaoke_highlight_progresses(tmp_path):
     assert 0 < amber(burned_mid) < amber(burned_end)
 
 
+@needs_libass
 def test_burn_preserves_duration_audio_and_burns_captions(tmp_path):
     bg = tmp_path / "in put, 'x'.mp4"           # awkward filename: spaces, comma, quote
     make_bg(bg, (1280, 720), dur=3.0, with_audio=True)
