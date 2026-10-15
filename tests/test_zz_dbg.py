@@ -41,16 +41,23 @@ def test_dbg(synth_episode):
         args = list(args); args[-1] = str(o)
         r = subprocess.run([ffutil._bin("ffmpeg"), "-nostdin", "-v", "error", *args], capture_output=True, text=True)
         print("VAR", name, r.returncode, r.stderr[-200:], px(o) if o.exists() else None)
+    def px2(o): return px(o) + " " + px(o, 150, 100, 80) + " f130:" + px(o, 130)
+    def variant(name, args, fcfn=None):
+        o = joined.parent / f"var_{name}.mp4"
+        args = list(args); args[-1] = str(o)
+        if fcfn:
+            k = args.index("-filter_complex") + 1; args[k] = fcfn(args[k])
+        r = subprocess.run([ffutil._bin("ffmpeg"), "-nostdin", "-v", "error", *args], capture_output=True, text=True)
+        print("VAR", name, r.returncode, r.stderr[-300:], px2(o) if o.exists() else None, flush=True)
     variant("asis", a)
-    v = list(a)
-    v = list(a); i = 0
-    while i < len(v):
-        if v[i] == "-t" and i + 1 < len(v) and v[i - 1] != "-frames:v":
-            del v[i:i + 2]; continue
-        i += 1
-    # trim filter instead of -t
-    fc2 = fc.replace("format=rgba", "trim=duration=3,format=rgba")
-    v2 = list(a); v2[v2.index("-filter_complex") + 1] = fc2
-    variant("trim_with_t", v2)
-    # nothing but one overlay at a time
+    variant("no_enable", a, lambda f: f.replace(":enable='gte(n,120)*lt(n,180)'", ""))
+    variant("eof_repeat", a, lambda f: f.replace("eof_action=pass", "eof_action=repeat"))
+    variant("fc_threads1", ["-filter_complex_threads", "1"] + a)
+    variant("fmt_yuv420", a, lambda f: f.replace("format=auto", "format=yuv420"))
+    variant("fmt_yuv420p_main", a, lambda f: "[0:v]format=yuva420p[m];" + f.replace("[0:v][ov1]", "[m][ov1]"))
+    variant("fps_main", a, lambda f: "[0:v]fps=30[m];" + f.replace("[0:v][ov1]", "[m][ov1]"))
+    variant("no_framerate", [x for j, x in enumerate(a) if not (x in ("-framerate",) or (j > 0 and a[j-1] == "-framerate"))])
+    variant("shortest0", a, lambda f: f.replace("eof_action=pass", "eof_action=pass:shortest=0"))
+    variant("tq", [y for j, x in enumerate(a) for y in ((["-thread_queue_size", "1024"] if x == "-loop" else []) + [x])])
+    # split into 3 chained post passes (files)
     assert False, "dbg"
