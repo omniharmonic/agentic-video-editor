@@ -31,3 +31,6 @@ jobs:
       - name: overlay probe
         if: runner.os == 'Linux'
         run: bash scripts_dbg/probe_ov.sh
+      - name: dbg test
+        if: runner.os == 'Linux'
+        run: uv run pytest -q -s tests/test_zz_dbg.py || true
