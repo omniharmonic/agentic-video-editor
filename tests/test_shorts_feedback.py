@@ -6,6 +6,7 @@ Synthetic transcript (all lowercase, no punctuation; timings in tests/fixtures.p
   S2 8.0-12.0 "thanks for having me it is great to be here with you"
 """
 
+from conftest import needs_libass  # noqa: E402
 import json
 import subprocess
 
@@ -97,6 +98,7 @@ def test_a_clip_that_ends_on_a_dangling_word_is_refused_by_the_audit(synth_episo
         shorts.build_short(ep, clip, cfg_no_opening(ep), detector=NO_FACE)
 
 
+@needs_libass
 def test_complete_clip_builds_and_the_sidecar_shows_completeness(synth_episode):
     ep = synth_episode
     w = {x["w"]: x for x in words_of(ep)}
@@ -111,6 +113,7 @@ def test_complete_clip_builds_and_the_sidecar_shows_completeness(synth_episode):
     assert side["edges"]["snapped"] and side["draft"] is True
 
 
+@needs_libass
 def test_override_is_explicit_logged_and_recorded(synth_episode, monkeypatch):
     ep = synth_episode
     clip = make(ep, 7.5, 12.6, start_complete=False, complete_statement=False)
@@ -308,6 +311,7 @@ def test_title_card_never_captions_or_plays_the_words_before_the_clip(synth_epis
     assert lead["fill"] == "muted" and lead["gain_db"] <= -100
 
 
+@needs_libass
 def test_title_card_audio_is_silent_until_the_clip_starts(synth_episode):
     ep = synth_episode
     clip = whole_utterance(ep)
@@ -416,6 +420,7 @@ def test_shorts_build_never_prepends_a_quote_card_by_any_route(synth_episode):
 
 
 @pytest.mark.real_motion
+@needs_libass
 def test_the_real_title_overlay_renders_and_is_composited_in_the_export(synth_episode):
     pytest.importorskip("playwright")
     ep = synth_episode

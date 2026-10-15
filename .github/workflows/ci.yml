@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -35,9 +36,18 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
 
-      - name: Install FFmpeg (macOS)
+      # Homebrew's plain `ffmpeg` formula is built WITHOUT libass (no `ass`/`subtitles` filters), so captions cannot be burned in.
+      # `ffmpeg-full` has it; it is keg-only, so put its bin first on PATH. This is the command the README tells users to run.
+      - name: Install FFmpeg (macOS, full build with libass)
         if: runner.os == 'macOS'
-        run: brew install ffmpeg
+        run: |
+          brew install ffmpeg-full
+          echo "$(brew --prefix ffmpeg-full)/bin" >> "$GITHUB_PATH"
+
+      - name: FFmpeg capabilities
+        run: |
+          ffmpeg -version | head -1
+          ffmpeg -hide_banner -filters | grep -wE "ass|subtitles" || { echo "::error::ffmpeg has no libass"; exit 1; }
 
       - name: Install the project
         run: uv sync --all-extras --python ${{ matrix.python }}

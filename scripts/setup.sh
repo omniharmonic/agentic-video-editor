@@ -41,7 +41,7 @@ skip() { SKIPPED+=("$1"); printf '   skipped: %s\n' "$1"; }
 fail() { FAILED+=("$1"); printf '   FAILED: %s\n' "$1" >&2; }
 
 ffmpeg_hint() {
-  if [[ $IS_MAC -eq 1 ]]; then echo "brew install ffmpeg      (no Homebrew? https://brew.sh)"
+  if [[ $IS_MAC -eq 1 ]]; then echo "brew install ffmpeg-full      (keg-only; has libass for burned-in captions. No Homebrew? https://brew.sh)"
   elif command -v apt-get >/dev/null; then echo "sudo apt-get install ffmpeg"
   elif command -v dnf >/dev/null; then echo "sudo dnf install ffmpeg      (needs RPM Fusion on Fedora)"
   elif command -v pacman >/dev/null; then echo "sudo pacman -S ffmpeg"

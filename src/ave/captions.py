@@ -628,6 +628,8 @@ def burn(video_in: Path | str, ass: Path | str, out: Path | str, fonts_dirs=None
     ffmpeg = config.binary("ffmpeg")
     if not ffmpeg:
         raise RuntimeError("ffmpeg not found on PATH")
+    from . import ffutil
+    ffutil.require_libass()
     out.parent.mkdir(parents=True, exist_ok=True)
     partial = out.parent / f".{out.stem}.partial{out.suffix}"
     dirs = [Path(d) for d in (default_fonts_dirs() if fonts_dirs is None else fonts_dirs) if Path(d).is_dir()]

@@ -10,6 +10,7 @@ import json
 import math
 import re
 import subprocess
+from functools import lru_cache
 from fractions import Fraction
 from pathlib import Path
 
@@ -31,6 +32,46 @@ def _bin(name: str) -> str:
     if not found:
         raise FFmpegError(f"{name} not found on PATH (install ffmpeg)")
     return str(found)
+
+
+def install_hint() -> str:
+    """The install command that gives a FULL-featured ffmpeg (libass for burned-in captions) on this system."""
+    import sys
+    if sys.platform == "darwin":
+        return ("brew install ffmpeg-full   (the plain `brew install ffmpeg` formula is built WITHOUT libass; ffmpeg-full is keg-only: "
+                "run `brew unlink ffmpeg` if it is installed, then `brew link --force ffmpeg-full` or put "
+                "$(brew --prefix ffmpeg-full)/bin first on PATH)")
+    if sys.platform.startswith("linux"):
+        return "sudo apt-get install ffmpeg   (Debian/Ubuntu builds include libass; a static build from https://johnvansickle.com/ffmpeg/ does too)"
+    return "install a full FFmpeg build with libass (https://ffmpeg.org/download.html)"
+
+
+@lru_cache(maxsize=4)
+def _filter_names(ffmpeg: str) -> frozenset[str]:
+    try:
+        out = subprocess.run([ffmpeg, "-hide_banner", "-filters"], capture_output=True, text=True, timeout=20).stdout
+    except Exception:
+        return frozenset()
+    names = set()
+    for line in out.splitlines():
+        parts = line.split()
+        if len(parts) >= 3 and re.fullmatch(r"[A-Z.|]{3}", parts[0]):   # " T.C name  V->V  description"
+            names.add(parts[1])
+    return frozenset(names)
+
+
+def has_filter(name: str) -> bool:
+    """True when the ffmpeg on PATH was built with the named filter (e.g. `ass` needs libass)."""
+    from . import config
+    found = config.binary("ffmpeg")
+    return bool(found) and name in _filter_names(str(found))
+
+
+def require_libass(what: str = "burned-in captions") -> None:
+    """Fail early and actionably when ffmpeg lacks the `ass` filter, instead of a cryptic filtergraph parse error."""
+    if not has_filter("ass"):
+        raise FFmpegError(f"this ffmpeg was built without libass, so it cannot do {what} (no `ass` filter). Install a full build: "
+                          f"{install_hint()}. Or render without captions (--no-burn / burn_captions=False) and burn them elsewhere.")
 
 
 def run(args: list[str], *, check: bool = True, input: bytes | None = None, text: bool = True,

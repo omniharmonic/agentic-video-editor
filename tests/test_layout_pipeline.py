@@ -12,7 +12,7 @@ from ave import audio, cleanup, clips, editdoc, final, handoff, media, shorts, s
 from ave import compile as comp
 from ave.episode import Episode, read_json, write_json
 from clips_synth import build_long_episode, pick
-from conftest import needs_ffmpeg
+from conftest import needs_ffmpeg, needs_libass
 from test_shorts import NO_FACE, _make_clip
 
 pytestmark = needs_ffmpeg
@@ -83,6 +83,7 @@ def test_handoff_plan_places_every_segment(layout_episode):
     assert all(under(ep, x["file"], ep.raw) or under(ep, x["file"], ep.raw_dirs[-1]) for x in v)
 
 
+@needs_libass
 def test_shorts_build_and_export_inside_the_layout(layout_episode):
     ep = layout_episode
     clip = _make_clip(ep)

@@ -10,6 +10,17 @@ import fixtures  # noqa: E402
 needs_ffmpeg = pytest.mark.skipif(not shutil.which("ffmpeg"), reason="ffmpeg not installed")
 
 
+def _ffmpeg_has_libass() -> bool:
+    if not shutil.which("ffmpeg"):
+        return False
+    from ave import ffutil
+    return ffutil.has_filter("ass")
+
+
+# Burned-in captions need the `ass` filter (libass). Homebrew's plain `ffmpeg` formula is built without it; `brew install ffmpeg-full` has it.
+needs_libass = pytest.mark.skipif(not _ffmpeg_has_libass(), reason="this ffmpeg has no libass (`ass` filter); see `ave doctor`")
+
+
 @pytest.fixture(scope="session")
 def synth_root(tmp_path_factory):
     """Session-wide pristine synthetic episode at stage 'assembly'. Tests must COPY it (use `synth_episode`)."""

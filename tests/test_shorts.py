@@ -1,5 +1,6 @@
 """Shorts: reframe geometry, short EditDoc, rendering, captions safe zone, sidecars, versioning, real-footage face check."""
 
+from conftest import needs_libass  # noqa: E402
 import json
 import os
 import subprocess
@@ -210,6 +211,7 @@ def test_moved_speaker_gets_own_crop_small_drift_does_not(synth_episode):
 
 # ---- render ---------------------------------------------------------------------------------------------------------
 
+@needs_libass
 def test_export_renders_vertical_with_loudness_captions_and_sidecar(synth_episode):
     ep = synth_episode
     clip = _make_clip(ep)
@@ -242,6 +244,7 @@ def test_export_renders_vertical_with_loudness_captions_and_sidecar(synth_episod
     assert r2["exports"][0]["status"] == "unchanged" and yt.stat().st_mtime_ns == mtime
 
 
+@needs_libass
 def test_rendered_captions_stay_inside_safe_zone(synth_episode, tmp_path):
     """Render the short with and without captions; the pixels that differ are the caption pixels and must lie in the safe rect."""
     from ave import compile as comp
@@ -321,6 +324,7 @@ def test_list_shorts(synth_episode):
     assert rows[0]["slug"] == "synth-clip" and rows[0]["versions"] == [1] and rows[0]["exports"] == []
 
 
+@needs_libass
 def test_status_counts_exported_short_as_stage_done(synth_episode):
     from ave import state
     ep = synth_episode
