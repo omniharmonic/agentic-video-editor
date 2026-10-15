@@ -42,15 +42,15 @@ def test_dbg(synth_episode):
         r = subprocess.run([ffutil._bin("ffmpeg"), "-nostdin", "-v", "error", *args], capture_output=True, text=True)
         print("VAR", name, r.returncode, r.stderr[-200:], px(o) if o.exists() else None)
     variant("asis", a)
+    v = list(a)
     v = list(a); i = 0
     while i < len(v):
         if v[i] == "-t" and i + 1 < len(v) and v[i - 1] != "-frames:v":
             del v[i:i + 2]; continue
         i += 1
-    variant("no_t", v)
     # trim filter instead of -t
     fc2 = fc.replace("format=rgba", "trim=duration=3,format=rgba")
-    v2 = list(v); v2[v2.index("-filter_complex") + 1] = fc2
-    variant("trim_nt", v2)
+    v2 = list(a); v2[v2.index("-filter_complex") + 1] = fc2
+    variant("trim_with_t", v2)
     # nothing but one overlay at a time
     assert False, "dbg"

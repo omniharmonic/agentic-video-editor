@@ -28,9 +28,6 @@ jobs:
           ffmpeg -hide_banner -filters | grep -wE "ass|subtitles|drawtext" || echo "NO ass/subtitles/drawtext"
           if [ "$RUNNER_OS" = macOS ]; then brew list --versions | grep -iE "ffmpeg|libass"; brew info ffmpeg | head -20; brew search ffmpeg; fi
       - run: uv sync --all-extras --python 3.12
-      - name: overlay probe
-        if: runner.os == 'Linux'
-        run: bash scripts_dbg/probe_ov.sh
       - name: dbg test
         if: runner.os == 'Linux'
-        run: uv run pytest -q -s tests/test_zz_dbg.py || true
+        run: uv run pytest -q -s --timeout 120 tests/test_zz_dbg.py || true
