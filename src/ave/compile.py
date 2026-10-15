@@ -355,16 +355,20 @@ def _post_pass(ep: Episode, doc: dict, video_in: Path, out: Path, fps: Fraction,
         if path.suffix.lower() in IMAGE_EXTS:
             args += ["-loop", "1", "-framerate", f"{f[0]}/{f[1]}", "-t", f"{dur + 1:.3f}", "-i", str(path)]
         else:
-            args += ["-t", f"{dur:.6f}", "-i", str(path)]
+            args += ["-i", str(path)]      # bounded by the trim filter below: `-t` on an input made FFmpeg 6.x show no overlay at all
         # The RGB(A)->YUV step is explicit (bt709, limited range, yuva420p = the main picture's format): left to `overlay:format=auto`,
         # older FFmpeg (6.x, Ubuntu 24.04) converts with the BT.601 matrix while the output is tagged BT.709, shifting every colour.
         cs = ":out_color_matrix=bt709:out_range=tv"
         scale = (f"scale={max(1, int(round(o['w'] * sx)))}:{max(1, int(round(o['h'] * sx)))}{cs}" if o.get("w") and o.get("h")
                  else f"scale=trunc(iw*{sx:.6f}/2)*2:trunc(ih*{sx:.6f}/2)*2{cs}")
         shift = f"PTS-STARTPTS+{f0 * f[1]}/{f[0]}/TB"
-        chains.append(f"[{k}:v]format=rgba,{scale},format=yuva420p,setpts={shift}[ov{k}]")
+        # Visible window by TIME, a quarter frame early on both edges so frame k (t = k/fps) is in iff f0 <= k < f1. The frame counter `n`
+        # is not reliable here: with three chained overlays FFmpeg 6.x (Ubuntu 24.04) evaluated `n` so that the last layer never showed.
+        window = f"gte(t,{(f0 - 0.25) * f[1] / f[0]:.6f})*lt(t,{(f1 - 0.25) * f[1] / f[0]:.6f})"
+        cut = "" if path.suffix.lower() in IMAGE_EXTS else f"trim=duration={dur:.6f},"
+        chains.append(f"[{k}:v]{cut}format=rgba,{scale},format=yuva420p,setpts={shift}[ov{k}]")
         x, y = int(round(o.get("x", 0) * sx)), int(round(o.get("y", 0) * sx))
-        chains.append(f"[{cur}][ov{k}]overlay={x}:{y}:eof_action=pass:format=auto:enable='gte(n,{f0})*lt(n,{f1})'[c{k}]")
+        chains.append(f"[{cur}][ov{k}]overlay={x}:{y}:eof_action=pass:format=auto:enable='{window}'[c{k}]")
         cur = f"c{k}"
     ass = (doc.get("captions") or {}).get("ass")
     if burn and ass:
