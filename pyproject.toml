@@ -46,7 +46,7 @@ Changelog = "https://github.com/omniharmonic/agentic-video-editor/blob/main/CHAN
 ave = "ave.cli:main"
 
 [dependency-groups]
-dev = ["pytest>=8", "pytest-xdist>=3.5"]
+dev = ["pytest>=8", "pytest-xdist>=3.5", "pytest-timeout>=2.3"]
 
 [build-system]
 requires = ["hatchling"]

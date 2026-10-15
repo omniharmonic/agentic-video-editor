@@ -184,7 +184,8 @@ def index(m: dict, blocks: list[dict]) -> str:
     out.append("</table>")
     if m["credits"]:
         out.append("<h2>Credits</h2><ul>" + "".join(f"<li>{_e(c)}</li>" for c in m["credits"]) + "</ul>")
+    manifest_json = json.dumps(m, ensure_ascii=False).replace("</", "<\\/")
     out.append(f"</main><footer>Made by <code>ave package</code>. Verify with <code>shasum -a 256 -c checksums.sha256</code>. "
-               f"<script type='application/json' id='manifest'>{json.dumps(m, ensure_ascii=False).replace('</', '<\\/')}</script></footer>"
+               f"<script type='application/json' id='manifest'>{manifest_json}</script></footer>"
                f"<script>{JS}</script></body></html>")
     return "".join(out)

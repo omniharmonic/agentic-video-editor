@@ -52,7 +52,10 @@ jobs:
       # private footage skip themselves (their inputs come from AVE_TEST_REAL_* variables, which CI never sets).
       # xdist spreads the ~11 minute serial suite over the runner's cores.
       - name: Tests
-        run: uv run pytest -q -n auto --dist loadfile -m "not apple and not resolve and not network"
+        env:
+          NUMBA_NUM_THREADS: "1"
+          NUMBA_THREADING_LAYER: workqueue
+        run: uv run pytest -q -n auto --dist loadfile --timeout 300 -m "not apple and not resolve and not network"
 
   package:
     name: wheel install smoke test

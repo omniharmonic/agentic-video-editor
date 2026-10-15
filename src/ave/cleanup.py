@@ -1197,7 +1197,7 @@ def apply_pacing(video: list[dict], words: list[dict], tm: TimeMap, sources: dic
                                        + (f"sustained reframe to {got['zoom']:.2f}x on {cam}, held {b - a:.1f}s "
                                           f"{'to the end of the hold' if b >= h1 - 1e-9 else 'then back out'} (pacing.zoom_min_dwell_s {dwell:g}) at a {st['kind']} boundary"
                                           if kind == "punch_in" and dwell > 0 else
-                                          f"{f'reframe to {got['zoom']:.2f}x' if kind == 'punch_in' else kind} on {cam} for {b - a:.1f}s at a {st['kind']} boundary")
+                                          f"{('reframe to ' + format(got['zoom'], '.2f') + 'x') if kind == 'punch_in' else kind} on {cam} for {b - a:.1f}s at a {st['kind']} boundary")
                                        + (f"; cut rate above pacing.max_cuts_per_min here, but the hold was past max_hold_s + reaction.max_s" if busy else ""))})
                         cursor, done = b, True
                         break
