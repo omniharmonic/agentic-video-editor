@@ -1,0 +1,143 @@
+# Authenticity critic for B-roll and music: the creator's taste, as data.
+#
+# Philosophy: footage should feel found, not ordered from a catalogue. Specific, textured, observational, restrained.
+# Everything here is tunable by the human. Resolution order: --config > <episode>/policy/assets.critic.yaml >
+# ~/.config/ave/assets.critic.yaml > this file. The agent applies the checklist to what it actually SEES (contact
+# sheets), never to the filename alone; code only enforces the arithmetic and the hard gates.
+#
+# Cliche entries are either a phrase (words in this order) or a list of words that must ALL appear (any order).
+# Matching is case-insensitive, ignores punctuation and simple plurals.
+
+version: 1
+
+criteria:
+  texture_light:
+    label: Texture and light
+    look_for: >
+      Natural, motivated light (window, overcast sky, golden hour, practical lamps). Real surfaces: grain, wear, dust,
+      steam, rain on glass. Imperfection is fine. Score 0 for flat studio-bright, over-saturated, plasticky or
+      obviously graded-to-death footage.
+    anchors: {0: "flat, sterile, over-lit or over-graded", 1: "clean but unremarkable light", 2: "light and surfaces you could smell"}
+  handheld_observational:
+    label: Handheld and observational
+    look_for: >
+      Feels like someone was there and noticed something: a slightly imperfect frame, a held beat, focus that finds
+      its subject. Score 0 for gimbal-perfect orbit moves, slider reveals, drone flyovers and staged "acting".
+    anchors: {0: "staged or mechanically smooth", 1: "neutral camera", 2: "present, human, observed"}
+  specific_over_generic:
+    label: Specific over generic
+    look_for: >
+      A particular hand, place, object or moment that only this story could have. Score 0 if the shot could
+      illustrate any article on the topic (cityscape, globe, "team collaborating", pouring coffee).
+    anchors: {0: "could be on any corporate site", 1: "on-topic but interchangeable", 2: "unmistakably this story"}
+  restraint:
+    label: Restraint
+    look_for: >
+      Quiet, uncluttered, nothing shouting. No speed ramps, lens flares, light leaks, glitch, heavy vignettes, text
+      overlays baked in, or "cinematic" mannerisms. One idea in frame.
+    anchors: {0: "effects or drama doing the talking", 1: "mostly calm", 2: "calm enough to sit under a voice"}
+  ambient_sound:
+    label: Ambient sound
+    look_for: >
+      The clip carries (or clearly invites) real room tone / outdoor sound you can lay under it. Silent stock is
+      acceptable only if you will add honest ambience. Score 0 for clips with baked-in music or sound effects.
+    anchors: {0: "baked-in music or effects", 1: "silent or neutral; ambience must be added", 2: "good natural sound"}
+  no_logos_faces_unreleased:
+    label: No logos, no identifiable faces without a release
+    look_for: >
+      No readable brand marks, trademarks, screens with identifiable UI, license plates, or recognizable faces unless
+      a model/property release is documented. Stock sites do not guarantee releases for editorial use. Score 0
+      if any appear and no release is recorded; this is a hard gate.
+    anchors: {0: "identifiable face or logo, no release", 1: "faces incidental, small, or blurred", 2: "none"}
+
+scoring:
+  max_per_criterion: 2
+  pass_total: 8              # of 12; below this the candidate fails
+  hard_gate_zero: [no_logos_faces_unreleased]   # a 0 here fails regardless of total
+  weak_zero_limit: 1         # more than this many other criteria scored 0 also fails (one weak spot is tolerable)
+  require_all_scores: true   # un-looked-at candidates cannot pass: the agent must score from the pixels
+  silent_ambient_cap: 1      # candidate with has_audio=false cannot score above this for ambient_sound
+  min_candidate_duration_s: 1.5   # shorter than the shortest legal B-roll hold
+
+# Auto-reject. Applied to queries, tags, titles and filenames. Any hit is a fail with confidence 0.95.
+cliche_reject:
+  - handshake
+  - [laptop, typing]
+  - [typing, keyboard]
+  - [hands, typing]
+  - [drone, city]
+  - [aerial, city]
+  - [aerial, skyline]
+  - [neon, brain]
+  - [ai, brain]
+  - [digital, brain]
+  - [glowing, brain]
+  - hologram
+  - [binary, code]
+  - matrix code
+  - [ukulele, corporate]
+  - [upbeat, corporate]
+  - corporate background
+  - [corporate, music]
+  - whoosh
+  - riser
+  - swoosh
+  - [light, bulb, idea]
+  - [business, high, five]
+  - [team, high, five]
+  - [people, laughing, salad]
+  - [woman, laughing, salad]
+  - [globe, network]
+  - [network, connections]
+  - [puzzle, pieces]
+  - [sticky, notes, whiteboard]
+  - [businessman, silhouette, sunrise]
+  - [lens, flare]
+  - light leaks
+  - glitch effect
+  - [slow, motion, coffee]
+  - [robot, hand]
+  - [futuristic, interface]
+  - [success, arrow]
+
+# Not an auto-reject, but each hit costs the candidate a point of confidence and must be argued for in the notes.
+cliche_discourage:
+  - time lapse
+  - timelapse
+  - sunset silhouette
+  - [city, traffic]
+  - [crowd, walking]
+  - [meeting, table]
+  - [cinematic, intro]
+  - [epic, trailer]
+  - [inspirational, music]
+  - [motivational, music]
+  - [stock, footage]
+
+# Pacing and mix rules the editor applies when PLACING footage. `ave assets pacing` checks them against an EditDoc.
+pacing:
+  broll_min_s: 1.5
+  broll_max_s: 4.0
+  max_coverage: 0.40            # fraction of the programme covered by B-roll (a podcast is voice-led)
+  min_gap_between_broll_s: 1.0  # let the speaker's face breathe between inserts
+  emotional_beat_rule: never_cover   # B-roll never covers an emotional beat (laugh, crack in the voice, silence that lands)
+  music_under_dialogue_db: [-24, -18]   # range for a music segment's `gain_db` (the bed level under speech); `duck_db` dips further on top
+  silence_after_punchline_s: 0.6        # music drops out / no insert for this long after a flagged punchline
+  j_l_cuts: true                        # let B-roll audio/picture overlap the cut points; never cut picture and sound together
+
+# Mood targets for choosing music that can sit under speech. tempo in BPM, centroid in Hz (brightness),
+# rms is average level 0-1 of the full-scale track, onset_density is note onsets per second.
+music:
+  moods:
+    reflective: {tempo: [55, 90], centroid: [800, 2200], rms: [0.02, 0.10], onset_density: [0.3, 2.0]}
+    warm:       {tempo: [70, 100], centroid: [1000, 2600], rms: [0.03, 0.12], onset_density: [0.5, 2.5]}
+    tense:      {tempo: [80, 130], centroid: [1200, 3200], rms: [0.03, 0.14], onset_density: [1.0, 3.5]}
+    hopeful:    {tempo: [80, 115], centroid: [1500, 3200], rms: [0.04, 0.15], onset_density: [1.0, 3.5]}
+    driving:    {tempo: [100, 140], centroid: [1800, 3800], rms: [0.06, 0.20], onset_density: [2.0, 5.0]}
+  under_speech:
+    onset_density_max: 3.0      # busy percussion fights consonants
+    centroid_max_hz: 3000       # energy in the 1-4 kHz speech band masks intelligibility
+    rms_variation_max: 0.9      # coefficient of variation of frame RMS: huge swells wreck a consistent mix
+  default_fade_in_s: 1.5
+  default_fade_out_s: 3.0
+  skip_leading_silence_db: -40

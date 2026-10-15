@@ -1,0 +1,13 @@
+{
+  "title": "Stat callout: one number with a plain-language label",
+  "type": "object",
+  "required": ["value", "label"],
+  "additionalProperties": false,
+  "x-default-duration": 5.0,
+  "properties": {
+    "value": {"type": "string", "minLength": 1, "maxLength": 9, "description": "The figure as written, for example 38% or 1.4 M"},
+    "label": {"type": "string", "minLength": 1, "maxLength": 90, "description": "What the figure measures, as a sentence fragment"},
+    "source": {"type": "string", "maxLength": 50, "default": "", "description": "Citation shown small beneath, for example County survey 2024"},
+    "side": {"type": "string", "enum": ["left", "right"], "default": "right"}
+  }
+}

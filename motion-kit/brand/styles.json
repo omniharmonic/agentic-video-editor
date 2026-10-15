@@ -1,0 +1,10 @@
+{
+  "about": "Styles for still content (posts, thumbnails, carousels). Each role names a color in tokens.json, so a brand change is made once, in tokens.json. A new style is a new entry here, never a new template.",
+  "styles": {
+    "ink":   {"bg": "ink",   "fg": "paper", "fg_soft": "paper_dim", "accent": "clay",  "panel": "ink_soft"},
+    "paper": {"bg": "paper", "fg": "ink",   "fg_soft": "ink_soft",  "accent": "clay",  "panel": "paper_dim"},
+    "clay":  {"bg": "clay",  "fg": "ink",   "fg_soft": "ink_soft",  "accent": "ink",   "panel": "paper"}
+  },
+  "type": {"quote": 66, "quote_max": 104, "quote_min": 46, "title": 84, "title_min": 52, "name": 38, "body": 40, "label": 28, "number": 150},
+  "tracking": {"label": 0.14}
+}

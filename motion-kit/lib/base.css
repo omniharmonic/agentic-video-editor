@@ -1,0 +1,9 @@
+/* Shared reset for every template. No brand values here: colors, fonts and sizes come from tokens.json
+   via CSS variables that timeline.js sets (--c-*, --f-*, --fs-*, --u). */
+html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
+body { font-family: var(--f-sans); color: var(--c-paper); -webkit-font-smoothing: antialiased; text-rendering: geometricPrecision; }
+#stage { position: absolute; left: 0; top: 0; width: 100vw; height: 100vh; overflow: hidden; }
+.serif { font-family: var(--f-serif); font-weight: 400; }
+.label { font-family: var(--f-sans); font-weight: 500; font-size: var(--fs-label); letter-spacing: var(--tr-label);
+         text-transform: uppercase; }
+.hidden { opacity: 0; }

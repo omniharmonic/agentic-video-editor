@@ -1,0 +1,35 @@
+{
+  "total": 2,
+  "totalHits": 2,
+  "hits": [
+    {
+      "id": 125,
+      "pageURL": "https://pixabay.com/videos/id-125/",
+      "type": "film",
+      "tags": "river, forest, moss",
+      "duration": 12,
+      "picture_id": "529927645",
+      "videos": {
+        "large": {"url": "https://cdn.pixabay.com/video/2015/08/08/125-large.mp4", "width": 1920, "height": 1080, "size": 9500000, "thumbnail": "https://cdn.pixabay.com/video/2015/08/08/125-large.jpg"},
+        "medium": {"url": "https://cdn.pixabay.com/video/2015/08/08/125-medium.mp4", "width": 1280, "height": 720, "size": 4500000, "thumbnail": "https://cdn.pixabay.com/video/2015/08/08/125-medium.jpg"},
+        "small": {"url": "https://cdn.pixabay.com/video/2015/08/08/125-small.mp4", "width": 960, "height": 540, "size": 2200000, "thumbnail": ""},
+        "tiny": {"url": "https://cdn.pixabay.com/video/2015/08/08/125-tiny.mp4", "width": 640, "height": 360, "size": 900000, "thumbnail": ""}
+      },
+      "views": 1000, "downloads": 400, "likes": 12, "comments": 1,
+      "user_id": 77, "user": "forest_fan", "userImageURL": ""
+    },
+    {
+      "id": 9001,
+      "pageURL": "https://pixabay.com/videos/id-9001/",
+      "type": "animation",
+      "tags": "neon, abstract",
+      "duration": 5,
+      "picture_id": "111",
+      "videos": {
+        "medium": {"url": "https://cdn.pixabay.com/video/2020/01/01/9001-medium.mp4", "width": 1280, "height": 720, "size": 1000000, "thumbnail": ""},
+        "tiny": {"url": "https://cdn.pixabay.com/video/2020/01/01/9001-tiny.mp4", "width": 640, "height": 360, "size": 300000, "thumbnail": ""}
+      },
+      "user_id": 5, "user": "abstracto"
+    }
+  ]
+}

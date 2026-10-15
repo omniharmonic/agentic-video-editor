@@ -1,0 +1,21 @@
+id: quote-post
+title: Quote post
+kind: image
+description: >
+  One pull quote in the creator's own words (verbatim from the episode or their writing), attributed, in a restrained serif on
+  a flat colour. The words are the design. Extends the video `quote-card`.
+formats: [1x1, 4x5, 9x16]
+styles: [ink, paper, clay]
+default_platforms: [instagram, facebook, x]
+renderers:
+  motion-kit: {template: quote-post}
+slots:
+  type: object
+  required: [quote]
+  additionalProperties: false
+  properties:
+    quote:       {type: string, minLength: 12, maxLength: 240, x-verbatim: true, description: "The words, without quotation marks. Must be verbatim from the source."}
+    attribution: {type: string, maxLength: 60, default: "", x-byline: true, description: "The speaker's name, printed under the quote. An episode speaker (episode.json speakers) prints its display_name, else its name"}
+    title:       {type: string, maxLength: 60, default: "", x-byline: true, description: "Line beneath the name. Empty for a host fills in from episode.json speakers.<id>.title (default CO-HOST); a guest has none unless set"}
+    role:        {type: string, maxLength: 60, default: "", x-byline: true, description: "DEPRECATED alias of title (older docs); used when title is empty"}
+    show:        {type: string, maxLength: 40, default: "", description: "Show name, set small at the top. It prints once; never repeat it in attribution or title"}

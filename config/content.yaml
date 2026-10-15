@@ -1,0 +1,51 @@
+# `ave content`: the promotion kit (quote posts, thumbnails, carousels, reel cards). Policy and platform numbers live here, not in code.
+# The repo default is OFF. Turn it on for one install without touching the repo: put `enabled: true` in
+# ~/.config/ave/content.yaml (or $AVE_CONFIG_DIR/content.yaml), or export AVE_CONTENT_ENABLED=1.
+enabled: false
+
+# Pixel sizes per format key. A template lists which of these it supports.
+formats:
+  1x1:  {w: 1080, h: 1080, title: "Square post"}
+  4x5:  {w: 1080, h: 1350, title: "Portrait post / carousel slide"}
+  9x16: {w: 1080, h: 1920, title: "Story / reel card"}
+  16x9: {w: 1280, h: 720,  title: "Podcast thumbnail"}
+
+# Safe area per format as fractions of the canvas kept free of text. UNVERIFIED against each platform's current UI:
+# 9x16 reserves the top and bottom bands that Instagram/TikTok/YouTube Shorts overlay with their own interface.
+safe_area:
+  1x1:  {x: 0.085, top: 0.085, bottom: 0.085}
+  4x5:  {x: 0.085, top: 0.075, bottom: 0.075}
+  9x16: {x: 0.085, top: 0.13,  bottom: 0.20}
+  16x9: {x: 0.05,  top: 0.07,  bottom: 0.12}     # bottom band: YouTube draws the duration stamp there
+
+# Where each platform can take each format. `alt_text_max` / `caption_max` are checked at queue time.
+platforms:
+  instagram: {formats: [1x1, 4x5, 9x16], carousel_formats: [4x5], carousel_max_slides: 10, caption_max: 2200, alt_text_max: 1000}
+  facebook:  {formats: [1x1, 4x5, 9x16, 16x9], carousel_formats: [1x1, 4x5], carousel_max_slides: 10, caption_max: 5000, alt_text_max: 1000}
+  x:         {formats: [1x1, 16x9, 4x5], carousel_formats: [1x1, 16x9, 4x5], carousel_max_slides: 4, caption_max: 280, alt_text_max: 1000}
+  youtube:   {formats: [16x9], carousel_formats: [], caption_max: 5000, alt_text_max: 1000}     # thumbnails are set in Studio; no direct image adapter
+
+critic:
+  min_contrast: 4.5            # WCAG AA for normal text
+  min_contrast_large: 3.0      # WCAG AA for large text (>= 24 px, or >= 19 px bold) at the post's native size
+  min_text_px_per_1080: 26     # smallest text, in px per 1080 px of canvas width: about 9 pt on a 390 pt phone screen
+  tolerance_px: 0.5
+
+planning:
+  max_items_per_episode: 12    # template sprawl and over-posting are both real risks; the human trims this at the plan checkpoint
+  max_quote_chars: 240
+
+renderers:
+  motion-kit: {enabled: true}
+  # Canva is OPT-IN and handshake-only: the CLI cannot call Canva (its MCP lives in the agent harness). `ave content render --renderer canva`
+  # writes job files; the agent makes the calls after the human approves (skills/ave-canva-render). Map your Brand Templates per install in
+  # ~/.config/ave/content.yaml (ids are yours, never committed):
+  #   renderers: {canva: {enabled: true, kit_id: "<brand kit id>", templates: {quote-post: {brand_template_id: "...", native_format: 4x5,
+  #                                                                       field_map: {quote: QUOTE, attribution: BY, role: ROLE, show: SHOW}}}}}
+  # `brand_template_ids: {4x5: ..., 1x1: ...}` instead of `brand_template_id` when you keep one template per format.
+  canva:
+    enabled: false
+    kit_id: null
+    export_formats: [png, jpg, mp4]
+    limits: {export_per_minute: 20, export_per_day: 500, autofill_per_minute: 60}   # from Canva docs 2026-10-13; UNVERIFIED live
+    templates: {}

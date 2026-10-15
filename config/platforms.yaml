@@ -1,0 +1,132 @@
+# Per-platform limits used by `ave publish` preflight. Every value is UNVERIFIED unless `verified: true` with the
+# date and source it was checked against. Platforms change limits often: confirm before relying on a number.
+# Preflight only BLOCKS on values listed here; loosen a value here (not in code) when the platform allows more.
+youtube:
+  verified: false
+  source: https://developers.google.com/youtube/v3/docs/videos/insert
+  title_max_chars: 100
+  description_max_bytes: 5000
+  tags_max_chars: 500
+  max_file_bytes: 274877906944      # 256 GB
+  long:
+    max_duration_s: 43200           # 12 h for verified accounts
+  short:                            # a Short is vertical/square and at most this long
+    verified: false
+    source: https://support.google.com/youtube/answer/10059070
+    max_duration_s: 180
+    aspect: ["vertical", "square"]
+  quota:
+    verified: false
+    source: https://developers.google.com/youtube/v3/determine_quota_cost
+    default_daily_units: 10000
+    upload_cost_units: 1600
+  image:                            # a thumbnail, set by hand in Studio: the adapter itself publishes VIDEO ONLY (see adapters/youtube.py)
+    verified: false
+    source: https://support.google.com/youtube/answer/72431
+    formats: [jpeg, png]
+    max_file_bytes: 2097152         # 2 MB
+    min_width: 640
+    aspect_min: 1.77
+    aspect_max: 1.78
+facebook:
+  verified: false
+  source: https://developers.facebook.com/docs/video-api/guides/reels-publishing
+  graph_version: v21.0
+  reel:
+    verified: false
+    source: https://developers.facebook.com/docs/video-api/guides/reels-publishing
+    min_duration_s: 3
+    max_duration_s: 90
+    aspect: ["vertical"]
+    min_width: 540
+    min_height: 960
+    max_file_bytes: 1073741824
+  long:
+    verified: false
+    source: https://developers.facebook.com/docs/video-api/guides/publishing
+    max_duration_s: 14400
+    max_file_bytes: 10737418240
+  description_max_chars: 5000
+  schedule_min_minutes: 10
+  schedule_max_days: 75
+  image:                            # limits for planning only: the adapter publishes VIDEO ONLY (photo posts are not implemented)
+    verified: false
+    source: https://developers.facebook.com/docs/graph-api/reference/page/photos/
+    formats: [jpeg, png]
+    max_file_bytes: 10485760
+    min_width: 200
+    caption_max_chars: 5000
+    alt_text_max_chars: 1000
+    carousel: {min_items: 2, max_items: 10}
+# Networks reachable only through the aggregator adapter. Direct Instagram/X/TikTok adapters are NOT implemented.
+instagram:
+  via: aggregator
+  verified: false
+  source: https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/content-publishing
+  reel:
+    min_duration_s: 3
+    max_duration_s: 90
+    aspect: ["vertical"]
+  long:
+    max_duration_s: 3600
+  image:                            # feed photo, story, carousel (aggregator only)
+    verified: false
+    source: https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/content-publishing
+    formats: [jpeg, png]
+    max_file_bytes: 8388608
+    min_width: 320
+    max_width: 1440
+    aspect_min: 0.5625              # 9:16 stories; feed photos are cropped between 4:5 and 1.91:1
+    aspect_max: 1.91
+    caption_max_chars: 2200
+    alt_text_max_chars: 1000
+    carousel: {min_items: 2, max_items: 10}
+x:
+  via: aggregator
+  verified: false
+  source: https://docs.x.com/x-api/media/media-upload
+  long:
+    max_duration_s: 140
+    max_file_bytes: 536870912
+  image:
+    verified: false
+    source: https://docs.x.com/x-api/media/media-upload
+    formats: [jpeg, png]
+    max_file_bytes: 5242880
+    min_width: 200
+    caption_max_chars: 280
+    alt_text_max_chars: 1000
+    carousel: {min_items: 2, max_items: 4}
+tiktok:
+  via: aggregator
+  verified: false
+  source: https://developers.tiktok.com/doc/content-posting-api-get-started
+  reel:
+    max_duration_s: 600
+    aspect: ["vertical"]
+  long:
+    max_duration_s: 600
+  image:                            # photo mode
+    verified: false
+    source: https://developers.tiktok.com/doc/content-posting-api-reference-photo-post
+    formats: [jpeg, png]
+    max_file_bytes: 20971520
+    caption_max_chars: 2200
+    carousel: {min_items: 2, max_items: 35}
+# Networks `ave package` writes POST COPY for but that have no publisher at all (the human posts these by hand). Only the copy limit
+# is used (config/package.default.yaml). Unverified, commonly cited numbers: confirm before relying on them.
+linkedin:
+  via: manual
+  verified: false
+  source: none checked; commonly cited feed post limit
+  post: {caption_max_chars: 3000}
+threads:
+  via: manual
+  verified: false
+  source: none checked; commonly cited post limit
+  post: {caption_max_chars: 500}
+bluesky:
+  via: manual
+  verified: false
+  source: none checked; commonly cited post limit (graphemes)
+  post: {caption_max_chars: 300}

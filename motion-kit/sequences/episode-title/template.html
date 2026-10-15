@@ -1,0 +1,30 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../../lib/base.css">
+<style>
+  #col { position: absolute; left: var(--mx); right: var(--mx); top: 50%; transform: translateY(-50%); }
+  #logo { display: block; height: calc(96 * var(--u)); margin-bottom: calc(36 * var(--u)); }
+  #show { font-size: var(--fs-display); line-height: 1.04; color: var(--c-paper); letter-spacing: var(--tr-display); }
+  #rule { height: calc(3 * var(--u)); width: calc(220 * var(--u)); background: var(--c-clay); transform-origin: 0 50%; margin: calc(34 * var(--u)) 0 calc(30 * var(--u)); }
+  #num { color: var(--c-clay); }
+  #title { font-size: var(--fs-title); line-height: 1.1; color: var(--c-paper-dim); margin-top: calc(14 * var(--u)); max-width: 80%; }
+  #tag { position: absolute; left: var(--mx); bottom: var(--my); color: var(--c-stone); }
+</style></head><body>
+<div id="stage"><div id="col"><img id="logo" alt=""><div id="show" class="serif"></div><div id="rule"></div>
+<div id="num" class="label"></div><div id="title" class="serif"></div></div><div id="tag" class="label"></div></div>
+<script src="../../lib/timeline.js"></script>
+<script>
+  var P = AVE.props, M = AVE.tokens.motion, $ = AVE.el;
+  AVE.text("show", P.show); AVE.text("title", P.title); AVE.text("tag", P.tagline);
+  AVE.text("num", P.number ? "Episode " + P.number : "");
+  if (P.logo) { $("logo").src = P.logo; } else { $("logo").style.display = "none"; }
+  AVE.ready(function (t) {
+    var h = AVE.hold(t);
+    $("col").style.opacity = h;
+    $("tag").style.opacity = AVE.phase(t, 1.4, M.in_s, "out") * h;
+    $("logo").style.opacity = AVE.phase(t, 0.1, M.in_s, "out");
+    AVE.rise($("show"), AVE.phase(t, 0.3, M.in_s * 1.3, "out"));
+    $("rule").style.transform = "scaleX(" + AVE.phase(t, 0.8, M.in_s * 1.4, "out") + ")";
+    $("num").style.opacity = AVE.phase(t, 1.1, M.in_s, "out");
+    AVE.rise($("title"), AVE.phase(t, 1.3, M.in_s * 1.2, "out"));
+  });
+</script></body></html>

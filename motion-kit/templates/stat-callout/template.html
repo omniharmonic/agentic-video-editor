@@ -1,0 +1,28 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../../lib/base.css">
+<style>
+  #card { position: absolute; top: 50%; transform: translateY(-50%); width: calc(560 * var(--u)); background: rgba(243, 239, 231, 0.95); color: var(--c-ink); padding: calc(44 * var(--u)) calc(48 * var(--u)); box-sizing: border-box; }
+  #card.right { right: var(--mx); }
+  #card.left { left: var(--mx); }
+  #bar { height: calc(5 * var(--u)); width: calc(64 * var(--u)); background: var(--c-clay); transform-origin: 0 50%; margin-bottom: calc(26 * var(--u)); }
+  #value { font-variant-numeric: lining-nums; font-size: var(--fs-stat); line-height: 1; color: var(--c-ink); letter-spacing: var(--tr-display); white-space: nowrap; }
+  #lab { margin-top: calc(22 * var(--u)); font-family: var(--f-sans); font-size: var(--fs-body); line-height: 1.32; color: var(--c-ink); }
+  #src { margin-top: calc(26 * var(--u)); color: var(--c-ink-soft); opacity: 0.7; }
+</style></head><body>
+<div id="stage"><div id="card"><div id="bar"></div><div id="value" class="serif"></div><div id="lab"></div><div id="src" class="label"></div></div></div>
+<script src="../../lib/timeline.js"></script>
+<script>
+  var P = AVE.props, M = AVE.tokens.motion, $ = AVE.el;
+  $("card").className = P.side;
+  AVE.text("value", P.value); AVE.text("lab", P.label); AVE.text("src", P.source);
+  AVE.ready(function (t) {
+    var k = AVE.phase(t, 0, M.in_s, "out");
+    $("card").style.opacity = Math.min(1, k * 1.6) * AVE.hold(t);
+    $("card").style.clipPath = "inset(0 0 " + ((1 - k) * 100) + "% 0)";
+    $("bar").style.transform = "scaleX(" + AVE.phase(t, 0.2, M.in_s, "out") + ")";
+    AVE.rise($("value"), AVE.phase(t, 0.25, M.in_s, "out"));
+    AVE.rise($("lab"), AVE.phase(t, 0.25 + M.stagger_s, M.in_s, "out"));
+    AVE.rise($("src"), AVE.phase(t, 0.25 + M.stagger_s * 2, M.in_s, "out"));
+    $("src").style.opacity = 0.7 * AVE.phase(t, 0.25 + M.stagger_s * 2, M.in_s, "out");
+  });
+</script></body></html>

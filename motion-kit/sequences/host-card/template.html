@@ -1,0 +1,35 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../../lib/base.css">
+<style>
+  #col { position: absolute; left: var(--mx); right: var(--mx); top: 50%; transform: translateY(-50%); }
+  #head { color: var(--c-stone); margin-bottom: calc(44 * var(--u)); }
+  #row { display: flex; flex-wrap: wrap; gap: calc(40 * var(--u)) calc(110 * var(--u)); }
+  .p { min-width: calc(260 * var(--u)); }
+  .n { font-size: var(--fs-title); line-height: 1.08; color: var(--c-paper); letter-spacing: var(--tr-display); white-space: nowrap; }
+  .r { height: calc(2 * var(--u)); width: calc(90 * var(--u)); background: var(--c-clay); transform-origin: 0 50%; margin: calc(18 * var(--u)) 0 calc(16 * var(--u)); }
+  .t { color: var(--c-clay); white-space: nowrap; }
+</style></head><body>
+<div id="stage"><div id="col"><div id="head" class="label"></div><div id="row"></div></div></div>
+<script src="../../lib/timeline.js"></script>
+<script>
+  var P = AVE.props, M = AVE.tokens.motion, $ = AVE.el, cards = [];
+  AVE.text("head", P.heading);
+  P.people.forEach(function (p) {
+    var d = document.createElement("div"); d.className = "p";
+    d.innerHTML = '<div class="n serif"></div><div class="r"></div><div class="t label"></div>';
+    d.querySelector(".n").textContent = p.name; d.querySelector(".t").textContent = p.title || "";
+    if (!p.title) { d.querySelector(".r").style.display = "none"; }
+    $("row").appendChild(d); cards.push(d);
+  });
+  AVE.ready(function (t) {
+    var h = AVE.hold(t);
+    $("col").style.opacity = h;
+    $("head").style.opacity = AVE.phase(t, 0.1, M.in_s, "out");
+    cards.forEach(function (d, i) {
+      var s = 0.35 + i * M.stagger_s * 2.5;
+      AVE.rise(d.querySelector(".n"), AVE.phase(t, s, M.in_s * 1.2, "out"));
+      d.querySelector(".r").style.transform = "scaleX(" + AVE.phase(t, s + 0.3, M.in_s, "out") + ")";
+      d.querySelector(".t").style.opacity = AVE.phase(t, s + 0.5, M.in_s, "out");
+    });
+  });
+</script></body></html>

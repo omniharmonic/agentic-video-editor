@@ -1,0 +1,14 @@
+{
+  "title": "Chapter card: a numbered section break",
+  "type": "object",
+  "required": ["title"],
+  "additionalProperties": false,
+  "x-default-duration": 4.0,
+  "properties": {
+    "title": {"type": "string", "minLength": 1, "maxLength": 70},
+    "number": {"type": "string", "maxLength": 4, "default": "", "description": "For example 02"},
+    "label": {"type": "string", "maxLength": 20, "default": "Chapter"},
+    "subtitle": {"type": "string", "maxLength": 100, "default": ""},
+    "backdrop": {"type": "string", "enum": ["solid", "scrim", "none"], "default": "solid"}
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "page": 1,
+  "per_page": 3,
+  "total_results": 2,
+  "url": "https://www.pexels.com/search/videos/hands%20clay/",
+  "videos": [
+    {
+      "id": 3195394,
+      "width": 3840,
+      "height": 2160,
+      "duration": 14,
+      "full_res": null,
+      "tags": [],
+      "url": "https://www.pexels.com/video/hands-shaping-clay-3195394/",
+      "image": "https://images.pexels.com/videos/3195394/free-video-3195394.jpg?auto=compress&cs=tinysrgb&fit=crop&h=630&w=1200",
+      "avg_color": null,
+      "user": {"id": 1414, "name": "Ada Example", "url": "https://www.pexels.com/@ada-example"},
+      "video_files": [
+        {"id": 1, "quality": "sd", "file_type": "video/mp4", "width": 640, "height": 360, "fps": 25.0, "link": "https://videos.pexels.com/video-files/3195394/3195394-sd_640_360_25fps.mp4"},
+        {"id": 2, "quality": "hd", "file_type": "video/mp4", "width": 1920, "height": 1080, "fps": 25.0, "link": "https://videos.pexels.com/video-files/3195394/3195394-hd_1920_1080_25fps.mp4"},
+        {"id": 3, "quality": "uhd", "file_type": "video/mp4", "width": 3840, "height": 2160, "fps": 25.0, "link": "https://videos.pexels.com/video-files/3195394/3195394-uhd_3840_2160_25fps.mp4"},
+        {"id": 4, "quality": "hls", "file_type": "application/x-mpegURL", "width": null, "height": null, "fps": 0.0, "link": "https://videos.pexels.com/video-files/3195394/3195394-hls.m3u8"}
+      ],
+      "video_pictures": [{"id": 9, "nr": 0, "picture": "https://images.pexels.com/videos/3195394/pictures/preview-0.jpg"}]
+    },
+    {
+      "id": 855564,
+      "width": 1080,
+      "height": 1920,
+      "duration": 9,
+      "tags": [],
+      "url": "https://www.pexels.com/video/rain-on-window-855564/",
+      "image": "https://images.pexels.com/videos/855564/free-video-855564.jpg",
+      "user": {"id": 22, "name": "Bo Sample", "url": "https://www.pexels.com/@bo-sample"},
+      "video_files": [
+        {"id": 7, "quality": "hd", "file_type": "video/mp4", "width": 1080, "height": 1920, "fps": 30.0, "link": "https://videos.pexels.com/video-files/855564/855564-hd_1080_1920_30fps.mp4"}
+      ],
+      "video_pictures": []
+    }
+  ]
+}

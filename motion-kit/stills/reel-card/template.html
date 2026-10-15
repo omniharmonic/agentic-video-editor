@@ -1,0 +1,39 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../../lib/base.css"><link rel="stylesheet" href="../../lib/stills.css">
+<style>
+  #bg { position: absolute; inset: 0; background: var(--st-bg); }
+  #head { flex: 0 0 auto; margin-bottom: calc(30 * var(--s)); }
+  #body { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; }
+  #group { width: 100%; }
+  #rule { margin-bottom: calc(52 * var(--s)); transform-origin: 0 50%; }
+  #title { line-height: 1.1; margin: 0; }
+  #sub { margin-top: calc(44 * var(--s)); }
+  #cta { margin-top: calc(30 * var(--s)); }
+</style></head><body>
+<div id="stage"><div id="bg"></div><div id="safe">
+  <div id="head"><div id="show" class="lab" data-measure="show"></div></div>
+  <div id="body"><div id="group"><div id="rule" class="rule"></div><div id="title" class="serif-d" data-measure="title"></div>
+    <div id="sub" class="name" data-measure="sub"></div><div id="cta" class="lab" data-measure="cta"></div></div></div>
+</div></div>
+<script src="../../lib/timeline.js"></script><script src="../../lib/stills.js"></script>
+<script>
+  var P = AVE.props, S = STILL, $ = AVE.el, M = AVE.tokens.motion;
+  S.setText("show", P.show); $("title").textContent = S.typo(P.title); S.setText("sub", P.subtitle);
+  S.setText("cta", P.kind === "outro" ? P.cta : "");
+  S.boot(function (t) {
+    var body = $("body"), group = $("group");
+    if (!window.__fitted) {                              /* size once; later frames only animate */
+      S.fit($("title"), S.px(S.TY.title * 1.45), S.px(S.TY.title_min), function () {
+        return group.getBoundingClientRect().height <= body.clientHeight && $("title").scrollWidth <= $("title").clientWidth + 1;
+      });
+      window.__fitted = true;
+    }
+    var h = AVE.hold(t);
+    $("bg").style.opacity = AVE.phase(t, 0, M.in_s * 0.6, "inout") * h;
+    $("safe").style.opacity = h;
+    $("rule").style.transform = "scaleX(" + AVE.phase(t, 0.2, M.in_s, "out") + ")";
+    AVE.rise($("title"), AVE.phase(t, 0.35, M.in_s * 1.2, "out"));
+    AVE.rise($("sub"), AVE.phase(t, 0.35 + M.stagger_s * 3, M.in_s, "out"));
+    AVE.rise($("cta"), AVE.phase(t, 0.35 + M.stagger_s * 5, M.in_s, "out"));
+  });
+</script></body></html>

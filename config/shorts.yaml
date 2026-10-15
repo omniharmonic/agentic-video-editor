@@ -1,0 +1,89 @@
+# Shorts policy: reframing geometry, hold rules and per-platform export limits. Human-tunable; every number is a default.
+# Resolution order: <episode>/policy/shorts.yaml (deep-merged) > this file.
+
+canvas: {w: 1080, h: 1920}      # vertical 9:16
+captions_style: short           # see config/captions.styles.yaml (safe zone: bottom 25% and right 11% kept clear)
+
+reframe:
+  face_frac: 0.25       # face box height as a fraction of the crop height (0.25 = head and shoulders with air; 0.32 = tight)
+  eye_line: 0.35        # where the eyes sit from the TOP of the crop (rule of thirds is 0.333; captions live below 0.55)
+  eye_in_box: 0.38      # eyes sit this far down Vision's face box (brow to chin)
+  samples_per_segment: 3
+  max_samples_per_camera: 40     # cap on frames sent to Vision per camera (long clips with many cuts)
+  min_confidence: 0.35           # ignore weaker detections
+  deviate_frac: 0.12             # a segment gets its own crop only if its face sits more than this fraction of the crop width
+                                 # away from the camera's typical crop; otherwise it shares the camera crop (no jitter between cuts)
+  detect_width: 1280             # frames are downscaled to this width before detection (speed; Vision does not need 4K)
+  max_upscale: 2.5               # never crop tighter than canvas_h / this: a small face on a low-res camera gets a wider crop, not mush
+  upscale_warn: 2.0              # warn when the crop is scaled up more than this to reach the canvas (soft picture)
+
+build:
+  min_hold_s: 2.0       # a shot shorter than this is re-assigned to the neighbouring camera (kept in sync: same e0, other lens)
+  gap_ok_s: 0.0
+  jump_cut_zoom: 1.15   # centred punch-in on a shot that follows a jump cut on the same camera (1.0 = off); the rough cut's own punch-ins are kept
+  cutaways: keep       # keep = reaction cutaways from the rough cut stay (approved pacing); speaker = the talker's camera in every shot
+                        # (a cutaway every 2 s on a phone reads as flicker)
+
+# Complete statements are a hard guarantee (src/ave/completeness.py). A clip that starts or ends mid-thought is cut from its
+# `context_variant` if that is complete, else REFUSED; `ave shorts build --allow-incomplete` is the explicit, logged override.
+completeness:
+  use_variant: true     # incomplete clip + a complete context_variant -> cut the variant (recorded as boundary: context_variant)
+  needs_context: warn   # warn = cut as picked and record why (opens on "that's..."); variant = use the context_variant when there is one
+  audit: true           # re-judge the edges on the real words of the source edit, not only the stored flags
+  pad_start_s: 0.10     # the cut starts this long before the first word, ends pad_end_s after the last, never inside a neighbouring word
+  pad_end_s: 0.18
+
+# How a short opens. Never the quote itself as a graphic: that is its own product (`ave motion quote-reel`).
+opening:
+  mode: title_overlay   # none | title_card | title_overlay  (--opening overrides per run)
+  show: null            # null = episode.json show.name, else the title without its trailing number ("The Long Table 00" -> "The Long Table")
+  title_card: {duration_s: 1.4, lead_gain_db: -120.0}   # a full-frame title screen, then the clip (adds this much time)
+  title_overlay: {at_s: 0.2, duration_s: 2.0, bottom: 0.555}   # lower-area panel over the clip, above the captions (no extra time)
+  title: {max_chars: 48, min_verbatim_words: 4, max_verbatim_share: 0.7}   # the title is a topic, not the speaker's words
+  # colours and fonts come from motion-kit/brand/tokens.json (template motion-kit/templates/short-title)
+
+audio:
+  start_limit_db: 0.0   # sample-peak limiter starts at (preset tp + this) dBFS; the render loop lowers it if the ENCODED file overshoots.
+                        # -2.0 (the long-form default) left shorts 0.5-0.9 LU under -14 LUFS
+
+# Export limits per platform. UNVERIFIED unless verified: true (same caveat as config/platforms.yaml).
+platforms:
+  youtube:
+    preset: shorts_youtube
+    label: YouTube Shorts
+    max_duration_s: 180
+    min_duration_s: 1
+    max_bytes: 274877906944
+    max_fps: 60
+    verified: false
+    source: https://support.google.com/youtube/answer/10059070
+  reels:
+    preset: shorts_reels
+    label: Instagram Reels
+    max_duration_s: 90
+    min_duration_s: 3
+    max_bytes: 4294967296
+    max_fps: 60
+    max_kbps: 25000
+    verified: false
+    source: https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/content-publishing
+  facebook:
+    preset: shorts_facebook
+    label: Facebook Reels
+    max_duration_s: 90
+    min_duration_s: 3
+    max_bytes: 1073741824
+    max_fps: 60
+    max_kbps: 25000
+    verified: false
+    source: https://developers.facebook.com/docs/video-api/guides/reels-publishing
+  x:
+    preset: shorts_x
+    label: X
+    max_duration_s: 140
+    min_duration_s: 0.5
+    max_bytes: 536870912
+    max_fps: 60
+    max_kbps: 25000
+    verified: false
+    source: https://docs.x.com/x-api/media/media-upload

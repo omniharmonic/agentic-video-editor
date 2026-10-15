@@ -1,0 +1,74 @@
+# `ave package`: the release package. Tunable numbers and the voice rules live here, not in code.
+# Override per project in <episode>/policy/package.yaml (deep-merged over this file).
+audio:
+  format: mp3                    # mp3 | aac (m4a) | both
+  mp3_kbps: 128
+  aac_kbps: 96
+  sample_rate: 44100
+  channels: 2
+  target_lufs: -16.0             # podcast loudness; the encoded file is measured and the result recorded
+  true_peak_db: -1.5
+  tolerance_lu: 1.0              # |measured - target| above this is a warning in the checklist
+thumbnails:
+  width: 1280
+  height: 720
+  max_bytes: 2097152             # YouTube: 2 MB (also config/platforms.yaml youtube.image)
+disk:
+  reserve_bytes: 536870912       # never fill a volume past this free margin; files that do not fit are referenced, not copied
+chapters:
+  min_chapter_s: 240             # derived chapters are at least this long
+  max_chapters: 12
+  block_s: 45                    # transcript is grouped into blocks of about this length before measuring topic change
+  window_blocks: 4               # blocks compared on each side of a candidate break
+  youtube_min_chapters: 3        # YouTube ignores chapters unless there are 3+, the first at 0:00, each 10 s or longer
+  youtube_min_gap_s: 10
+copy:
+  # The creator's brief: authentic, grounded, never cheesy or corporate. These are checked on every line WE write
+  # (words inside a verbatim quote are the speaker's and are not touched).
+  banned_phrases:
+    - game-changer
+    - game changer
+    - unlock
+    - unleash
+    - dive in
+    - dive into
+    - deep dive
+    - delve
+    - journey
+    - excited to
+    - thrilled
+    - don't miss
+    - must-listen
+    - must listen
+    - you won't believe
+    - level up
+    - elevate
+    - leverage
+    - synergy
+    - revolutionary
+    - groundbreaking
+    - transform your
+    - ultimate guide
+    - supercharge
+    - next level
+    - in today's fast
+    - tune in
+    - smash that
+    - like and subscribe
+    - hot take
+    - drop everything
+  max_exclamations: 0
+  allow_emoji: false
+  max_allcaps_words: 0           # words of 4+ letters in capitals
+  max_hashtags:                  # per post; fewer is better, none is fine
+    youtube: 3
+    instagram: 3
+    facebook: 1
+    x: 1
+    linkedin: 3
+    tiktok: 3
+    threads: 1
+    bluesky: 1
+  platforms: [youtube, instagram, facebook, x, linkedin, tiktok, threads, bluesky]
+  url_placeholder: "{{EPISODE_URL}}"   # the human fills this in; the checklist lists every placeholder left
+  url_chars: 24                  # what a link costs against a character limit (X counts links at 23)

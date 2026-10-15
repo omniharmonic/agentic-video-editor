@@ -1,0 +1,44 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../../lib/base.css"><link rel="stylesheet" href="../../lib/stills.css">
+<style>
+  #head { flex: 0 0 auto; display: flex; justify-content: space-between; align-items: baseline; margin-bottom: calc(30 * var(--s)); }
+  #body { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; }
+  #group { width: 100%; }
+  #rule { margin-bottom: calc(46 * var(--s)); }
+  #main { line-height: 1.2; margin: 0; }
+  #main.quote { text-indent: -0.42em; }
+  #sub { margin-top: calc(40 * var(--s)); }
+  #jobtitle { margin-top: calc(10 * var(--s)); }
+  #lab { margin-bottom: calc(30 * var(--s)); }
+  #foot { flex: 0 0 auto; }
+  #track { height: calc(3 * var(--s)); background: var(--st-panel); }
+  #fill { height: 100%; background: var(--st-accent); }
+  #cue { margin-top: calc(22 * var(--s)); }
+</style></head><body>
+<div id="stage"><div id="safe">
+  <div id="head"><div id="show" class="lab" data-measure="show"></div><div id="count" class="lab" data-measure="count"></div></div>
+  <div id="body"><div id="group"><div id="lab" class="lab" data-measure="label"></div><div id="rule" class="rule"></div>
+    <div id="main" class="serif-d" data-measure="main"></div><div id="sub" class="name" data-measure="sub"></div><div id="jobtitle" class="lab" data-measure="byline_title"></div></div></div>
+  <div id="foot"><div id="track"><div id="fill"></div></div><div id="cue" class="lab" data-measure="cue"></div></div>
+</div></div>
+<script src="../../lib/timeline.js"></script><script src="../../lib/stills.js"></script>
+<script>
+  var P = AVE.props, S = STILL, $ = AVE.el, SL = P._slide, K = SL.kind;
+  S.setText("show", P.show); S.setText("count", S.counter(SL.index, SL.total));
+  $("fill").style.width = (100 * SL.index / SL.total) + "%";
+  var main = "", sub = "", lab = "", cue = "", jt = "";
+  if (K === "cover") { main = S.typo(SL.title); sub = SL.subtitle; cue = "Swipe →"; }
+  else if (K === "quote") { main = "“" + S.typo(SL.quote) + "”"; sub = SL.attribution; jt = SL.attribution ? SL.title : ""; $("main").className += " quote"; }
+  else if (K === "point") { main = S.typo(SL.text); lab = SL.label; }
+  else { main = S.typo(SL.line); sub = SL.cta; }
+  if (K === "point" || K === "closing") $("rule").style.display = K === "point" ? "none" : "block";
+  $("main").textContent = main; S.setText("sub", sub); S.setText("jobtitle", jt); S.setText("lab", lab); S.setText("cue", cue);
+  if (!cue) $("cue").style.display = "none";
+  S.boot(function () {
+    var body = $("body"), group = $("group");
+    var big = K === "cover" ? S.TY.title * 1.35 : S.TY.quote_max * 0.9;
+    S.fit($("main"), S.px(big), S.px(S.TY.quote_min), function () {
+      return group.getBoundingClientRect().height <= body.clientHeight && $("main").scrollWidth <= $("main").clientWidth + 1;
+    });
+  });
+</script></body></html>

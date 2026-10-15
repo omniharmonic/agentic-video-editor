@@ -1,0 +1,39 @@
+.venv/
+__pycache__/
+*.pyc
+vendor/
+.mcp.json
+*.egg-info/
+.DS_Store
+# episode working data never belongs in the repo
+episodes/
+work/
+*.wav
+*.mp4
+*.mov
+*.mxf
+.claude/worktrees/
+# secrets and credentials: never commit
+.env
+.env.*
+*.pem
+*.key
+client_secret*.json
+credentials*.json
+token.json
+*_token.json
+approval.key
+# caches and build output
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+dist/
+build/
+node_modules/
+*.log
+# local agent settings
+.claude/settings.local.json
+# macOS/editor backups
+*-E
+*.bak

@@ -1,0 +1,128 @@
+# Clip-finder rubric. Taste lives here, not in code. Resolution order: --rubric > <episode>/policy/clips.rubric.yaml > this file.
+# The resolved rubric is copied into work/clips.json so every score can be audited later.
+
+# The agent scores each criterion 0-10; the total is the weighted average scaled to 0-100.
+# Weights from the research digest (short-form clip selection): hook matters most.
+weights:
+  hook: 25            # first 3 seconds: a claim, question, or tension that makes a stranger stay
+  arc: 20             # setup -> turn -> payoff inside the clip
+  insight: 15         # a specific idea, number, or story, not generalities
+  emotion: 15         # laughter, conviction, vulnerability, surprise
+  shareability: 10    # would someone send this to a friend, standalone
+  ending: 10          # lands on a complete thought or a punchline, not mid-sentence
+  speech_quality: 5   # clean delivery: few fillers, no stumbles
+
+# Points subtracted from the weighted total (0-100 scale).
+penalties:
+  length_out_of_range: {points_per_second: 0.5, max_points: 15}   # outside the soft [min_s, max_s] given to `clips prepare`
+  needs_prior_context: 10      # opens by referring to something the viewer has not heard
+  starts_mid_thought: 5        # legacy (kept for older policy files): superseded by start_incomplete whenever that applies
+  start_incomplete: 12         # the clip begins in the middle of a sentence/thought (continuation opener, lowercase, runs on from before)
+  end_incomplete: 8            # the clip ends on a dangling word (and/the/but/...), a comma, a cut-off dash, or a run-on
+  sensitive: 20                # agent flag: health, legal, private third parties, anything the host would not want clipped
+  high_filler_density: 5       # more fillers per word than heuristics.filler_density_warn
+
+# Legacy floor, used only when `recall.floor` below is absent (an older episode policy file). `recall.floor` wins.
+accept_min_score: 45
+
+# Recall first: `prepare` and `propose` surface EVERY clip-worthy section above a LOW floor, spread across the whole edit,
+# each with a score breakdown, tags, hook position, ends-on-sentence and a one-line reason. The human decides, and the
+# decision ledger (work/learning/clip_decisions.jsonl) teaches the next run. Nothing here is a verdict.
+recall:
+  floor: 30                  # a section below this total (0-100) is not surfaced; a pick below it is rejected
+  max_per_session: 80        # sanity cap on surfaced sections per session (best of each time bucket when exceeded; reported, never silent)
+  alternates: 3              # other in/out choices listed under each best section of an overlapping cluster
+  # The cut-off is a VIEW over the ranked clips, never a deletion: every surfaced section stays in clips.json with its `rank` and `total`.
+  # `ave clips propose|list|build --top N --min-score S` override these per run. Both set: a clip must satisfy both to be above the line.
+  top_n: null                # show/build only the N best clips per session (null = all)
+  min_score: null            # ...and/or only clips scoring at least this (0-100; null = no cut-off). Independent of `floor`, which decides what is SURFACED.
+  # Cheap, explainable evidence behind the heuristic breakdown (agent picks use the agent's own 0-10 scores instead).
+  # Phrases are matched case-insensitively against a sentence; edit them to the show's voice.
+  tags:
+    hook: [what if, here's the thing, the truth is, the secret, nobody talks, most people, imagine, have you ever, why do, why is, why are]
+    story: [i remember, one day, years ago, when i was, we spent, the day we, the first time, i was, we were, it was, i learned, story]
+    claim: [always, never, every single, the problem is, the reason, matters more, most people, nobody, everyone, actually, wrong, beats, the whole point, is just, instead of]
+    funny: [haha, hahaha, lol, laugh, funny, joke, hilarious, ridiculous, absurd, "[laughter]"]
+    tangent: [by the way, anyway, side note, off topic, tangent, speaking of, random, unrelated, totally different]
+  quotable: {min_words: 6, max_words: 18}
+  # Points (0-10 scale per rubric criterion) added by evidence. A plain, clean window lands under the floor on purpose.
+  points:
+    hook: {base: 1.0, clean_open: 1.5, hook_tag_in_first_two: 3.5, early_hook_3s: 2.0, early_hook_8s: 1.0}
+    arc: {base: 0.5, story: 4.0, builds_to_complete: 1.5, speaker_turn: 1.0, four_or_more_sentences: 1.0}
+    insight: {base: 0.5, claim: 3.5, quotable: 2.5, specific_number: 1.0}
+    emotion: {base: 0.0, funny: 5.0, exclamation_each: 1.5, exclamation_max: 3.0}
+    shareability: {base: 0.5, quotable: 3.0, hook_tag: 1.5, clean_open: 1.5, story: 1.0}
+    ending: {base: 1.0, ends_complete: 4.0, ends_on_claim_or_quotable: 3.0}
+    speech_quality: {base: 1.0, clean: 7.0, filler_penalty_per_unit_density: 60, long_pause_penalty: 2.0}
+  tangent_penalty: 5           # points off the total for a section that reads as an aside (still surfaced and tagged)
+
+limits:
+  hard_min_s: 12      # a pick shorter than this is rejected outright
+  hard_max_s: 90      # a pick longer than this is rejected outright (soft range comes from `prepare --min-s/--max-s`)
+
+# How a pick's boundaries are snapped to speech.
+snap:
+  lead_s: 0.10        # pre-roll before the first spoken word (never reaches into the previous word)
+  tail_s: 0.30        # tail after the last spoken word (never reaches into the next word)
+  filler_words: [um, uh, er, erm, ah, hmm, mm, uhm]   # trimmed from both ends of a clip
+
+# Where a clip may begin and end (src/ave/segment.py). The ASR's punctuation is unreliable (6% of words carry terminal punctuation on the
+# real session), so completeness combines speaker turns, pause lengths, terminal punctuation, capitalisation, discourse openers and
+# dangling endings. A window is snapped OUT to the nearest complete thought start/end within max-s; one that cannot be is kept with a
+# `completeness_note` and a penalty. Lists below are merged with the packaged defaults; `heuristics.mid_thought_starts` is added to the openers.
+completeness:
+  expand: true               # windows (prepare) snap OUT to complete thought edges
+  expand_picks: true         # agent picks too; the clip then carries `expanded` {from, start_sentences, end_sentences, note}, never silent
+  max_expand_back: 8         # at most this many sentences earlier... (a speaker can chain "And ... And ... And ..." for a while; max-s still bounds it)
+  max_expand_forward: 4      # ...or later
+  prefer_complete_margin: 15 # of overlapping windows, a complete statement scoring within this many points of the best one is listed first
+  pause_s: 0.8               # a pause this long is a break even with no punctuation...
+  merge_gap_s: 2.5           # ...except a hesitation inside a clause: the speaker stopped on "and"/"the"/a comma and resumes in lowercase within this long
+  interjection_max_words: 3  # a line this short by the OTHER speaker (mm-hm, yeah) is stepped over when walking to a thought's edge
+  context_sentences: 2       # context_before / context_after on each clip
+  context_chars: 320
+  variant_max_back: 2        # a clip that opens on an unresolved referent (that's / it / they...) gets a `context_variant` this many sentences earlier
+  # continuation_openers, dangling_endings, referent_* : see src/ave/segment.py DEFAULTS; override any of them here.
+
+# Tighten suggestions (src/ave/tighten.py). Suggestions only: never applied automatically.
+tighten:
+  enabled: true
+  min_confidence: 0.4
+  max_fraction: 0.35         # all suggestions together save at most this share of a clip (and never take it under limits.hard_min_s)
+  hedge_run_min: 2           # "you know, I mean, like," is cut only as a run of this many hedges (or one long phrase)
+  aside_max_words: 4         # a listener interjection (made only of `aside_words` in src/ave/tighten.py: yeah, mm-hm, right...) this short inside the speaker's thought
+  subclause: {starts: [which, who, whose], min_words: 3, max_words: 14, min_words_left: 6}
+  tangent: {min_sentences: 4, min_words: 8, marker_confidence: 0.6, use_overlap: false, overlap_confidence: 0.4}   # use_overlap off: word overlap is not relevance (it flagged joke set-ups)
+
+# How the transcript is cut into sentences.
+sentences:
+  gap_s: 0.8          # a pause this long ends a sentence even without punctuation
+  max_words: 45       # a longer run is split at its largest pause
+  abbreviations: [mr, mrs, ms, dr, prof, sr, jr, st, vs, etc, eg, ie, inc, ltd, "no"]
+
+# Cheap, explainable features that help the agent read faster. They never replace its judgment.
+heuristics:
+  mid_thought_starts: [and, but, so, because, which, then, or, also, plus, however, cuz, since]
+  context_pronouns: [it, its, this, that, these, those, they, them, he, she, his, her, their, there]
+  context_phrases:
+    - as i said
+    - like i said
+    - as i mentioned
+    - as we discussed
+    - as we said
+    - like you said
+    - you mentioned
+    - we talked about
+    - going back to
+    - to your point
+    - earlier
+    - the other thing
+    - what i was saying
+  filler_density_warn: 0.06     # fillers per word
+  long_pause_s: 1.5             # an internal pause this long is flagged on a window
+  sweet_spot_s: [25, 45]        # durations that tend to perform; used only to order candidate windows
+
+# The combined "selects" timeline.
+selects:
+  gap_s: 1.0                    # room-tone gap between clips
+  context_sentences: 3          # sentences of context shown before/after each clip in the review page

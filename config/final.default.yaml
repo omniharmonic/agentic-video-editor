@@ -1,0 +1,10 @@
+# Final cut policy (`ave final`). Resolution (first found wins, merged over THIS file): <project>/policy/final.yaml > ~/.config/ave/final.yaml > this file.
+# The flags `ave final --opening/--no-opening/--closing/--no-closing` override it for one run.
+
+version: 1
+
+sequences:            # opening / closing sequences (config/sequences.default.yaml, skill ave-intro-outro)
+  opening: false      # true = `ave final` builds the opening and puts it before the body
+  closing: false      # true = ... the closing after the body
+  # Both need a plan the HUMAN approved (`ave sequence plan`, then the human runs `ave sequence approve`).
+  # Unapproved or changed plans stop `ave final` unless you pass --draft-sequences (the result is marked a draft).

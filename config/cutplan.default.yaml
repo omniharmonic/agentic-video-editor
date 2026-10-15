@@ -1,0 +1,27 @@
+# Cut planner policy: when the program switches camera. Taste lives here, not in code.
+# Resolution order (first found wins, then it is merged over THIS file so a policy may be partial):
+#   --policy PATH  >  <project>/policy/cutplan.yaml  >  ~/.config/ave/cutplan.yaml  >  this file.
+# The resolved numbers are copied into work/cutlist*.json (`policy`, `policy_source`).
+# These are starting values, to be tuned by the creator's eye on a real session (ROADMAP W6).
+
+version: 1
+
+lead_s: 0.25                # cut to the new speaker this long BEFORE they start (reads as natural)
+min_shot_s: 1.5             # never leave a shot sooner than this; delays the cut instead
+hold_wide_over_s: 0.0       # unused: breaking long holds is the cleanup pacing pass (config/cleanup.default.yaml `pacing:`)
+legacy_never_cut_to_listener: false   # true restores the old behaviour: an interjection NEVER cuts to the listener
+
+interjection:               # something the person who is NOT on screen says while the speaker talks
+  max_s: 1.2                # an utterance this short ...
+  max_words: 3              # ... or this few words counts as an interjection (anything longer is a speaker change)
+  reaction_min_s: 0.8       # cut to the listener only if the interjection lasts at least this long ...
+  min_margin_db: 6.0        # ... AND it is clearly on the listener's own mic (transcript `speaker_margin_db`; less is bleed) ...
+  require_margin: false     # true: no channel data means no cut. false: without channel data the other rules decide
+  min_hold_before_s: 6.0    # ... AND the current shot has already been up this long (no ping-pong right after a cut)
+  laugh_min_s: 1.2          # a backchannel word this long ("yeaaah", a laugh) is a real reaction and may cut anyway
+  ignore_words: [mm-hm, mm-hmm, mhm, mm, hmm, uh-huh, uh huh, yeah, yep, "yes", right, okay, ok, sure, exactly]   # short listener noises: stay on the speaker (quote "yes"/"no": YAML reads them as booleans)
+
+wide:                       # a camera with `role: wide` in episode.json (ROADMAP W8)
+  enabled: true
+  opening_s: 3.0            # an establishing wide at the start of each region (0 = off)
+  crosstalk_min_s: 2.0      # two people talking over each other for at least this long: show the wide

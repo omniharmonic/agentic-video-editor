@@ -1,0 +1,110 @@
+# Opening and closing sequences (`ave sequence plan|build|preview|approve`, skill `ave-intro-outro`, docs/sequences.md).
+# Resolution (first found wins, merged over THIS file): --policy FILE > <project>/policy/sequences.yaml > ~/.config/ave/sequences.yaml > this file.
+# Show-specific TEXT (show name, hosts, links, guests, episode title and the cold-open pick) lives in episode.json, not here:
+#   "show": {"name": "The Long Table", "tagline": "...", "logo": "04_GFX/logo.png",
+#            "hosts": [{"name": "Maren Okafor", "title": "Co-host"}, {"name": "Tomas Reyes", "title": "Co-host"}],
+#            "links": [{"label": "Subscribe", "value": "thelongtable.example"}]},
+#   "number": "00", "episode_title": "Why we started this table", "guests": [{"name": "...", "title": "..."}],
+#   "sequences": {"cold_open": {"clip": "s1-03"}}      # or {"quote": {"text": "the exact words", "stage": "rough", "name": "s1"}}
+#                                                      # or {"range": {"stage": "rough", "name": "s1", "o0": 812.0, "o1": 834.5}}
+# Whether `ave final` builds them is the final policy (config/final.default.yaml: sequences: {opening, closing}) plus human approval of the plan.
+# Every duration below is in seconds and is rounded UP to whole frames at the final cut's frame rate.
+
+version: 1
+
+plate:                       # the backdrop every card sits on (a brand token color, never footage)
+  color: ink                 # a key of motion-kit/brand/tokens.json colors
+
+audio:
+  join_fade_s: 0.20          # equal-power fade-out/fade-in pair meeting at each join between sequence and body (half each side)
+  room_tone: true            # cards sit on the cut's own room tone (tracks.room_tone) so the noise floor never drops to digital silence
+  loudness_tolerance_lu: 1.5 # warn when a sequence's measured loudness differs from the body's by more than this
+
+opening:
+  cold_open:                 # a hook from the episode played before the title (the human chooses it; never automatic)
+    enabled: auto            # auto = on exactly when episode.json sequences.cold_open names a pick; false = never; true = warn when there is no pick
+    min_s: 10                # shorter than this warns (a hook needs room to land)
+    max_s: 30                # longer is an ERROR (the plan refuses it): pick a tighter window or add trim: [a, b] to the pick
+    tail_pad_s: 0.35         # room tone held after the hook before the title card
+    captions: true           # the hook is captioned (planned SRT and, with --burn, burned); cards are not
+    music:                   # optional bed under the hook, ducked by the compiler while the hook speaks
+      file: null             # must have a license-log entry
+      gain_db: -20
+      duck_db: -10
+  title_card:
+    enabled: true
+    duration_s: 4.5          # 3 to 6 s
+    min_s: 3
+    max_s: 6
+    template: episode-title  # motion-kit/sequences/episode-title (animated show mark + episode number and title)
+  hosts:
+    enabled: true
+    duration_s: 4.0
+    min_s: 2.5
+    max_s: 6
+    heading: Hosted by
+    default_title: Co-host   # used when episode.json gives a host no title
+    template: host-card
+  sting:                     # optional short musical hit at the title card
+    file: null               # must have a license-log entry
+    gain_db: -18
+    max_s: 6
+  music:                     # optional bed under title + hosts (separate from the cold-open bed)
+    file: null
+    gain_db: -20
+    fade_in_s: 1.0
+    fade_out_s: 1.5
+  gap_s: 0.0                 # extra plate between the title card and the host card
+
+closing:
+  thanks:
+    enabled: true
+    duration_s: 6.0
+    min_s: 3
+    max_s: 10
+    heading: Thanks for listening
+    body: ""                 # one sentence at most; empty = none
+    use_links: true          # show.links from episode.json (call to action lines, at most 4)
+    template: thanks-card
+  cta:                       # a second call-to-action card (off by default: one ask per episode is plenty)
+    enabled: false
+    duration_s: 5.0
+    heading: Help the show grow
+    body: ""
+    lines: []                # [{label, value}]; empty = show.links
+    template: thanks-card
+  credits:
+    enabled: true
+    min_s: 8
+    max_s: 90
+    px_per_frame: 2          # scroll speed at 1080 p, whole pixels per frame so the roll is perfectly even; scales with the canvas
+    lead_in_s: 0.8
+    heading: ""              # empty = the show name
+    editor: null             # YOUR name as it should appear ("Edited by"); a per-show or per-user override sets it
+    editor_role: Edited by
+    hosts_role: Hosts
+    guests_role: Guests
+    music_role: Music and sound
+    assets: all              # all | required: asset credits pulled from work/assets/licenses.jsonl for what the cut actually uses
+    links: true              # show.links after the credits
+    edited_with_ave: false   # "Edited with ave" line (off unless the creator wants it)
+    template: credits-roll
+  end_card:
+    enabled: true
+    hold_s: 20               # YouTube end screens run 5 to 20 s; hold the card at least as long as the elements you will add in Studio
+    heading: Keep listening
+    body: ""
+    lines: []                # [{label, value}] at most 3; empty = none
+    layout: end-screen       # end-screen keeps type in the left third; centered
+    template: end-card
+  music:                     # optional bed under thanks + credits, fading out before the end card
+    file: null
+    gain_db: -22
+    fade_in_s: 1.0
+    fade_out_s: 3.0
+  tail_room_tone_s: 2.0      # plate and room tone after the end card, so the file does not stop on a hard edge
+
+critic:                      # the plan warns when these are broken (they are judgments, not rules: the human can override)
+  opening_max_s: 45          # total opening length; past this the viewer waits too long for the conversation
+  closing_max_s: 75
+  host_title_required: true

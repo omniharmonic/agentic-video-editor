@@ -1,0 +1,11 @@
+{
+  "title": "Credits roll: the full-height credits column (scrolled by ave.sequence)",
+  "type": "object",
+  "required": ["sections"],
+  "additionalProperties": false,
+  "x-default-duration": 20.0,
+  "properties": {
+    "heading": {"type": "string", "maxLength": 60, "default": ""},
+    "sections": {"type": "array", "minItems": 1, "maxItems": 14, "description": "[{heading (40), lines [string (70)] up to 12}]"}
+  }
+}

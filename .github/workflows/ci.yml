@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: tests (${{ matrix.os }}, py${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, python: "3.12" }
+          - { os: macos-latest, python: "3.12" }
+          - { os: ubuntu-latest, python: "3.11" }
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install FFmpeg (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Install FFmpeg (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ffmpeg
+
+      - name: Install the project
+        run: uv sync --all-extras --python ${{ matrix.python }}
+
+      - name: Doctor (informational; optional items are expected to be missing on CI)
+        run: uv run ave doctor
+
+      - name: Demo (the whole pipeline on generated footage)
+        run: uv run ave demo "$RUNNER_TEMP/ave-demo"
+
+      # Tests that need Apple frameworks, DaVinci Resolve or the network are marked and excluded; tests that need the author's
+      # private footage skip themselves (their inputs come from AVE_TEST_REAL_* variables, which CI never sets).
+      # xdist spreads the ~11 minute serial suite over the runner's cores.
+      - name: Tests
+        run: uv run pytest -q -n auto --dist loadfile -m "not apple and not resolve and not network"
+
+  package:
+    name: wheel install smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Build the wheel and install it into a clean venv, away from the checkout
+        run: |
+          uv build --wheel
+          uv venv "$RUNNER_TEMP/wheel-venv" --python 3.12
+          uv pip install --python "$RUNNER_TEMP/wheel-venv/bin/python" dist/*.whl
+      - name: Run it from outside the repo (no checkout on the path)
+        working-directory: ${{ runner.temp }}
+        run: |
+          "$RUNNER_TEMP/wheel-venv/bin/ave" --version
+          "$RUNNER_TEMP/wheel-venv/bin/ave" doctor
+          "$RUNNER_TEMP/wheel-venv/bin/ave" demo "$RUNNER_TEMP/wheel-demo"
+
+  shell:
+    name: shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: shellcheck --severity=warning scripts/*.sh

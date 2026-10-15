@@ -1,0 +1,14 @@
+{
+  "title": "Episode title: animated show mark with episode number and title",
+  "type": "object",
+  "required": ["show"],
+  "additionalProperties": false,
+  "x-default-duration": 4.5,
+  "properties": {
+    "show": {"type": "string", "minLength": 1, "maxLength": 60},
+    "number": {"type": "string", "maxLength": 6, "default": "", "description": "For example 00 or 14"},
+    "title": {"type": "string", "maxLength": 80, "default": ""},
+    "tagline": {"type": "string", "maxLength": 80, "default": ""},
+    "logo": {"type": "string", "maxLength": 600, "default": "", "description": "file:// URI of a logo image, shown above the show name"}
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "title": "Quote card: a pull quote with attribution over a dark backdrop",
+  "type": "object",
+  "required": ["quote"],
+  "additionalProperties": false,
+  "x-default-duration": 7.0,
+  "properties": {
+    "quote": {"type": "string", "minLength": 1, "maxLength": 220, "description": "The words, without quotation marks"},
+    "attribution": {"type": "string", "maxLength": 60, "default": ""},
+    "title": {"type": "string", "maxLength": 60, "default": "", "description": "Line beneath the name, e.g. CO-HOST"},
+    "role": {"type": "string", "maxLength": 60, "default": "", "description": "Deprecated alias of title"},
+    "backdrop": {"type": "string", "enum": ["solid", "scrim", "none"], "default": "scrim", "description": "solid hides the picture, scrim dims it, none leaves it untouched"}
+  }
+}

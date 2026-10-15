@@ -1,0 +1,11 @@
+{
+  "title": "Host card: introductions with titles",
+  "type": "object",
+  "required": ["people"],
+  "additionalProperties": false,
+  "x-default-duration": 4.0,
+  "properties": {
+    "heading": {"type": "string", "maxLength": 30, "default": "Hosted by"},
+    "people": {"type": "array", "minItems": 1, "maxItems": 4, "description": "[{name (40), title (50)}]"}
+  }
+}

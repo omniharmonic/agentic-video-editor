@@ -1,0 +1,47 @@
+id: carousel
+title: Carousel
+kind: carousel
+description: >
+  4:5 swipe slides: a cover, one slide per quote or point, and a closing slide with the show name. Quote slides are
+  verbatim from a source; point slides are the agent's own plain-language summary and are never set in quotation marks.
+formats: [4x5]
+styles: [ink, paper, clay]
+default_platforms: [instagram, facebook]
+renderers:
+  motion-kit: {template: carousel}
+slots:
+  type: object
+  required: [cover, slides, closing]
+  additionalProperties: false
+  properties:
+    show:  {type: string, maxLength: 40, default: ""}
+    cover:
+      type: object
+      required: [title]
+      additionalProperties: false
+      properties:
+        title:    {type: string, minLength: 3, maxLength: 90}
+        subtitle: {type: string, maxLength: 80, default: "", x-byline: true}
+    slides:
+      type: array
+      minItems: 1
+      maxItems: 8
+      items:
+        type: object
+        required: [kind]
+        additionalProperties: false
+        properties:
+          kind:        {type: string, enum: [quote, point]}
+          quote:       {type: string, maxLength: 220, x-verbatim: true}
+          attribution: {type: string, maxLength: 60, default: "", x-byline: true}
+          title:       {type: string, maxLength: 60, default: "", x-byline: true, description: "Line beneath the name (a host gets CO-HOST from episode.json)"}
+          source:      {type: string, maxLength: 40, description: "Source id for this slide when it differs from the item's source"}
+          text:        {type: string, maxLength: 200}
+          label:       {type: string, maxLength: 24, default: ""}
+    closing:
+      type: object
+      required: [line]
+      additionalProperties: false
+      properties:
+        line: {type: string, minLength: 3, maxLength: 80}
+        cta:  {type: string, maxLength: 60, default: "", x-byline: true}

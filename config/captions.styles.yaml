@@ -1,0 +1,87 @@
+# Caption policy: segmentation rules + visual styles. Human-tunable; every number here is a default, not a law.
+# Resolution order: --styles path > <episode>/policy/captions.styles.yaml > ~/.config/ave/captions.styles.yaml > this file.
+#
+# Sizes are FRACTIONS of the canvas so a style renders the same at 1920x1080, 1080x1920 or 3840x2160:
+#   *_ss  = fraction of the SHORT side of the canvas (font size, outline, shadow)
+#   safe  = rectangle (fractions of W/H kept clear on each side) that the rendered text must stay inside
+# Colors are "#RRGGBB" with an optional alpha 0-1 as a second field, e.g. ["#000000", 0.6].
+
+rules:
+  # Long-form (YouTube, podcast video). Sources: Netflix/BBC subtitle guidance (<=42 chars/line, 2 lines, ~17 cps).
+  long:
+    max_chars_per_line: 42
+    max_lines: 2
+    min_cue_s: 0.8
+    max_cue_s: 6.0
+    max_cps: 21            # reading speed, characters per second (17 is the deaf/HoH standard; fast conversational speech runs 18-26)
+    pause_break_s: 0.8     # a silence this long between words always starts a new cue
+    min_gap_s: 0.04        # clear space between consecutive cues (about one frame)
+    tail_s: 0.15           # hold the last word on screen slightly after it is spoken
+    drop_fillers: [um, uh, er, erm, uhm, umm, uhh]   # clean-verbatim: fillers are heard, not captioned
+    clause_starters: [and, but, so, because, which, that, then, when, while, although, if, or]
+    # Never end a cue or a line on these: the thought is unfinished and the reader's eye has to jump.
+    avoid_ending_with: &weak_ends [a, an, the, to, of, in, on, at, for, with, by, from, into, over, about, than, as, my, your, our, their, his, her, its, this, these, those, most, more, some, any, each, every, many, no, not, very, and, or, but, so, that, if, when, while, because, is, are, was, were, be, been, have, has, had, can, will, would, could, should, i, we, you, they, it, what, who, how]
+  # Shorts / vertical: fewer characters per line, shorter on-screen time, read at a glance.
+  short:
+    max_chars_per_line: 22  # hard ceiling is 32; 22 keeps 3-4 words per line big enough for a phone
+    max_lines: 2
+    min_cue_s: 0.6
+    max_cue_s: 3.5
+    max_cps: 20
+    pause_break_s: 0.5
+    min_gap_s: 0.04
+    tail_s: 0.10
+    drop_fillers: [um, uh, er, erm, uhm, umm, uhh]
+    clause_starters: [and, but, so, because, which, that, then, when, while, although, if, or]
+    avoid_ending_with: *weak_ends
+
+styles:
+  # Clean lower-third subtitles: white, thin dark outline, soft shadow, bottom centre.
+  podcast:
+    rules: long
+    fonts: ["Inter", "Helvetica Neue", "Arial", "Verdana"]   # first one installed (or bundled in motion-kit/brand/fonts) wins
+    bold: false
+    size_ss: 0.052          # 56 px at 1080 short side
+    color: ["#FFFFFF", 1.0]
+    outline_color: ["#000000", 0.85]
+    outline_ss: 0.0028      # ~3 px at 1080
+    shadow_ss: 0.0020
+    position: bottom
+    margin_v: 0.085         # distance of the text block's bottom edge from the bottom of the frame (fraction of H)
+    safe: {left: 0.08, right: 0.08, top: 0.05, bottom: 0.05}
+    karaoke: false
+    line_spacing_ss: 0.0
+
+  # Vertical shorts: bold, word-by-word progressive highlight, block centred at 65% of the height.
+  short:
+    rules: short
+    fonts: ["Montserrat", "Inter", "Helvetica Neue", "Arial"]
+    bold: true
+    size_ss: 0.074          # 80 px at 1080 wide; auto-shrunk if the longest line would not fit the safe width
+    color: ["#FFFFFF", 1.0]            # not yet spoken
+    highlight_color: ["#FFD23F", 1.0]  # already spoken (ASS \kf sweeps secondary -> primary)
+    outline_color: ["#000000", 1.0]
+    outline_ss: 0.0050      # ~5 px at 1080
+    shadow_ss: 0.0
+    position: {x: 0.5, y: 0.65}        # centre of the text block, fractions of W/H
+    margin_v: 0.0
+    # Platform UI covers the bottom quarter and the right-hand button column of a vertical video.
+    safe: {left: 0.111, right: 0.111, top: 0.12, bottom: 0.25}
+    karaoke: true
+    line_spacing_ss: 0.0
+
+  # Quiet, small, for videos that already have a lot going on.
+  minimal:
+    rules: long
+    fonts: ["Inter", "Helvetica Neue", "Arial", "Verdana"]
+    bold: false
+    size_ss: 0.040
+    color: ["#F2F2F2", 1.0]
+    outline_color: ["#000000", 0.7]
+    outline_ss: 0.0020
+    shadow_ss: 0.0015
+    position: bottom
+    margin_v: 0.07
+    safe: {left: 0.10, right: 0.10, top: 0.05, bottom: 0.04}
+    karaoke: false
+    line_spacing_ss: 0.0

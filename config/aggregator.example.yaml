@@ -1,0 +1,29 @@
+# EXPERIMENTAL. Copy to ~/.config/ave/aggregator.yaml (or point AVE_AGGREGATOR_CONFIG at it) after reading your
+# vendor's API docs. Candidates (unverified, no endpoint below is real): Ayrshare, Upload-Post, Late.
+# Nothing here is hard-coded in ave; every endpoint, header and body shape is yours to fill in.
+base_url: https://api.example.invalid          # must be https
+auth:
+  header: Authorization                        # header name your vendor expects
+  prefix: "Bearer "                            # prepended to the key from `ave publish auth aggregator`
+supports_visibility: false                     # true only if the service can hold a post back (draft/private)
+requires_public_url: false                     # true if the service pulls the video from a URL (then set item.public_url)
+networks:                                      # our name -> the vendor's network identifier
+  instagram: instagram
+  x: twitter
+  tiktok: tiktok
+upload:                                        # optional step 1 (delete if the vendor takes a URL)
+  method: POST
+  path: /v1/media
+  file_field: file
+  id_path: id                                  # dotted path into the JSON response
+  url_path: url
+post:                                          # step 2: the actual post
+  method: POST
+  path: /v1/post
+  json:                                        # placeholders: title description caption tags schedule visibility network media_id media_url
+    platforms: ["{network}"]
+    text: "{caption}"
+    media: ["{media_url}"]
+    scheduleDate: "{schedule}"
+  id_path: id
+  url_path: url

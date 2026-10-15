@@ -1,0 +1,21 @@
+id: reel-card
+title: Reel intro / outro card
+kind: card
+description: >
+  9:16 title card for the start or end of a short. Renders a PNG to judge, and (ave content render --video) the same card as an
+  animated ProRes 4444 clip through the `ave motion` machinery, ready to place as an overlay.
+formats: [9x16]
+styles: [ink, paper, clay]
+default_platforms: []
+renderers:
+  motion-kit: {template: reel-card}
+slots:
+  type: object
+  required: [kind, title]
+  additionalProperties: false
+  properties:
+    kind:     {type: string, enum: [intro, outro]}
+    title:    {type: string, minLength: 3, maxLength: 80}
+    subtitle: {type: string, maxLength: 80, default: "", x-byline: true}
+    show:     {type: string, maxLength: 40, default: ""}
+    cta:      {type: string, maxLength: 60, default: ""}

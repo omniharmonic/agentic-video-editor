@@ -1,0 +1,23 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../../lib/base.css">
+<style>
+  /* One tall column, laid out once. ave.sequence screenshots #roll at its natural height and scrolls the picture. */
+  #roll { position: absolute; left: var(--mx); right: var(--mx); top: 0; text-align: center; padding-bottom: calc(120 * var(--u)); }
+  #title { font-size: var(--fs-title); line-height: 1.1; color: var(--c-paper); letter-spacing: var(--tr-display); margin-bottom: calc(110 * var(--u)); }
+  .sec { margin-bottom: calc(86 * var(--u)); }
+  .h { color: var(--c-clay); margin-bottom: calc(22 * var(--u)); }
+  .nm { font-size: var(--fs-name); line-height: 1.32; color: var(--c-paper); font-family: var(--f-serif); }
+</style></head><body>
+<div id="stage"><div id="roll"><div id="title" class="serif"></div></div></div>
+<script src="../../lib/timeline.js"></script>
+<script>
+  var P = AVE.props, roll = AVE.el("roll");
+  AVE.text("title", P.heading);
+  P.sections.forEach(function (s) {
+    var d = document.createElement("div"); d.className = "sec";
+    var h = document.createElement("div"); h.className = "h label"; h.textContent = s.heading; d.appendChild(h);
+    (s.lines || []).forEach(function (l) { var n = document.createElement("div"); n.className = "nm"; n.textContent = l; d.appendChild(n); });
+    roll.appendChild(d);
+  });
+  AVE.ready(function (t) { /* static: the scroll is applied by the compositor */ });
+</script></body></html>

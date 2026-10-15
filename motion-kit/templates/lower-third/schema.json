@@ -1,0 +1,12 @@
+{
+  "title": "Lower third: a name and a role in the lower left (or right)",
+  "type": "object",
+  "required": ["name"],
+  "additionalProperties": false,
+  "x-default-duration": 5.0,
+  "properties": {
+    "name": {"type": "string", "minLength": 1, "maxLength": 40, "description": "Person's name"},
+    "title": {"type": "string", "maxLength": 60, "default": "", "description": "Role, organization, or place; shown small in capitals"},
+    "side": {"type": "string", "enum": ["left", "right"], "default": "left", "description": "Which margin it hangs from"}
+  }
+}

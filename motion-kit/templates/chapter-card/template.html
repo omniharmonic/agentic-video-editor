@@ -1,0 +1,26 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../../lib/base.css">
+<style>
+  #bg { position: absolute; inset: 0; background: var(--c-ink); }
+  #col { position: absolute; left: var(--mx); right: var(--mx); top: 50%; transform: translateY(-50%); }
+  #label { color: var(--c-clay); margin-bottom: calc(30 * var(--u)); }
+  #title { font-size: var(--fs-title); line-height: 1.1; color: var(--c-paper); letter-spacing: var(--tr-display); max-width: 78%; }
+  #rule { height: calc(2 * var(--u)); background: var(--c-stone); transform-origin: 0 50%; margin: calc(40 * var(--u)) 0 calc(28 * var(--u)); }
+  #sub { font-family: var(--f-sans); font-size: var(--fs-body); color: var(--c-paper-dim); max-width: 60%; line-height: 1.4; }
+</style></head><body>
+<div id="stage"><div id="bg"></div><div id="col"><div id="label" class="label"></div><div id="title" class="serif"></div><div id="rule"></div><div id="sub"></div></div></div>
+<script src="../../lib/timeline.js"></script>
+<script>
+  var P = AVE.props, M = AVE.tokens.motion, $ = AVE.el, bgA = AVE.backdropAlpha(P.backdrop);
+  AVE.text("label", P.number ? P.label + " " + P.number : P.label); AVE.text("title", P.title); AVE.text("sub", P.subtitle);
+  if (!P.subtitle) $("rule").style.display = "none";
+  AVE.ready(function (t) {
+    var h = AVE.hold(t);
+    $("bg").style.opacity = bgA * AVE.phase(t, 0, M.in_s, "inout") * h;
+    $("col").style.opacity = h;
+    AVE.rise($("label"), AVE.phase(t, 0.25, M.in_s, "out"));
+    AVE.rise($("title"), AVE.phase(t, 0.25 + M.stagger_s, M.in_s * 1.2, "out"));
+    $("rule").style.transform = "scaleX(" + AVE.phase(t, 0.5, M.in_s * 1.4, "out") + ")";
+    AVE.rise($("sub"), AVE.phase(t, 0.5 + M.stagger_s * 2, M.in_s, "out"));
+  });
+</script></body></html>

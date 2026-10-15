@@ -1,0 +1,144 @@
+# Cleanup policy: every number and word list `ave cleanup` uses. Taste lives here, not in code.
+# Resolution order (first found wins, then it is merged over THIS file so a policy may be partial):
+#   --policy PATH  >  <episode>/policy/cleanup.yaml  >  ~/.config/ave/cleanup.yaml  >  this file.
+# The resolved policy is copied into work/cleanup.json so every cut can be audited against the numbers that made it.
+# All values are tunable defaults from editing practice, to be calibrated by listening. Times in ms unless the key says _s.
+
+version: 1
+
+pause:                      # "dead air": a silence between two words that is longer than the audience needs
+  max_ms: 700               # gaps longer than this are shortened; anything at or below is left alone
+  target_ms: 350            # a shortened gap keeps about this much
+  floor_ms: 200             # a shortened gap is never left shorter than this (silence must still read as a breath)
+  tail_ratio: 0.5           # share of the kept gap that stays after the previous word (rest sits before the next word)
+  min_tail_ms: 40           # never cut closer than this to the end of the previous word (breath / consonant release)
+  min_lead_ms: 30           # never cut closer than this to the start of the next word (attack)
+  min_cut_ms: 40            # cuts shorter than this are not worth a splice
+  target_tolerance_ms: 25   # snapping may not move the kept silence further than this from target_ms (else the unsnapped point is used)
+  word_tail_pad_ms: 80      # when a removed word starts right after a kept one and the cut point is NOT in a quiet valley, the cut-out point may slide this far
+                            # INTO the removed word (never more than 40% of it) to a REAL valley reached along a smooth decay, to leave the kept word's tail whole.
+                            # 80 ms = one frame of the Parakeet ASR (every word time is a multiple of 0.08 s, so an edge can be off by a frame). Measured on the first real
+                            # episode, session 2 (236 gaps >= 250 ms): energy above the quiet limit ran >= 40 ms past the ASR word end for 36% of words, >= 80 ms for 31%
+  word_lead_pad_ms: 80      # same for the cut-in point and the kept word's onset (>= 80 ms of energy before the ASR start for 14% of words)
+  word_tail_pad_ghost_ms: 150   # when the first removed word is a "ghost" (<= ghost_max_ms long and ASR confidence < ghost_below_conf: usually the kept word's own tail
+  word_lead_pad_ghost_ms: 150   # mis-heard as a word, e.g. "right." decaying over 145 ms then a 0.08 s "Oh" at 0.77) the slide may go this far
+  ghost_max_ms: 160
+  ghost_below_conf: 0.9
+
+fillers:
+  cut: [um, uh, er, erm, uhm, uhh, umm, ah]        # lexical fillers removed automatically
+  review: ["like", "you know", "i mean", "sort of", "kind of"]   # ambiguous: flagged for a human, never auto-cut
+  review_min_cluster: 2     # flag a review phrase only when this many occur within review_window_s (a lone "like" is just English)
+  review_window_s: 8.0
+  max_cut_s: 1.5            # a "filler" longer than this is probably misrecognised speech: flagged instead of cut
+  min_conf: 0.0             # ASR confidence below this makes a filler cut a review item (0 = ignore)
+
+backchannels:
+  keep: [yeah, mm-hm, mhm, uh-huh, right, okay, ok, mm, hmm]   # short listener noises: kept unless also listed in fillers.cut
+
+repeats:                    # "the the", "we need to we need to": the earlier copy is removed
+  enabled: true
+  max_gap_ms: 500           # the copies must be this close together
+  max_ngram: 3              # longest repeated phrase (in words) to look for
+  allow: [very, really, so, "no", ha, had, that, now, "yes", never, more, many]   # single words that are legitimate emphasis
+
+false_starts:               # an abandoned clause: a cut-off word ("wh-", "we—") followed by a restart
+  enabled: true
+  max_words: 4              # longest abandoned run to remove
+  clause_gap_ms: 400        # a gap this long starts a new clause when walking back
+  min_conf: 0.0
+
+nonlexical:                 # breaths/clicks/coughs/missed ums found by audio energy INSIDE gaps (ASR may skip them)
+  detect: true
+  auto_cut: false           # false: flag for review only. true: cut them (still snapped and masked)
+  min_gap_ms: 300           # only look inside gaps at least this long
+  edge_ms: 80               # ignore this much at each end of a gap (ASR timing slop)
+  threshold_db: 14          # a burst is this many dB above the recording's noise floor...
+  min_ms: 120               # ...and lasts at least this long
+  max_ms: 1500
+
+protect:                    # pauses that are the point: never shortened (beyond cap_ms)
+  after_regex: ['^\[?(laugh|laughs|laughter|laughing|chuckle|chuckles|applause|sigh|sighs|gasp)\]?$', '^(ha)+$', '^\[.*\]$', '^\(.*\)$']
+  after_punct: ["!", "…", "—"]              # a word that ends like this lands on a beat
+  before_phrases: ["turns out", "guess what", "and the answer", "the truth is", "the punchline", "and then", "wait for it", "here is the thing", "here's the thing"]
+  lookahead_words: 4
+  cap_ms: 2500              # even a protected pause is shortened to this if longer (a 20 s stall is not a beat)
+
+snap:                       # move every cut to the quietest spot nearby, then to a zero crossing
+  window_ms: 60
+  zero_cross_ms: 3
+  hop_ms: 5
+  frame_ms: 10
+  valley_tolerance_db: 6    # frames within this many dB of the quietest count as equally quiet; the nearest to the intended point wins
+  quiet_db_below_speech: 20 # a cut point this far under typical speech level counts as "in a valley"
+  unsnapped_confidence_penalty: 0.15   # cut lands in speech-level energy (no valley found): lower confidence
+  widen_if_not_valley: false # true: if the point inside window_ms is still not a valley, look in the whole allowed range for a quieter one ...
+                            # (off by default: on the first real episode (session 2) it kept 4.2 s more silence over 123 cuts and did not reduce the speech-at-the-cut count)
+  widen_min_gain_db: 6      # ... and take it only if it is at least this much quieter (so a point never moves for nothing)
+  pad_decay_tol_db: 8       #the word_tail_pad_ms / word_lead_pad_ms slide into a removed word is only taken along a smooth decay: the level may not climb more
+                            # than this above its running minimum on the way (a climb is a new syllable, i.e. the removed word itself)
+
+xfade:                      # audio crossfade at each splice, by context
+  intra_speech_ms: 10       # the splice joins two stretches of continuous speech (little or no pause kept)
+  across_gap_ms: 30         # the splice crosses a kept pause
+  intra_if_kept_gap_ms: 120 # a kept gap shorter than this counts as intra-speech
+
+masks:                      # how a cut is hidden on screen; tried in this order, first that fits wins
+  # 0. a camera change already at the cut (e.g. speaker change): nothing extra
+  # 1. cut away to the other camera   2. cut to a wide   3. punch-in on the segment after the cut   4. audio crossfade only + needs_review
+  cutaway_other_camera: true
+  cutaway_wide: true
+  punch_in: true
+  min_hold_s: 1.2           # a shot must be on screen at least this long before and after a mask
+  max_hold_s: 14.0          # longer unbroken holds are reported as warnings
+  repeat_window_s: 4.0      # the same camera is not used as a cutaway twice inside this window
+  cutaway_s: 2.0            # preferred cutaway length
+  cutaway_max_s: 3.0        # a cutaway may run up to the next camera change if that is not longer than this
+  zooms: [1.12, 1.18]       # punch-in factors, used in turn; the next mask on the same shot returns to the base framing
+  min_zoom_delta: 0.08      # framings differing by less than this look like the same shot
+  zoom_min_dwell_s: 8.0     # ZOOM STATE LIMIT shared with pacing and shorts (ave.zoomstate): a zoom change on a camera must come at least this long after the
+                            # previous zoom change on that camera. In-out-in inside the window feels jumpy; a slow in, hold, out is natural. 0 = off (legacy)
+  max_ins_per_shot: 1       # a shot (consecutive segments on one camera) is never punched in deeper than this many levels without first coming back out. When the limit blocks a punch-in the cut is left
+                            # to a plain audio crossfade with needs_review, and the decision says why
+
+room_tone:                  # the rough cut carries tracks.room_tone so selects/clip timelines can have gaps (ROADMAP W5)
+  enabled: true             # false: leave tracks.room_tone empty (gaps in selects are then skipped with a warning)
+  min_s: 2.0                # the quietest window of at least this length, from the analysis audio (already summed / live-channel per the channel layout)
+  max_s: 4.0                # use up to this much if the quiet stretch is that long (longer = less audible repetition in a long gap)
+  frame_ms: 50
+  steady_db: 4.0            # reject windows with a frame this far above or below the window's mean (a cough or door; speech with pauses)
+  min_floor_db: -80.0       # below this a window is digital silence (a recorder pad), not a room: skip it
+  margin_s: 1.0             # stay this far inside the searched span (button thumps at the edges)
+
+review:
+  below_confidence: 0.6     # any cut under this confidence is flagged needs_review
+
+pacing:                     # runs AFTER masking: breaks every long unbroken hold with a short reaction shot (field note N7 / ROADMAP W1)
+  enabled: true             # `ave cleanup --no-pacing` turns it off for one run
+  max_hold_s: 14.0          # a hold (same camera, same framing) longer than this gets a reaction. Raise for a calmer feel, lower for a busier one
+  target_hold_s: 10.0       # aim the next reaction about this far into the hold (the sentence boundary closest to it wins, other things equal)
+  max_cuts_per_min: 8       # never push the local cut rate over this: measured over a window of `rate_window_s` centred on the reaction
+  rate_window_s: 60.0
+  hard_rate_cap: false      # false: a hold already past max_hold_s + reaction.max_s gets its reaction even in a busy minute (and the decision says so). true: the cap always wins
+  reaction:
+    min_s: 2.0              # a reaction shot lasts between these (it ends on a word boundary, so the real length varies)
+    max_s: 4.0
+    prefer_s: 3.0
+    min_gap_after_cut_s: 2.5  # a reaction starts at least this long after the previous cut and ends at least this long before the next
+  camera_order: [wide, listener, punch_in]   # first that works wins: a role: wide camera, the listener's camera, a punch-in on the same camera
+  listener_may_speak: false # false: never show the listener while they talk (a reaction is a reaction, not a speaker change)
+  punch_zooms: [1.10, 1.20] # alternating factors for the punch-in fallback
+  zoom_min_dwell_s: 8.0     # a pacing punch-in is a SUSTAINED reframe held to the hold's end (the next real camera change), not a 2-4 s blip; if that would
+                            # exceed max_hold_s it is held at least this long, then returns. Never inside the dwell of another zoom change on the camera. 0 = old blip
+  max_ins_per_shot: 1
+  boundary:                 # where a reaction may start/end: always between words, scored by what kind of boundary it is
+    pause_ms: 250           # a gap this long between words counts as a breath pause
+    sentence_min_words: 4   # a sentence of at least this many words ends a "strong sentence" (the best place to cut away)
+    prefer: {sentence: 1.0, pause: 0.6, word: 0.0}
+    distance_penalty_per_s: 0.05   # prefers a boundary near target_hold_s; sentence boundaries still win unless far off
+  confidence: {sentence: 0.9, pause: 0.8, word: 0.6, punch_in_factor: 0.85}
+
+checks:                     # post-pass validators (run by `ave cleanup` and `ave final`; they warn, they never edit)
+  word_margin_s: 0.04       # a cut inside a transcript word span (start + margin < t < end - margin) is reported; Parakeet word times sit on an 80 ms grid, so an edge is good to +-40 ms
+  hot_db_below_speech: 12   # a cut within this many dB of the typical speech level (p90) ...
+  hot_max_edge_pad_ms: 20   # ... that sits within this many ms of an ASR word edge is reported as a probable clipped word (speech continues across the cut)

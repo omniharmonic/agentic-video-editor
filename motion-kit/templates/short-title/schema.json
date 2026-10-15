@@ -1,0 +1,13 @@
+{
+  "title": "Short title: a topic title for the start of a vertical short, as a brief full-frame card or a lower-area overlay (never a quote)",
+  "type": "object",
+  "required": ["title"],
+  "additionalProperties": false,
+  "x-default-duration": 2.0,
+  "properties": {
+    "title": {"type": "string", "minLength": 1, "maxLength": 60, "description": "A plain topic title written from the clip. Never the speaker's own words."},
+    "show": {"type": "string", "maxLength": 40, "default": "", "description": "Show name, printed once in small capitals"},
+    "mode": {"type": "string", "enum": ["card", "overlay"], "default": "overlay", "description": "card = opaque full-frame title screen (about 1.3 s, the clip starts after it); overlay = lower-area panel over the clip (about 2 s, no extra time)"},
+    "bottom": {"type": "number", "minimum": 0.2, "maximum": 0.9, "default": 0.555, "description": "overlay only: where the panel's bottom edge sits, as a fraction of the canvas height (kept above the captions and clear of the platform UI zone)"}
+  }
+}

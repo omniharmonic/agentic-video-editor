@@ -1,0 +1,11 @@
+/* Layout shared by the still pages. Colours arrive as --st-* variables set by stills.js from the chosen style. */
+html, body { background: var(--st-bg); }
+#stage { background: var(--st-bg); color: var(--st-fg); }
+#safe { position: absolute; left: var(--safe-l); right: var(--safe-r); top: var(--safe-t); bottom: var(--safe-b);
+        display: flex; flex-direction: column; }
+.lab { font-family: var(--f-sans); font-weight: 500; font-size: var(--fs-label-s); letter-spacing: var(--tr-label-s);
+       text-transform: uppercase; color: var(--st-fg-soft); line-height: 1.3; }   /* at least the font's content box (Inter 1.21em), so the glyph box never pokes out of the line */
+.serif-d { font-family: var(--f-serif); font-weight: 400; letter-spacing: -0.01em; color: var(--st-fg); text-wrap: balance; }
+.rule { width: calc(76 * var(--s)); height: calc(5 * var(--s)); background: var(--st-accent); }
+.name { font-family: var(--f-sans); font-weight: 500; font-size: var(--fs-name-s); color: var(--st-fg); line-height: 1.25; }
+.sans-b { font-family: var(--f-sans); font-weight: 500; font-size: var(--fs-body-s); color: var(--st-fg); line-height: 1.3; }

@@ -1,0 +1,21 @@
+id: thumbnail
+title: Podcast thumbnail
+kind: image
+description: >
+  16:9 episode thumbnail: a short title in large serif, the guest's name, and optionally one photograph. Written to stay
+  legible at the 168 px width YouTube uses in its sidebar.
+formats: [16x9]
+styles: [ink, paper, clay]
+default_platforms: [youtube]
+renderers:
+  motion-kit: {template: thumbnail}
+slots:
+  type: object
+  required: [title]
+  additionalProperties: false
+  properties:
+    title:  {type: string, minLength: 3, maxLength: 56, description: "A few words. Not a sentence."}
+    guest:  {type: string, maxLength: 40, default: "", x-byline: true}
+    show:   {type: string, maxLength: 40, default: ""}
+    image:  {type: string, maxLength: 400, default: "", x-asset: true, description: "Photo path (relative to the episode). Needs a license-log entry; guest photos need the guest's consent."}
+    image_focus_x: {type: number, minimum: 0, maximum: 1, default: 0.5, description: "Which part of a wide photo stays in the frame"}

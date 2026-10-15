@@ -1,0 +1,25 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../../lib/base.css">
+<style>
+  #bg { position: absolute; inset: 0; background: var(--c-ink); }
+  #col { position: absolute; left: var(--mx); right: calc(var(--mx) * 2.4); top: 50%; transform: translateY(-50%); }
+  #rule { width: calc(72 * var(--u)); height: calc(4 * var(--u)); background: var(--c-clay); transform-origin: 0 50%; margin-bottom: calc(40 * var(--u)); }
+  #quote { text-indent: -0.42em; font-size: var(--fs-quote); line-height: 1.24; color: var(--c-paper); letter-spacing: var(--tr-display); }
+  #who { margin-top: calc(44 * var(--u)); }
+  #by { font-family: var(--f-sans); font-weight: 500; font-size: var(--fs-body); color: var(--c-paper); }
+  #role { margin-top: calc(8 * var(--u)); color: var(--c-stone); }
+</style></head><body>
+<div id="stage"><div id="bg"></div><div id="col"><div id="rule"></div><div id="quote" class="serif"></div><div id="who"><div id="by"></div><div id="role" class="label"></div></div></div></div>
+<script src="../../lib/timeline.js"></script>
+<script>
+  var P = AVE.props, M = AVE.tokens.motion, $ = AVE.el, bgA = AVE.backdropAlpha(P.backdrop);
+  AVE.text("quote", "“" + P.quote + "”"); AVE.text("by", P.attribution); AVE.text("role", P.title || P.role);
+  AVE.ready(function (t) {
+    var h = AVE.hold(t);
+    $("bg").style.opacity = bgA * AVE.phase(t, 0, M.in_s, "inout") * h;
+    $("col").style.opacity = h;
+    $("rule").style.transform = "scaleX(" + AVE.phase(t, 0.2, M.in_s, "out") + ")";
+    AVE.rise($("quote"), AVE.phase(t, 0.35, M.in_s * 1.2, "out"));
+    AVE.rise($("who"), AVE.phase(t, 0.35 + M.stagger_s * 3, M.in_s, "out"));
+  });
+</script></body></html>

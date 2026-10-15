@@ -1,0 +1,13 @@
+{
+  "title": "Title card: episode title with a kicker and a footer line",
+  "type": "object",
+  "required": ["title"],
+  "additionalProperties": false,
+  "x-default-duration": 5.0,
+  "properties": {
+    "title": {"type": "string", "minLength": 1, "maxLength": 80},
+    "kicker": {"type": "string", "maxLength": 40, "default": "", "description": "Small line above, for example the show name or episode number"},
+    "subtitle": {"type": "string", "maxLength": 80, "default": "", "description": "Small line at the foot, for example guest and date"},
+    "backdrop": {"type": "string", "enum": ["solid", "scrim", "none"], "default": "solid"}
+  }
+}

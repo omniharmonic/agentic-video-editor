@@ -1,0 +1,29 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../../lib/base.css">
+<style>
+  #lt { position: absolute; bottom: var(--lt-bottom); display: flex; align-items: stretch; }
+  #lt.left { left: var(--mx); }
+  #lt.right { right: var(--mx); flex-direction: row-reverse; }
+  #rule { width: calc(5 * var(--u)); background: var(--c-clay); transform-origin: 50% 100%; }
+  #panel { background: rgba(27, 24, 20, var(--a-panel)); padding: calc(24 * var(--u)) calc(40 * var(--u)) calc(26 * var(--u)) calc(34 * var(--u)); }
+  #name { font-size: var(--fs-name); line-height: 1.12; color: var(--c-paper); letter-spacing: var(--tr-display); white-space: nowrap; }
+  #role { margin-top: calc(10 * var(--u)); color: var(--c-paper-dim); white-space: nowrap; }
+</style></head><body>
+<div id="stage"><div id="lt"><div id="rule"></div><div id="panel"><div id="name" class="serif"></div><div id="role" class="label"></div></div></div></div>
+<script src="../../lib/timeline.js"></script>
+<script>
+  var P = AVE.props, M = AVE.tokens.motion, $ = AVE.el;
+  $("lt").className = P.side;
+  /* Portrait (shorts): the landscape bottom margin lands inside the platform UI zone (bottom 25%) and the type is phone-small.
+     Lift it clear of that zone AND of the shorts captions (centred at 65% of the height): its bottom edge sits 46% up. Enlarge it. CSS zoom scales px values too, so the bottom offset is divided by it. */
+  if (AVE.canvas.h > AVE.canvas.w) { var Z = 1.35; $("lt").style.zoom = Z; $("lt").style.bottom = (0.46 * AVE.canvas.h / Z) + "px"; }
+  AVE.text("name", P.name); AVE.text("role", P.title);
+  AVE.ready(function (t) {
+    $("lt").style.opacity = AVE.hold(t);
+    $("rule").style.transform = "scaleY(" + AVE.phase(t, 0, M.in_s * 0.7, "out") + ")";
+    var open = (1 - AVE.phase(t, 0.08, M.in_s, "out")) * 100;      /* panel wipes open away from the rule */
+    $("panel").style.clipPath = P.side === "right" ? "inset(0 0 0 " + open + "%)" : "inset(0 " + open + "% 0 0)";
+    AVE.rise($("name"), AVE.phase(t, 0.28, M.in_s, "out"));
+    AVE.rise($("role"), AVE.phase(t, 0.28 + M.stagger_s, M.in_s, "out"));
+  });
+</script></body></html>

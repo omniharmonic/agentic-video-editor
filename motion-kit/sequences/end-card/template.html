@@ -1,0 +1,37 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../../lib/base.css">
+<style>
+  #col { position: absolute; left: var(--mx); top: var(--my); width: 34%; }
+  #col.centered { left: var(--mx); right: var(--mx); width: auto; top: 50%; transform: translateY(-50%); text-align: center; }
+  #heading { font-size: var(--fs-title); line-height: 1.1; color: var(--c-paper); letter-spacing: var(--tr-display); }
+  #rule { height: calc(3 * var(--u)); width: calc(120 * var(--u)); background: var(--c-clay); transform-origin: 0 50%; margin: calc(26 * var(--u)) 0; }
+  #col.centered #rule { margin-left: auto; margin-right: auto; transform-origin: 50% 50%; }
+  #body { font-size: var(--fs-body); line-height: 1.35; color: var(--c-paper-dim); font-family: var(--f-serif); }
+  .ln { margin-top: calc(22 * var(--u)); }
+  .l { color: var(--c-clay); }
+  .v { font-size: var(--fs-body); color: var(--c-paper); margin-top: calc(6 * var(--u)); }
+  #bar { position: absolute; left: var(--mx); right: var(--mx); bottom: calc(var(--my) * 0.5); height: calc(2 * var(--u)); background: var(--c-ink-soft); }
+  #fill { height: 100%; background: var(--c-stone); transform-origin: 0 50%; }
+</style></head><body>
+<div id="stage"><div id="col"><div id="heading" class="serif"></div><div id="rule"></div><div id="body"></div><div id="lines"></div></div>
+<div id="bar"><div id="fill"></div></div></div>
+<script src="../../lib/timeline.js"></script>
+<script>
+  var P = AVE.props, M = AVE.tokens.motion, $ = AVE.el, rows = [];
+  $("col").className = P.layout === "centered" ? "centered" : "";
+  AVE.text("heading", P.heading); AVE.text("body", P.body);
+  (P.lines || []).forEach(function (x) {
+    var d = document.createElement("div"); d.className = "ln"; d.innerHTML = '<div class="l label"></div><div class="v"></div>';
+    d.querySelector(".l").textContent = x.label; d.querySelector(".v").textContent = x.value; $("lines").appendChild(d); rows.push(d);
+  });
+  AVE.ready(function (t) {
+    var h = AVE.hold(t);
+    $("col").style.opacity = h; $("bar").style.opacity = AVE.phase(t, 1.0, M.in_s, "out") * h;
+    AVE.rise($("heading"), AVE.phase(t, 0.2, M.in_s * 1.2, "out"));
+    $("rule").style.transform = "scaleX(" + AVE.phase(t, 0.6, M.in_s * 1.2, "out") + ")";
+    $("body").style.opacity = AVE.phase(t, 0.9, M.in_s, "out");
+    rows.forEach(function (d, i) { AVE.rise(d, AVE.phase(t, 1.1 + i * M.stagger_s * 2, M.in_s, "out")); });
+    /* a slow progress line: the card is held for a long time; this shows it is alive and how long is left */
+    $("fill").style.transform = "scaleX(" + AVE.clamp(t / AVE.duration, 0, 1) + ")";
+  });
+</script></body></html>

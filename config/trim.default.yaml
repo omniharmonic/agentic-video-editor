@@ -1,0 +1,39 @@
+# Trim policy: which phrases mean "setup chatter" and which mean "the real start / the real end" (field note N8, ROADMAP W2).
+# `ave trim suggest` scans the first and last `scan_minutes` of a session's transcript for these and PROPOSES an in/out. It never applies one:
+# the human approves with `ave trim set`. Resolution (first found wins, merged over THIS file): <project>/policy/trim.yaml > ~/.config/ave/trim.yaml > this file.
+# Show-specific phrases ("this is The Long Table") go in episode.json: "trim_hints": {"welcome": ["this is the long table"], "signoff": ["until the next one"]}.
+# Phrases are matched on lowercase words with punctuation removed; quote "yes"/"no"/"on"/"off" if you ever use them (YAML reads them as booleans).
+
+version: 1
+
+scan_minutes: 6             # how much of each end of the session is scanned
+pause_ms: 250               # a gap between words at least this long is a pause: the proposed in/out is placed inside one
+lead_s: 0.3                 # a proposed `in` sits this far before the first word kept (never more than half the pause before it)
+tail_s: 0.6                 # a proposed `out` sits this far after the last word kept (never more than half the pause after it)
+settle_min_words: 10        # after the last slate phrase, the real start is the first sentence of at least this many words
+cluster_s: 90               # sign-off / stop-recording phrases closer together than this are one cluster (the cluster's start is the out)
+short_sentence_words: 3     # phrases under `short_only` count only inside a sentence this short ("Cut." yes, "...cut the budget" no)
+
+slate:                      # setup talk before the show: the real start comes after the last of these
+  - take one
+  - take two
+  - we're recording
+  - are we recording
+  - is it recording
+  - rolling
+  - testing
+  - can you hear me
+  - okay we're good
+  - move your mic
+  - check your mic
+  - sound check
+  - mic check
+
+welcome:
+  strong: [welcome to, welcome back, hello and welcome]   # the show's real opening line
+  weak: [welcome]                                          # a bare "welcome" is often a joke or a rehearsal: low confidence on its own
+
+signoff:
+  strong: [thank you for listening, thanks for listening, thanks for tuning in, that's a wrap, see you next time, until next time]
+  stop: [stop recording, we're done, i think we're done, let's stop, we can stop]   # talk about stopping: the show ended just before it
+  short_only: [cut, stop]

@@ -1,0 +1,29 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../../lib/base.css"><link rel="stylesheet" href="../../lib/stills.css">
+<style>
+  #head { flex: 0 0 auto; margin-bottom: calc(30 * var(--s)); }
+  #body { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; }
+  #group { width: 100%; }
+  #rule { margin-bottom: calc(46 * var(--s)); }
+  #quote { line-height: 1.2; text-indent: -0.42em; margin: 0; }
+  #who { margin-top: calc(48 * var(--s)); }
+  #jobtitle { margin-top: calc(10 * var(--s)); }
+</style></head><body>
+<div id="stage"><div id="safe">
+  <div id="head"><div id="show" class="lab" data-measure="show"></div></div>
+  <div id="body"><div id="group"><div id="rule" class="rule"></div><div id="quote" class="serif-d" data-measure="quote"></div>
+    <div id="who"><div id="by" class="name" data-measure="attribution"></div><div id="jobtitle" class="lab" data-measure="byline_title"></div></div></div></div>
+</div></div>
+<script src="../../lib/timeline.js"></script><script src="../../lib/stills.js"></script>
+<script>
+  var P = AVE.props, S = STILL, $ = AVE.el;
+  S.setText("show", P.show); S.setText("by", P.attribution); S.setText("jobtitle", P.title || P.role);   /* name, then its title beneath (CO-HOST); the show prints once, at the top */
+  $("quote").textContent = "“" + S.typo(P.quote) + "”";
+  if (!P.attribution && !P.title && !P.role) $("who").style.display = "none";
+  S.boot(function () {
+    var body = $("body"), group = $("group");
+    S.fit($("quote"), S.px(S.TY.quote_max), S.px(S.TY.quote_min), function () {
+      return group.getBoundingClientRect().height <= body.clientHeight && $("quote").scrollWidth <= $("quote").clientWidth + 1;
+    });
+  });
+</script></body></html>

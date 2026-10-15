@@ -1,0 +1,13 @@
+{
+  "title": "End card: held for YouTube end-screen elements",
+  "type": "object",
+  "required": ["heading"],
+  "additionalProperties": false,
+  "x-default-duration": 20.0,
+  "properties": {
+    "heading": {"type": "string", "minLength": 1, "maxLength": 60},
+    "body": {"type": "string", "maxLength": 140, "default": ""},
+    "lines": {"type": "array", "maxItems": 3, "default": [], "description": "[{label (24), value (60)}]"},
+    "layout": {"type": "string", "enum": ["end-screen", "centered"], "default": "end-screen", "description": "end-screen keeps type in the left third so platform end-screen tiles can sit on the rest"}
+  }
+}

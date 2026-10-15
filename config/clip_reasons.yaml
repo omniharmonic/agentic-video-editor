@@ -1,0 +1,12 @@
+# Why the human kept, shelved or skipped a clip. The ledger stores the `id`; the review page and `ave clips decide --reason` use
+# this list. Add your own below (an episode `policy/clip_reasons.yaml` or ~/.config/ave/clip_reasons.yaml is merged over this
+# file by id). `feature` says which rubric criterion a repeated reason points at, so `ave learn taste suggest` can explain itself.
+reasons:
+  - {id: weak_ending,      label: Weak ending,           verdicts: [maybe, skip], feature: ending}
+  - {id: hook_late,        label: Hook comes too late,   verdicts: [maybe, skip], feature: hook}
+  - {id: off_topic,        label: Off topic,             verdicts: [skip],        feature: shareability}
+  - {id: too_long,         label: Too long,              verdicts: [maybe, skip], feature: null}
+  - {id: too_short,        label: Too short,             verdicts: [maybe, skip], feature: null}
+  - {id: needs_context,    label: Needs context,         verdicts: [maybe, skip], feature: null}
+  - {id: great_but_long,   label: Great but long,        verdicts: [maybe],       feature: null}
+  - {id: other,            label: Other (say why in the note), verdicts: [keep, maybe, skip], feature: null}

@@ -1,0 +1,34 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../../lib/base.css"><link rel="stylesheet" href="../../lib/stills.css">
+<style>
+  #photo { position: absolute; top: 0; bottom: 0; right: 0; width: 42%; overflow: hidden; background: var(--st-panel); }
+  #photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  #head { flex: 0 0 auto; margin-bottom: calc(30 * var(--s)); }
+  #body { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; }
+  #group { width: 100%; }
+  #rule { margin-bottom: calc(34 * var(--s)); }
+  #title { line-height: 1.04; margin: 0; }
+  #guest { margin-top: calc(38 * var(--s)); }
+  .has-photo #safe { right: calc(42% + var(--safe-l) * 0.6); }
+</style></head><body>
+<div id="stage"><div id="photo" style="display:none"><img id="img" alt=""></div><div id="safe">
+  <div id="head"><div id="show" class="lab" data-measure="show"></div></div>
+  <div id="body"><div id="group"><div id="rule" class="rule"></div><div id="title" class="serif-d" data-measure="title"></div>
+    <div id="guest" class="name" data-measure="guest"></div></div></div>
+</div></div>
+<script src="../../lib/timeline.js"></script><script src="../../lib/stills.js"></script>
+<script>
+  var P = AVE.props, S = STILL, $ = AVE.el, imgs = [];
+  S.setText("show", P.show); S.setText("guest", P.guest ? "with " + P.guest : "");
+  $("title").textContent = S.typo(P.title);
+  if (P._image_url) {
+    document.body.classList.add("has-photo"); $("photo").style.display = "block";
+    var im = $("img"); im.style.objectPosition = (P.image_focus_x * 100) + "% 50%"; im.src = P._image_url; imgs.push(im);
+  }
+  S.boot(function () {
+    var body = $("body"), group = $("group");
+    S.fit($("title"), S.px(S.TY.title * 1.9), S.px(S.TY.title_min * 1.35), function () {
+      return group.getBoundingClientRect().height <= body.clientHeight && $("title").scrollWidth <= $("title").clientWidth + 1;
+    });
+  }, imgs);
+</script></body></html>
