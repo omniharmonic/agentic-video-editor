@@ -30,6 +30,9 @@ jobs:
       - run: uv sync --all-extras --python 3.12
       - name: overlay probe
         run: bash scripts_dbg/probe_ov.sh
+      - name: dbg test
+        if: runner.os == 'Linux'
+        run: uv run pytest -q -s tests/test_zz_dbg.py || true
       - name: failing tests
         if: runner.os == 'Linux'
         run: uv run pytest -q -q --timeout 300 tests/test_compile.py -k "overlay_alpha_blends or overlay_video_with_alpha or spiky_speech" -p no:cacheprovider || true
