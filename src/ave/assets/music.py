@@ -34,6 +34,49 @@ def estimate_key(chroma_mean: np.ndarray) -> dict:
             "correlation": round(best[0], 3)}
 
 
+_BEAT_SCRIPT = (
+    "import sys, numpy as np, librosa\n"
+    "env = np.load(sys.argv[1]); sr = int(sys.argv[2]); hop = int(sys.argv[3])\n"
+    "t, b = librosa.beat.beat_track(onset_envelope=env, sr=sr, hop_length=hop, start_bpm=100)\n"
+    "np.save(sys.argv[4], np.concatenate([np.atleast_1d(t).astype(float), np.asarray(b, dtype=float)]))\n"
+)
+
+
+def _numpy_beats(env: np.ndarray, sr: int) -> tuple[float, np.ndarray]:
+    """Dependency-light fallback: tempo from the onset envelope's autocorrelation (60-200 bpm), beats at its strongest phase."""
+    e = env - env.mean()
+    ac = np.correlate(e, e, mode="full")[len(e) - 1:]
+    fps = sr / HOP
+    lags = np.arange(int(fps * 60 / 200), int(fps * 60 / 60) + 1)
+    lags = lags[lags < len(ac)]
+    if not len(lags):
+        return 0.0, np.array([], dtype=int)
+    w = np.exp(-0.5 * (np.log2(60 * fps / lags / 100)) ** 2)      # prior centred on 100 bpm
+    lag = int(lags[np.argmax(ac[lags] * w)])
+    phase = int(np.argmax([e[o::lag].sum() for o in range(lag)]))
+    return 60 * fps / lag, np.arange(phase, len(e), lag)
+
+
+def _track_beats(env: np.ndarray, sr: int) -> tuple[float, np.ndarray]:
+    """librosa's beat tracker, run in a child process: its numba kernel has segfaulted on some Linux machines, and a crash
+    there must not take the whole run down. Falls back to the numpy estimate."""
+    import subprocess
+    import sys
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        src, out = Path(td) / "env.npy", Path(td) / "out.npy"
+        np.save(src, env)
+        try:
+            r = subprocess.run([sys.executable, "-c", _BEAT_SCRIPT, str(src), str(sr), str(HOP), str(out)],
+                               capture_output=True, timeout=120)
+            if r.returncode == 0 and out.exists():
+                arr = np.load(out)
+                return float(arr[0]), arr[1:].astype(int)
+        except (subprocess.TimeoutExpired, OSError):
+            pass
+    return _numpy_beats(env, sr)
+
+
 def analyze(path: Path | str) -> dict:
     import librosa
     path = Path(path)
@@ -42,8 +85,7 @@ def analyze(path: Path | str) -> dict:
     if len(y) < SR:
         raise ValueError(f"{path.name}: under one second of audio")
     env = librosa.onset.onset_strength(y=y, sr=sr, hop_length=HOP)
-    tempo, beats = librosa.beat.beat_track(onset_envelope=env, sr=sr, hop_length=HOP, start_bpm=100)
-    tempo = float(np.atleast_1d(tempo)[0])
+    tempo, beats = _track_beats(env, sr)
     beat_t = librosa.frames_to_time(beats, sr=sr, hop_length=HOP)
     ibi = np.diff(beat_t)
     tempo_conf = float(max(0.0, 1 - np.std(ibi) / np.mean(ibi))) if len(ibi) > 3 and np.mean(ibi) > 0 else 0.0

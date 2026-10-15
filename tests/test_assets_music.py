@@ -145,3 +145,12 @@ def test_unreadable_audio_is_reported_per_file(tmp_path):
     write(d / "ok.wav", chord((220.0,), 10))
     res = music.pick(d, mood="warm", need_s=5)
     assert any("broken.mp3" in e for e in res["errors"]) and len(res["ranked"]) == 1
+
+
+def test_numpy_beat_fallback_finds_the_tempo(tmp_path):
+    """The fallback used when librosa's beat tracker crashes (child process dies) still lands near the true tempo."""
+    import librosa
+    y, sr = click_track(100, 20), music.SR
+    env = librosa.onset.onset_strength(y=y.astype("float32"), sr=sr, hop_length=music.HOP)
+    tempo, beats = music._numpy_beats(env, sr)
+    assert tempo == pytest.approx(100, rel=0.06) and len(beats) > 20
