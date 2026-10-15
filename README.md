@@ -96,7 +96,9 @@ proxy linking). Taste-dependent numbers (cleanup thresholds, pacing) are default
 
 **`ave: command not found`.** Use `.venv/bin/ave`, or `uv run ave ...`, or activate the venv (`source .venv/bin/activate`).
 
-**`ffmpeg not found`.** `brew install ffmpeg` (macOS) or `sudo apt-get install ffmpeg` (Debian/Ubuntu). `ave doctor` prints the right line for your system.
+**`ffmpeg not found`.** macOS: `brew install ffmpeg-full`; Debian/Ubuntu: `sudo apt-get install ffmpeg`. `ave doctor` prints the right line for your system.
+
+**`this ffmpeg was built without libass` / no `ass` filter.** Burned-in captions (shorts, the final cut) need FFmpeg built with libass. Homebrew's plain `ffmpeg` formula does not include it; `ffmpeg-full` does. It is keg-only, so after `brew install ffmpeg-full` run `brew unlink ffmpeg` (if the plain one is installed) and put `$(brew --prefix ffmpeg-full)/bin` first on your `PATH` (or `brew link --force ffmpeg-full`). Debian/Ubuntu `apt` builds already include libass. `ave doctor` checks this (`ffmpeg -filters | grep -w ass`).
 
 **`ave transcribe` says no engine.** On Apple Silicon run `./scripts/setup.sh` (builds FluidAudio; needs `xcode-select --install`). Elsewhere install
 whisper.cpp (`brew install whisper-cpp` on macOS) and run `scripts/fetch-whisper-model.sh`, then `ave transcribe <ep> --asr whisper`.

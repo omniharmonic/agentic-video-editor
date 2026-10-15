@@ -59,7 +59,7 @@ def _check_tools() -> None:
     missing = [t for t in ("ffmpeg", "ffprobe") if not config.binary(t)]
     if missing:
         raise DemoError(f"{' and '.join(missing)} not found on PATH. The demo needs FFmpeg only.\n"
-                        "  macOS:          brew install ffmpeg\n  Debian/Ubuntu:  sudo apt-get install ffmpeg\n"
+                        "  macOS:          brew install ffmpeg-full\n  Debian/Ubuntu:  sudo apt-get install ffmpeg\n"
                         "  Windows:        winget install ffmpeg   (or use WSL)\n  then re-run: ave demo")
 
 
