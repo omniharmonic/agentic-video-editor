@@ -797,8 +797,108 @@ async function jobsPage(arg) {
         h("details", { class: "panel" }, h("summary", {}, "Custom job"), h("div", { class: "row" }, cmd, h("button", { class: "primary", onclick: startCustom }, "Run")), argBox))));
 }
 
+// ---------------------------------------------------------------- review: the cut on a timeline, notes for the agent
+const KIND_LABEL = { cut: "Cut", pacing: "Pacing", audio: "Audio", picture: "Picture", graphics: "Graphics", other: "Other" };
+const NOTE_STATE = { open: "Waiting for the editor", claimed: "The editor is on it", resolved: "Done", withdrawn: "Withdrawn" };
+
+async function reviewPage() {
+  const wanted = sessionStorage.getItem("ave.review.edit");
+  let d = await api("review" + (wanted ? "?edit=" + encodeURIComponent(wanted) : "")).catch(() => api("review"));
+  if (!d.edits.length) return h("section", { class: "review" }, h("h1", {}, "Review"), h("p", { class: "muted" }, "No edit to review yet. Run the assembly or rough cut first."));
+  const root = h("section", { class: "review" });
+  let range = null, drag = null, zoom = 1, poll = null;
+
+  const percent = (t) => (100 * t / d.timeline.duration) + "%";
+  const place = (el, a, b) => { el.style.left = percent(a); el.style.width = percent(Math.max(b - a, 0)); return el; };
+
+  async function load(edit) {
+    sessionStorage.setItem("ave.review.edit", edit);
+    d = await api("review?edit=" + encodeURIComponent(edit)); range = null; draw();
+  }
+  const refreshNotes = async () => {
+    const fresh = await api("review?edit=" + encodeURIComponent(d.edit)).catch(() => null);
+    if (fresh && JSON.stringify(fresh.notes) !== JSON.stringify(d.notes)) { d.notes = fresh.notes; drawNotes(); drawMarks(); }
+  };
+
+  let video = null, playhead = null, marks = null, selection = null, notesEl = null, stamp = null, track = null, form = null;
+  const now = () => (video ? video.currentTime : (range ? range[0] : 0));
+  const seek = (t) => { t = Math.min(Math.max(t, 0), d.timeline.duration); if (video) video.currentTime = t; movePlayhead(t); };
+  const movePlayhead = (t) => { if (playhead) playhead.style.left = percent(t); showStamp(); };
+  const showStamp = () => { if (stamp) stamp.textContent = range ? clock(range[0]) + " to " + clock(range[1]) : "at " + clock(now()); };
+
+  function drawMarks() {
+    marks.replaceChildren(...d.notes.filter((n) => n.status !== "withdrawn").map((n) => {
+      const m = h("button", { type: "button", class: "rv-mark rv-" + n.status + (n.edit !== d.edit ? " rv-older" : ""), "aria-label": "Note at " + clock(n.t0) + ": " + n.text, title: n.text, onclick: () => seek(n.t0) });
+      m.style.left = percent(Math.min(n.t0, d.timeline.duration)); return m;
+    }));
+  }
+  function drawNotes() {
+    const rows = [...d.notes].filter((n) => n.status !== "withdrawn").sort((a, b) => a.t0 - b.t0);
+    notesEl.replaceChildren(...(rows.length ? rows.map((n) => h("li", { class: "rv-note rv-" + n.status },
+      h("button", { type: "button", class: "rv-time", onclick: () => seek(n.t0) }, clock(n.t0) + (n.t1 > n.t0 ? " to " + clock(n.t1) : "")),
+      h("span", { class: "rv-kind" }, KIND_LABEL[n.kind] || n.kind),
+      n.edit !== d.edit ? h("span", { class: "rv-kind" }, "from " + n.edit) : null,
+      h("p", {}, n.text),
+      n.resolution && n.resolution.note ? h("p", { class: "muted small" }, n.resolution.note) : null,
+      h("div", { class: "rv-note-foot" }, h("span", { class: "muted small" }, NOTE_STATE[n.status] + (n.resolution && n.resolution.edit ? " in " + n.resolution.edit : "")),
+        ["open", "claimed"].includes(n.status) ? h("button", { type: "button", class: "ghost small", onclick: async () => { try { await api("review/" + n.id + "/withdraw", {}); await refreshNotes(); } catch (e) { toast(e.message, true); } } }, "Withdraw") : null)))
+      : [h("li", { class: "muted" }, "No notes yet. Pause anywhere, or drag across the timeline, and tell the editor what to change.")]));
+  }
+  const timeAt = (e) => { const b = track.getBoundingClientRect(); return Math.min(Math.max((e.clientX - b.left) / b.width, 0), 1) * d.timeline.duration; };
+  const showRange = () => { selection.hidden = !range; if (range) place(selection, range[0], range[1]); showStamp(); };
+
+  function draw() {
+    const tl = d.timeline;
+    const select = h("select", { "aria-label": "Edit to review", onchange: (e) => load(e.target.value) },
+      d.edits.map((e) => h("option", { value: e.edit, selected: e.edit === d.edit }, e.edit)));
+    const screen = d.video ? (video = h("video", { src: d.video, controls: true, preload: "metadata", playsinline: true, "aria-label": "Edit " + d.edit }))
+      : (video = null, h("div", { class: "rv-norender" }, h("p", {}, "This version has no render yet. Timeline and notes still work."), h("code", {}, d.render_cmd)));
+    if (video) { video.addEventListener("timeupdate", () => movePlayhead(video.currentTime)); video.addEventListener("seeked", () => movePlayhead(video.currentTime)); }
+    playhead = h("div", { class: "rv-playhead" }); marks = h("div", { class: "rv-marks" }); selection = h("div", { class: "rv-selection", hidden: true });
+    const seamLane = h("div", { class: "rv-lane" }, h("span", { class: "rv-lane-name" }, "Cuts · " + tl.seams.length), h("div", { class: "rv-items" },
+      tl.seams.map((c) => { const m = h("button", { type: "button", class: "rv-seam", title: "Cut at " + clock(c.o) + ", " + secs(Math.abs(c.removed_s)) + " s " + (c.removed_s < 0 ? "back" : "removed"), "aria-label": "Cut at " + clock(c.o), onclick: (e) => { e.stopPropagation(); seek(c.o); } }); m.style.left = percent(c.o); return m; })));
+    const lanes = tl.lanes.filter((l) => l.items.length).map((l) => h("div", { class: "rv-lane" }, h("span", { class: "rv-lane-name" }, l.title), h("div", { class: "rv-items" },
+      l.items.map((s) => place(h("span", { class: "rv-seg rv-seg-" + l.id, title: s.label + " · " + clock(s.o0) + " to " + clock(s.o1) }, s.label), s.o0, s.o1)))));
+    const clipLane = d.clips.length ? h("div", { class: "rv-lane" }, h("span", { class: "rv-lane-name" }, "Clips"), h("div", { class: "rv-items" },
+      d.clips.map((c) => place(h("a", { class: "rv-seg rv-clip rv-" + (c.verdict || "pending"), href: "#/clips/" + c.id, title: c.title }, c.title), c.o0, c.o1)))) : null;
+    track = h("div", { class: "rv-track" }, h("div", { class: "rv-marks-lane" }, h("span", { class: "rv-lane-name" }, "Notes"), marks), seamLane, lanes, clipLane, selection, playhead);
+    const scroller = h("div", { class: "rv-scroller" }, track);
+    track.style.width = (zoom * 100) + "%";
+    track.addEventListener("pointerdown", (e) => { if (e.target.closest("button,a")) return; track.setPointerCapture(e.pointerId); drag = timeAt(e); range = null; showRange(); });
+    track.addEventListener("pointermove", (e) => { if (drag === null) return; const t = timeAt(e); if (Math.abs(t - drag) * track.clientWidth / tl.duration > 4) { range = [Math.min(drag, t), Math.max(drag, t)]; showRange(); } });
+    track.addEventListener("pointerup", () => { if (drag === null) return; if (!range) seek(drag); drag = null; });
+    const zoomer = h("input", { type: "range", min: 1, max: 24, step: 1, value: zoom, "aria-label": "Zoom timeline", oninput: (e) => { zoom = +e.target.value; track.style.width = (zoom * 100) + "%"; } });
+    stamp = h("strong", {});
+    const kind = h("select", { "aria-label": "Kind of note" }, d.kinds.map((k) => h("option", { value: k }, KIND_LABEL[k] || k)));
+    const text = h("textarea", { rows: 3, maxlength: 2000, "aria-label": "Note for the editor", placeholder: "What should change here?" });
+    const save = async () => {
+      if (!text.value.trim()) return text.focus();
+      const a = range ? range[0] : now(), b = range ? range[1] : a;
+      try { await api("review/note", { edit: d.edit, t0: a, t1: b, kind: kind.value, text: text.value }); text.value = ""; range = null; showRange(); await refreshNotes(); toast("Note saved for the editor"); }
+      catch (e) { toast(e.message, true); }
+    };
+    text.addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) save(); });
+    form = h("div", { class: "rv-form" }, h("div", { class: "rv-form-head" }, h("span", {}, "Note ", stamp), kind,
+      h("button", { type: "button", class: "ghost small", onclick: () => { range = null; showRange(); } }, "Clear range")), text, h("button", { type: "button", class: "primary", onclick: save }, "Send to the editor"));
+    notesEl = h("ol", { class: "rv-notes" });
+    root.replaceChildren(h("header", { class: "rv-head" }, h("h1", {}, "Review"), select, h("span", { class: "muted small" }, clock(tl.duration) + " · " + tl.seams.length + " cuts"), h("label", { class: "rv-zoom" }, "Zoom ", zoomer)),
+      h("div", { class: "rv-body" }, h("div", { class: "rv-screen" }, screen), h("aside", { class: "rv-side" }, form, notesEl)), scroller);
+    drawMarks(); drawNotes(); movePlayhead(now());
+  }
+  draw();
+  keyHandler = (e) => {
+    if (e.target.closest && e.target.closest("input,textarea,select")) return false;
+    if (e.key === "n") { e.preventDefault(); if (video) video.pause(); form.querySelector("textarea").focus(); return true; }
+    if (e.key === " " && video && e.target === document.body) { e.preventDefault(); video.paused ? video.play() : video.pause(); return true; }
+    return false;
+  };
+  poll = setInterval(refreshNotes, 5000);
+  onLeave.push(() => clearInterval(poll));
+  return root;
+}
+
 // ---------------------------------------------------------------- router
-const PAGES = { dashboard, clips: clipsPage, trim: trimPage, content: contentPage, publish: publishPage, jobs: jobsPage };
+const PAGES = { dashboard, review: reviewPage, clips: clipsPage, trim: trimPage, content: contentPage, publish: publishPage, jobs: jobsPage };
 let seq = 0;
 async function render() {
   const parts = (location.hash.replace(/^#\//, "") || "dashboard").split("/");

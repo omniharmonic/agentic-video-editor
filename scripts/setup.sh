@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Set up agentic-video-editor on this machine. Safe to re-run: every step checks before it acts.
 #
-#   ./scripts/setup.sh --minimal     Python env + FFmpeg check only. Enough for `ave demo`, the tests and every FFmpeg-only stage.
+#   ./scripts/setup.sh --minimal     Python env + FFmpeg check only. Enough for `ave demo` and every FFmpeg-only stage; pytest skips tests of missing extras (full suite: uv sync --all-extras).
 #   ./scripts/setup.sh               Everything this machine can do: extras, Chromium, Resolve MCP server, FluidAudio (Apple Silicon),
 #                                    a Whisper model when there is no FluidAudio.
 #

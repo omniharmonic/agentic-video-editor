@@ -49,7 +49,7 @@ writing/*.md
   "items": [{
     "id": "quote-q1-4x5", "template": "quote-post", "style": "ink", "format": "4x5",
     "renderer": "motion-kit",
-    "slots": {"quote": "a goal is a wish and a system is a habit", "attribution": "Ines Calder", "role": "Soil ecologist"},
+    "slots": {"quote": "a goal is a wish and a system is a habit", "attribution": "Maren Okafor", "role": "Soil ecologist"},
     "source": "q1",
     "outputs": [{"platform": "instagram", "w": 1080, "h": 1350, "file": "renders/quote-q1-4x5.png", "sha256": "...", "alt_text": "..."}],
     "review": {"status": "draft|approved|rejected", "critic": {"fits": true, "contrast": 7.1, "notes": []}, "by": null, "at": null},

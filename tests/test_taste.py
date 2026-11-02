@@ -191,7 +191,7 @@ def fake_ledger(ep, n):
     return ids
 
 
-def test_apply_writes_weights_only_when_run_and_the_next_prepare_uses_them(ep, capsys):
+def test_apply_writes_weights_only_when_run_and_the_next_prepare_uses_them(ep, capsys, human):
     fake_ledger(ep, 48)
     assert not taste.taste_path(ep).exists()
     assert cli.main(["learn", "taste", "suggest", str(ep.root)]) == 0

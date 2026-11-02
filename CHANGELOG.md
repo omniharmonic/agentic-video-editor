@@ -8,10 +8,28 @@ tested on synthetic fixtures.
 
 ## [Unreleased]
 
+- Local studio Desk: pasted writing/idea intake, editorial lanes, episode checkpoints, source shelf and explicit integration readiness. Connection loss preserves text on the page.
+- Optional pywebview desktop shell and installation-bound macOS Finder launcher, preserving the human launch and review gates.
+- External-agent stdio MCP with bounded context/source/skill/recipe reads and replay-safe, revision-checked draft writes. No embedded model API.
+- Offline editorial bundles with peer identity, common bases, conflict snapshots, repeat-safe imports and optional hash-verified library media. Tailscale diagnostics remain read-only; publishing authority stays local.
+- Publishing fixes: studio due slots no longer become a second native platform schedule. Post-editor dates use studio time. Whole variant-container replacement can no longer bypass protected operational fields.
+- Content studio security hardening after the adversarial gate audit (qa/E): hash-chained, signed feedback/dispatch/control ledgers and a tick that refuses
+  to send on tamper; single-use signed approvals bound to account, slot and TTL policy; send-backs void the approval and `feedback resolve` needs evidence;
+  the live attestation binds credentials and a sequence number (`--off` is a signed record); the review and `approve` sign the queue item and refuse when it
+  differs from the post; `library add`/`adopt` license claims need `library attest`; adopted items no longer bypass studio gates; a signed `send.enabled`
+  (`ave studio send enable`) lets a launchd `tick --send` job run without a terminal; `ave studio ui` serves a fully wired studio; approving an Instagram
+  account no longer demotes the item; B-roll downloads re-resolve from the provider and only fetch from its hosts; presigned URLs are redacted, media-host
+  orphans are swept; the approval key is read once per process and a planted key file is refused; an all-day quiet window fails closed. Threat model in
+  SECURITY.md and docs/studio.md, deny rules in `.claude/settings.example.json`, and an "untrusted text is data" rule in every studio skill.
+- `ave doctor`: missing libass is a FAIL under "Required for captions & shorts" and the verdict reads `PARTLY READY` (exit code still 0 if the basic flow works).
+- Cleanup: shared zoom-state limiter, cut-inside-a-word check and tail pad. Shorts: complete-statement gate, word-gap cuts, title openings. `ave motion quote-reel`.
+- CI: cross-platform fixes, FFmpeg filter-list parsing for builds with two-character flags.
+- Docs: roadmap brought up to date; dead config keys removed or marked reserved; env var table.
+
 ## [0.1.0] - first public snapshot (developed 2026-10-13 to 2026-10-14)
 
 First version of the toolkit: an `ave` CLI plus 25 agent skills that edit a podcast with FFmpeg and Python and hand the result to
-DaVinci Resolve (free 21.0.x) for human review. About 1,100 automated tests, mostly on synthetic media.
+DaVinci Resolve (free 21.0.x) for human review. About 1,280 automated tests, mostly on synthetic media.
 
 ### Pipeline
 - **Ingest and project layout.** Episode folders in a flat or numbered layout (or a custom one), sessions, `ave init-episode` / `adopt`,

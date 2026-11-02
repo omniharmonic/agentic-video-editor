@@ -1,0 +1,41 @@
+{
+  "method": "GET",
+  "path": "/api/studio/posts/p_20261102_k3f9/preview/v_ig",
+  "status": 200,
+  "response": {
+    "post": "p_20261102_k3f9",
+    "variant": "v_ig",
+    "platform": "instagram",
+    "kind": "profile_grid_cell",
+    "approximate": true,
+    "caption": {
+      "text": "Day 3: the starter smells like pears. That is normal.",
+      "fold_at": 125,
+      "counter": {
+        "unit": "chars",
+        "used": 53,
+        "limit": 2200
+      }
+    },
+    "media": [
+      {
+        "asset": "a_9f2c1d4e7b10",
+        "url": "/files/library/assets/9f/9f2c1d4e7b10a3b5c6d7e8f901234567890abcdef1234567890abcdef1234567.jpg",
+        "w": 1080,
+        "h": 1350,
+        "alt": "A jar of starter with bubbles at the glass.",
+        "crop_overlay": {
+          "cell_aspect": "3:4",
+          "lost": {
+            "left_pct": 3,
+            "right_pct": 3,
+            "top_pct": 0,
+            "bottom_pct": 0
+          }
+        },
+        "text_cut": false
+      }
+    ],
+    "warnings": []
+  }
+}

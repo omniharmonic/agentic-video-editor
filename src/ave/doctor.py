@@ -2,6 +2,8 @@
 
 Groups
   required   everything the CLI, the tests and `ave demo` need (FFmpeg, Python, bundled data). A FAIL here makes the exit code non-zero.
+  captions   FFmpeg built with libass: required to burn captions (every short, `ave captions --burn`, `ave final --burn`). A FAIL here does
+             NOT change the exit code (demo, assembly, rough cut and SRT-only final work without it) but the verdict never says "READY" for real work
   footage    what you need to turn real recordings into a transcript (an ASR engine), plus Apple-only extras
   optional   DaVinci Resolve review, motion graphics, music analysis, publishing
 
@@ -22,8 +24,8 @@ from pathlib import Path
 from . import config, resources
 
 OK, WARN, FAIL, INFO, SKIP = "OK", "WARN", "FAIL", "INFO", "SKIP"
-REQUIRED, FOOTAGE, OPTIONAL = "required", "footage", "optional"
-TITLES = {REQUIRED: "Required (CLI, tests, demo)", FOOTAGE: "For real footage (transcription)", OPTIONAL: "Optional (Resolve, motion graphics, music, publishing)"}
+REQUIRED, CAPTIONS, FOOTAGE, OPTIONAL = "required", "captions", "footage", "optional"
+TITLES = {REQUIRED: "Required (CLI, tests, demo)", CAPTIONS: "Required for captions & shorts (burned-in)", FOOTAGE: "For real footage (transcription)", OPTIONAL: "Optional (Resolve, motion graphics, music, publishing)"}
 
 IS_MAC = sys.platform == "darwin"
 APPLE_SILICON = IS_MAC and platform.machine() == "arm64"
@@ -74,8 +76,8 @@ def _checks() -> list[Check]:
     if config.binary("ffmpeg"):
         from . import ffutil
         has_ass = ffutil.has_filter("ass")
-        add(OK if has_ass else WARN, "FFmpeg libass (burned-in captions)", "`ass` filter available" if has_ass else
-            "this ffmpeg has no `ass` filter: captions cannot be burned into video (shorts, final cut with captions)", ffutil.install_hint(), REQUIRED)
+        add(OK if has_ass else FAIL, "FFmpeg libass (burned-in captions)", "`ass` filter available" if has_ass else
+            "this ffmpeg has no `ass` filter: shorts, `ave captions --burn` and `ave final --burn` will fail", ffutil.install_hint(), CAPTIONS)
     add(OK if sys.version_info >= (3, 11) else FAIL, "Python", sys.version.split()[0], "uv python install 3.12 && uv sync", REQUIRED)
     try:
         add(OK, "Bundled config, skills, motion-kit", resources.source(), "", REQUIRED)
@@ -123,7 +125,7 @@ def _checks() -> list[Check]:
         add(SKIP, "Apple Vision face detection (shorts reframing)", "macOS only; shorts fall back to centre crops", "")
     if _importable("playwright"):
         roots = [Path.home() / "Library/Caches/ms-playwright", Path.home() / ".cache/ms-playwright"]
-        has_chromium = any(r.is_dir() and any(p.name.startswith("chromium") for p in r.iterdir()) for r in roots)
+        has_chromium = getattr(sys, "frozen", False) or any(r.is_dir() and any(p.name.startswith("chromium") for p in r.iterdir()) for r in roots)
         add(OK if has_chromium else WARN, "Chromium for motion graphics", "installed" if has_chromium else "missing",
             "python -m playwright install chromium")
 
@@ -149,7 +151,8 @@ def _checks() -> list[Check]:
         else:
             add(WARN, "Resolve Python discovery", "PYTHON3HOME unset and no /usr/local/bin/python3", "scripts/persist-python3home.sh  (one-time, needs sudo)")
         mcp, py = config.resolve_mcp_dir(), config.resolve_mcp_python()
-        add(OK if mcp and py else WARN, "Resolve MCP server", f"{mcp}" if mcp and py else "not installed",
+        bundled = getattr(sys, "frozen", False)     # the standalone app runs it in its own interpreter
+        add(OK if bundled or (mcp and py) else WARN, "Resolve MCP server", "included in this app" if bundled else f"{mcp}" if mcp and py else "not installed",
             "scripts/setup.sh   (full mode clones davinci-resolve-mcp into vendor/)")
         port = 49632
         try:
@@ -172,6 +175,11 @@ def verdict(checks: list[Check]) -> tuple[str, int]:
         return f"NOT READY: {len(req)} required item(s) missing ({', '.join(c.name for c in req)}). Fix those first.", 1
     foot = [c for c in checks if c.group == FOOTAGE and c.name == "A transcription engine"]
     no_asr = bool(foot) and foot[0].status != OK
+    no_ass = [c for c in checks if c.group == CAPTIONS and c.status == FAIL]
+    if no_ass:
+        todo = "; also no transcription engine yet" if no_asr else ""
+        return ("PARTLY READY: `ave demo`, tests, assembly, rough cut and SRT-only final cut work. NOT ready for burned-in captions or shorts: "
+                f"FFmpeg has no libass (fix above){todo}."), 0
     opt = [c for c in checks if c.group == OPTIONAL and c.status == WARN]
     if no_asr:
         return "READY for `ave demo` and tests. For real footage you still need a transcription engine (see above).", 0
@@ -187,7 +195,7 @@ def run(as_json: bool = False) -> int:
         print(json.dumps([asdict(c) for c in checks], indent=2))
         return code
     print(f"ave doctor  (platform: {platform.system()} {platform.machine()}, Python {sys.version.split()[0]})")
-    for group in (REQUIRED, FOOTAGE, OPTIONAL):
+    for group in (REQUIRED, CAPTIONS, FOOTAGE, OPTIONAL):
         rows = [c for c in checks if c.group == group]
         if not rows:
             continue

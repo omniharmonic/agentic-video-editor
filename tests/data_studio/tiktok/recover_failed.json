@@ -1,0 +1,18 @@
+[
+  {
+    "method": "POST",
+    "url": "/post/publish/status/fetch/",
+    "response": {
+      "data": {
+        "status": "FAILED",
+        "fail_reason": "file_format_check_failed"
+      },
+      "error": {
+        "code": "ok",
+        "message": "",
+        "log_id": "202610191600000000"
+      }
+    },
+    "_source": "documentation-derived, UNVERIFIED live: https://developers.tiktok.com/doc/content-posting-api-reference-upload-video"
+  }
+]

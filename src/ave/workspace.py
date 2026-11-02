@@ -53,3 +53,26 @@ def episodes() -> list[Path]:
     if not ws or not ws.is_dir():
         return []
     return sorted(d for d in ws.iterdir() if (d / "episode.json").exists())
+
+
+def in_git_checkout(p: Path) -> bool:
+    """True when `p` is inside any git checkout (a .git up the tree), e.g. this repo."""
+    p = p.expanduser().resolve()
+    return any((d / ".git").exists() for d in (p, *p.parents))
+
+
+def refuse_repo_relative(arg: str | Path, root: Path) -> None:
+    """`ave init-episode ep-001` with no workspace set would create ./ep-001 in the cwd: refuse when that cwd is inside a git repo.
+
+    Absolute and ~ paths, an existing episode, or a bare name that resolved into the workspace are fine."""
+    a = Path(arg)
+    if a.is_absolute() or str(arg).startswith("~") or (root / "episode.json").exists():
+        return
+    ws = get()
+    if ws and (root == ws.resolve() or ws.resolve() in root.parents):
+        return
+    if in_git_checkout(root):
+        raise SystemExit(
+            f"refusing to create '{arg}' at {root}: that is inside a git checkout, so footage and renders could end up committed.\n"
+            "  Set a workspace once:  ave workspace ~/Movies/MyShow   then  ave init-episode ep-001\n"
+            f"  or give a full path:   ave init-episode ~/Movies/MyShow/{a.name}")

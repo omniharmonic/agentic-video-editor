@@ -1,0 +1,11 @@
+{
+  "method": "POST",
+  "path": "/api/studio/resume",
+  "status": 200,
+  "request": {
+    "pin": "123456"
+  },
+  "response": {
+    "paused": false
+  }
+}

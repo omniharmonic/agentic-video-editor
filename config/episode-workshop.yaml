@@ -1,0 +1,25 @@
+version: 1
+max_source_seconds: 43200
+max_session_seconds: 43200
+max_sources: 200
+transcript_page_utterances: 60
+# Allow normal compressed-audio priming/tail differences against stream duration.
+# Missing stream duration is verified by counting decoded source samples instead.
+analysis_duration_tolerance_s: 0.1
+cleanup_choices:
+  balanced: {}
+  gentle:
+    pause: {max_ms: 1200, target_ms: 700}
+    fillers: {cut: []}
+    repeats: {enabled: false}
+    false_starts: {enabled: false}
+sequence_max_components: 12
+sequence_component_max_seconds: 120
+caption_alignment_tolerance_s: 0.2
+
+# Separate final picture regions: captions at bottom, name title above, credit near top.
+final_layout:
+  title_y_fraction: -0.20
+  title_min_duration_s: 2.0
+  credit_position_landscape: {x: 0.04, y: 0.08}
+  credit_position_portrait: {x: 0.06, y: 0.08}

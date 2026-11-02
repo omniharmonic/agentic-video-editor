@@ -54,13 +54,28 @@ def cmd_export(a) -> int:
     return 2 if bad else 0
 
 
+def cmd_recut(a) -> int:
+    from .. import shortedit
+    ep = _ep(a)
+    _out(shortedit.recut(ep, a.clip, drop_start_words=a.drop_start_words, drop_end_words=a.drop_end_words, trim_start_s=a.trim_start,
+                         trim_end_s=a.trim_end, name=a.name, allow_unapproved=a.allow_unapproved, allow_incomplete=a.allow_incomplete,
+                         dry_run=a.dry_run, by=a.by))
+    return 0
+
+
+def cmd_retitle(a) -> int:
+    from .. import shortedit
+    _out(shortedit.retitle(_ep(a), a.clip, a.title, name=a.name, allow_unapproved=a.allow_unapproved, by=a.by))
+    return 0
+
+
 def cmd_list(a) -> int:
     _out(shorts.list_shorts(_ep(a)))
     return 0
 
 
 def register(sub) -> None:
-    s = sub.add_parser("shorts", help="vertical shorts: build / preview / export / list")
+    s = sub.add_parser("shorts", help="vertical shorts: build / preview / export / list / recut / retitle")
     ss = s.add_subparsers(dest="shorts_cmd", required=True)
 
     def pick(p):
@@ -102,6 +117,29 @@ def register(sub) -> None:
     x.add_argument("--all", action="store_true", help="alias of --all-approved")
     x.add_argument("--platforms", help="comma list: youtube,reels,facebook,x (default all)")
     x.set_defaults(fn=cmd_export)
+
+    r = ss.add_parser("recut", help="move a short's start/end INWARD on word boundaries (new select + short version; the complete-statement gate runs; flagged needs_review)")
+    r.add_argument("episode")
+    r.add_argument("--clip", required=True, help="clip slug or id")
+    r.add_argument("--drop-start-words", type=int, default=0, help="start this many words later")
+    r.add_argument("--drop-end-words", type=int, default=0, help="end this many words earlier")
+    r.add_argument("--trim-start", type=float, default=0.0, metavar="S", help="start about S seconds later (snapped to the next word edge)")
+    r.add_argument("--trim-end", type=float, default=0.0, metavar="S", help="end about S seconds earlier (snapped to the previous word edge)")
+    r.add_argument("--dry-run", action="store_true", help="show the new first/last words and whether they are complete statements; write nothing")
+    r.add_argument("--allow-incomplete", action="store_true", help="OVERRIDE the complete-statement gate (logged); only when the human accepts it")
+    r.add_argument("--allow-unapproved", action="store_true", help="TRIAL on a proposed clip, only when the human said to")
+    r.add_argument("--name", metavar="SESSION")
+    r.add_argument("--by", help="who is cutting (default $AVE_USER or the login name)")
+    r.set_defaults(fn=cmd_recut)
+
+    t = ss.add_parser("retitle", help="swap the title the short opens with (new short version; crops and captions are copied; the title critic runs)")
+    t.add_argument("episode")
+    t.add_argument("--clip", required=True, help="clip slug or id")
+    t.add_argument("--title", required=True, help="a plain topic, not the speaker's words")
+    t.add_argument("--allow-unapproved", action="store_true")
+    t.add_argument("--name", metavar="SESSION")
+    t.add_argument("--by")
+    t.set_defaults(fn=cmd_retitle)
 
     l = ss.add_parser("list", help="shorts built and exported")
     l.add_argument("episode")

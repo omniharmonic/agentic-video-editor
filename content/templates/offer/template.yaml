@@ -1,0 +1,22 @@
+id: offer
+title: Offer
+kind: image
+description: >
+  An offer with its price and its dates stated plainly: a label, the thing, the price large, the validity beneath. Never invent a discount or a deadline;
+  the price and dates come from the human and are checked against what they said before anything is queued.
+formats: [1x1, 4x5, 9x16, 2x3]
+styles: [ink, paper, clay]
+default_platforms: [instagram, facebook, pinterest]
+renderers:
+  motion-kit: {template: card}
+slots:
+  type: object
+  required: [title, price]
+  additionalProperties: false
+  properties:
+    kicker: {type: string, maxLength: 28, default: "", description: "A short label, for example Pre-order. Optional."}
+    title:  {type: string, minLength: 3, maxLength: 70, description: "What is on offer."}
+    price:  {type: string, minLength: 1, maxLength: 16, description: "The price or the amount, as printed (for example $38 or 20% off)."}
+    valid:  {type: string, maxLength: 60, default: "", x-byline: true, description: "Dates or terms in a line (Until Nov 15, while the dough lasts)."}
+    cta:    {type: string, maxLength: 40, default: "", x-byline: true, description: "How to get it. Optional."}
+    show:   {type: string, maxLength: 40, default: ""}

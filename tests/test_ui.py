@@ -144,6 +144,41 @@ def test_raw_footage_is_not_served(cl):
     assert cl.req("GET", "/files/raw/camA.mp4", token="header")[0] == 403
 
 
+@pytest.mark.parametrize("path", ["/files/RAW/camA.mp4", "/files/Raw/camA.mp4", "/files/rAw/CAMA.MP4"])
+def test_raw_footage_block_ignores_case(cl, path):
+    """APFS is case-insensitive: `RAW/camA.mp4` is the same bytes as `raw/camA.mp4` and must be refused too."""
+    s, _, raw = cl.req("GET", path, token="header")
+    assert s in (403, 404) and b"raw footage bytes" not in raw
+
+
+def test_raw_footage_block_follows_symlinks_into_raw(cl, ep):
+    (ep.exports / "alias").symlink_to(ep.raw, target_is_directory=True)
+    (ep.exports / "alias_file.mp4").symlink_to(ep.raw / "camA.mp4")
+    for path in ("/files/exports/alias/camA.mp4", "/files/exports/alias_file.mp4"):
+        s, _, raw = cl.req("GET", path, token="header")
+        assert s in (403, 404) and b"raw footage bytes" not in raw, path
+
+
+def _raw_post(srv, content_length: str, body: bytes = b"") -> int:
+    import socket
+    c = socket.create_connection(("127.0.0.1", srv.port), timeout=5)
+    try:
+        c.sendall((f"POST /api/trim/clear HTTP/1.1\r\nHost: 127.0.0.1:{srv.port}\r\nX-AVE-Token: {srv.token}\r\n"
+                   f"Content-Type: application/json\r\nContent-Length: {content_length}\r\nConnection: close\r\n\r\n").encode() + body)
+        data = b""
+        while chunk := c.recv(65536):
+            data += chunk
+        return int(data.split(b" ", 2)[1])
+    finally:
+        c.close()
+
+
+@pytest.mark.parametrize("cl_value", ["-1", "-100000", "abc", str(10_000_000)])
+def test_bad_content_length_is_a_400_and_never_reads(srv, cl_value):
+    # no body is sent: a handler that tried to read it would hang until the 5 s socket timeout and raise
+    assert _raw_post(srv, cl_value) == 400
+
+
 def test_file_range_requests(cl):
     s, h, body = cl.req("GET", "/files/exports/notes.txt", token="header")
     assert s == 200 and len(body) == 100 and h["Accept-Ranges"] == "bytes"
@@ -314,7 +349,7 @@ def vertical_video(video_pool, ep):
 @pytest.mark.parametrize("cmd,args", [
     ("publish run", {}), ("publish approve", {}), ("publish", {}), ("rm -rf /", {}), ("status; ls", {}), ("clips decide", {}), ("", {}),
     ("status", {"allow_unapproved": True}), ("content render", {"allow_unlicensed": True}), ("content render", {"allow-unlicensed": True}),
-    ("render", {"out": "/tmp/x.mp4"}), ("render", {"env": {"AVE_ALLOW_UNATTENDED_APPROVAL": "1"}}), ("clips prepare", {"name": "../../raw"}),
+    ("render", {"out": "/tmp/x.mp4"}), ("render", {"env": {"X": "1"}}), ("clips prepare", {"name": "../../raw"}),
     ("clips prepare", {"name": "s1; rm"}), ("clips prepare", {"min_s": "20"}), ("clips prepare", {"min_s": True}), ("clips prepare", {"min_s": -1}),
     ("render", {"stage": "../../etc"}), ("status", {"path": "/Volumes/EXTERNAL"}), ("clips list", {"all": "yes"}),
 ])
@@ -336,9 +371,10 @@ def test_no_allowlisted_command_publishes_or_approves():
         assert "decide" not in spec["argv"] and "approve" not in spec["argv"]
 
 
-def test_child_env_drops_the_unattended_approval_switch(monkeypatch):
-    monkeypatch.setenv("AVE_ALLOW_UNATTENDED_APPROVAL", "1")
-    assert "AVE_ALLOW_UNATTENDED_APPROVAL" not in ujobs.child_env()
+def test_child_env_marks_agent_and_drops_the_signing_key(monkeypatch):
+    monkeypatch.setenv("AVE_APPROVAL_KEY", "k" * 64)
+    env = ujobs.child_env()
+    assert "AVE_APPROVAL_KEY" not in env and env["AVE_AGENT"] == "1"
 
 
 def test_job_runs_and_streams_log(cl, ep):

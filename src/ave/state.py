@@ -106,6 +106,10 @@ def _single_camera(ep: Episode) -> bool:
 
 
 def status(ep: Episode) -> dict:
+    from .progress import is_studio_project
+    if is_studio_project(ep):
+        from .studio.progress import status as studio_status
+        return studio_status(ep)
     ep.require()
     single = _single_camera(ep)
     rows = []
@@ -152,6 +156,10 @@ def _channel_layouts(ep: Episode) -> list[str]:
 
 def briefing(ep: Episode) -> str:
     """Plain-text orientation for a fresh agent session."""
+    from .progress import is_studio_project
+    if is_studio_project(ep):
+        from .studio.progress import briefing as studio_briefing
+        return studio_briefing(ep)
     st = status(ep)
     meta = read_json(ep.meta_path)
     lines = [f"Episode: {meta.get('title', st['episode'])}  ({st['path']})", ""]

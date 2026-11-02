@@ -14,6 +14,7 @@ import time
 from pathlib import Path
 from typing import Any, Iterator
 
+from . import humanpresence
 from .config import REPO_ROOT
 from .episode import Episode
 
@@ -61,7 +62,7 @@ def _by() -> str:
 # ---- write -------------------------------------------------------------------------------------------------
 
 def record_decision(ep: Episode, clip_id: str, verdict: str, reasons: Any = (), note: str | None = None, by: str | None = None,
-                    source: str = "cli", *, session: str | None = None, edit: str | None = None, features: dict | None = None) -> dict:
+                    source: str = "cli", *, session: str | None = None, edit: str | None = None, features: dict | None = None, via: str | None = None) -> dict:
     """Append one decision. `session`, `edit` and `features` default to what clips.json holds for `clip_id`.
 
     Raises ValueError for an unknown verdict/source or a reason that is not in the vocabulary (the message lists the valid ones)."""
@@ -83,7 +84,8 @@ def record_decision(ep: Episode, clip_id: str, verdict: str, reasons: Any = (), 
         features = features if features is not None else clip_features(clip)
     rec = {"v": SCHEMA_VERSION, "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "episode": ep.root.name, "clip_id": clip_id,
            "session": session, "edit": edit, "verdict": verdict, "reasons": reasons, "note": (note or None),
-           "by": by or _by(), "source": source, "features": features or {}}
+           "by": by or _by(), "source": source, "via": via or ("ui" if source == "ui" else humanpresence.provenance()),
+           "features": features or {}}
     p = ledger_path(ep)
     p.parent.mkdir(parents=True, exist_ok=True)
     with p.open("a") as f:

@@ -34,7 +34,7 @@ Optional: `--audio mp3|aac|both`, `--new-version`, `--strict` (exit 2 if a requi
   with a `DRAFT-` file name and a reason. Approving is the human's (`ave clips review`, `ave content review`); you do not decide for them and you do not flip a status to fill the folder.
 - **A package folder is never overwritten.** Re-running with nothing changed says `unchanged`; a change makes `-v2`, `-v3`. Do not delete an old package.
 - The final cut's human approval is not machine-recorded (manifest says `unrecorded`); ask the human to confirm they signed it off before they publish.
-- Chapters: `work/chapters.json` (`[{"start": seconds in the FINAL video, "title"}]`) wins. Otherwise topic breaks are derived from the transcript and mapped through the final EditDoc; the
+- Chapters: `work/chapters.json` (`[{"start": seconds in the FINAL video, "title"}]`) wins. With several session finals, each reads its own `work/chapters.<session>.json` and the shared file is ignored, because its times belong to one video only. Each session gets its own captions, audio and `audio/chapters.<session>.txt`. Otherwise topic breaks are derived from the transcript and mapped through the final EditDoc; the
   titles are keyword drafts and the checklist says so. YouTube ignores fewer than 3 chapters or a first one not at 0:00.
 - Loudness: the audio file is normalised to -16 LUFS and re-measured; a result outside +-1 LU is a `warn` with the numbers. Report it, do not hide it.
 

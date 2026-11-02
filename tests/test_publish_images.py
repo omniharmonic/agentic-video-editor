@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+from pathlib import Path
 
 import pytest
 from PIL import Image
@@ -19,7 +20,7 @@ ALT = "Quote card: a goal is a wish and a system is a habit."
 def png(ep, name, size=(1080, 1350), color=(27, 24, 20)):
     p = ep.root / "content" / name
     p.parent.mkdir(parents=True, exist_ok=True)
-    Image.new("RGB", size, color).save(p)
+    Image.new("RGB", size, color).save(p, format="JPEG")      # Instagram takes JPEG only (config/platforms.yaml, spec E6), whatever the file is called
     return p
 
 
@@ -58,7 +59,7 @@ def test_approval_binds_the_image_bytes_and_changing_the_file_invalidates_it(ep)
 def test_wrong_confirmation_hash_is_refused_for_images(ep):
     it = make(ep, [png(ep, "a.png")])
     with pytest.raises(ValueError, match="confirmation hash"):
-        queue.approve(ep, it["id"], "ben", "deadbeef0000", publishers=pubs("instagram"))
+        queue.approve(ep, it["id"], "maren", "deadbeef0000", publishers=pubs("instagram"))
 
 
 def test_editing_alt_text_after_approval_invalidates_it(ep):
@@ -164,6 +165,7 @@ def test_missing_image_file_is_reported(ep):
 
 def test_aggregator_uploads_every_slide_and_fills_media_lists_in_the_post_template(ep, isolated_secrets):
     safety.set_secret("aggregator_api_key", "agg-key-123456")
+    safety.set_secret("aggregator_hosts", "agg.example")
     conf = {"base_url": "https://agg.example", "auth": {"header": "X-Key", "prefix": "Key "}, "networks": {"instagram": "ig"},
             "supports_visibility": False,
             "upload": {"path": "/media", "id_path": "data.id", "url_path": "data.url"},
@@ -180,7 +182,9 @@ def test_aggregator_uploads_every_slide_and_fills_media_lists_in_the_post_templa
     fs = _car(ep)
     it = {"title": "t", "caption": "cap", "visibility": "public", "media_type": "carousel", "alt_texts": ["a", "b", "c"], "_files": [str(f) for f in fs]}
     res = AggregatorPublisher(network="instagram", config=conf, session=s).publish(it, fs[0], lambda p: None)
-    assert res["id"] == "P1"
+    # A generic aggregator ID acknowledges an operation, not verified publication.
+    assert res['id'] is None and res['receipt']['phase']=='processing'
+    assert res['receipt']['object']['id']=='P1'
     assert [c[1] for c in s.calls] == ["https://agg.example/media"] * 3 + ["https://agg.example/post"]
     assert s.calls[3][2]["json"] == {"net": ["ig"], "text": "cap", "media": ["https://cdn/m1.png", "https://cdn/m2.png", "https://cdn/m3.png"],
                                      "alt": ["a", "b", "c"], "type": "carousel"}
@@ -194,12 +198,13 @@ def test_queue_run_hands_every_file_to_the_adapter(ep):
         def publish(self, item, video, progress):
             seen["files"] = item["_files"]
             seen["first"] = str(video)
-            return {"id": "p", "url": "https://x/p"}
+            from ave.publish.receipts import result
+            return result('instagram','p','https://x/p')
     p = {"instagram": Spy("instagram")}
     it = queue.create(ep, files=fs, media_type="carousel", alt_texts=[ALT] * 3, platforms=["instagram"], title="t", ai_disclosure=False, publishers=p)
     approve_item(ep, it["id"], p)
     assert queue.run(ep, it["id"], send=True, publishers=p)["ok"]
-    assert seen["files"] == [str(f) for f in fs] and seen["first"] == str(fs[0])
+    assert [Path(x).name for x in seen["files"]] == [f.name for f in fs] and seen["first"] == seen["files"][0]     # a verified private copy, in order
     assert "_files" not in queue.load(ep, it["id"])
 
 

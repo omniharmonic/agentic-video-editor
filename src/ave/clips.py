@@ -42,7 +42,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from . import editdoc, recall, segment, sessions, tighten
+from . import editdoc, humanpresence, recall, segment, sessions, tighten
 from .config import REPO_ROOT
 from .episode import Episode, read_json, write_json
 
@@ -199,7 +199,7 @@ def _group_sentences(words: list[dict], rubric: dict) -> list[list[dict]]:
             gap = w["start"] - prev["end"]
             if same_speaker and not _terminal(prev["w"], abbr):
                 # a long pause ends a sentence even without punctuation, EXCEPT a hesitation inside a clause: the speaker stopped on a
-                # dangling word or a comma ("and and ...") and resumes in lowercase ("behind the counter")
+                # dangling word or a comma ("and and ...") and resumes in lowercase ("behind the vestments")
                 resumes = (gap < sc["merge_gap_s"] and (segment.norm_token(prev["w"]) in dangling or prev["w"].rstrip().endswith(","))
                            and (segment.starts_lower(w["w"]) if use_case else segment.norm_token(w["w"]) not in sc["continuation_openers"]))
                 if gap < cfg["gap_s"] or resumes:
@@ -215,10 +215,10 @@ def _group_sentences(words: list[dict], rubric: dict) -> list[list[dict]]:
 class Sentences:
     """The sentence table for one stage doc: issued ids, flat words, and boundary snapping."""
 
-    def __init__(self, ep: Episode, doc: dict, rubric: dict):
+    def __init__(self, ep: Episode, doc: dict, rubric: dict, *, words: list[dict] | None = None):
         self.rubric = rubric
         self.duration = float(doc["duration"])
-        self.words = mapped_words(ep, doc)
+        self.words = mapped_words(ep, doc) if words is None else [dict(w, e0=w.get('e0', w.get('project_start', w.get('source_start', w['start'])))) for w in words]
         self.fillers = {f.lower() for f in rubric["snap"]["filler_words"]}
         h = rubric["heuristics"]
         self._mid = set(h["mid_thought_starts"])
@@ -1181,7 +1181,7 @@ def decide(ep: Episode, decisions: Any, name: str | None = None, by: str | None 
         if verdict is not None:
             kind = _VERDICT_KIND.get(verdict, f"?{verdict}")
         reasons = dd.get("reasons") or []
-        rec = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "clip": cid, "decision": kind, "nudge": dd.get("nudge"), "note": dd.get("note")}
+        rec = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "via": "ui" if source == "ui" else humanpresence.provenance(), "clip": cid, "decision": kind, "nudge": dd.get("nudge"), "note": dd.get("note")}
         err = None
         clip = by_id.get(cid)
         if clip is None:

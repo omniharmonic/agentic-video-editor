@@ -6,11 +6,12 @@ Methods return plain JSON-able dicts and raise ApiError(status, message) for any
 from __future__ import annotations
 
 import getpass
+import os
 import threading
 from pathlib import Path
 
 from .. import clips as C
-from .. import editdoc, progress, state, trim
+from .. import editdoc, progress, review, state, trim
 from ..episode import Episode, read_json, write_json
 from ..publish import queue, safety
 from . import ledger
@@ -22,6 +23,24 @@ class ApiError(Exception):
         super().__init__(message)
         self.status = status
         self.message = message
+
+
+def _in_raw(ep: Episode, p: Path) -> bool:
+    """True when `p` is inside a raw footage dir. Case-insensitive (APFS is by default: `/files/RAW/x` is the same file as `/files/raw/x`)
+    and identity-based (`samefile` on every ancestor), so neither case nor a symlinked or hard-linked directory gets around the block."""
+    ps = os.path.normcase(str(p)).casefold()
+    for raw in ep.raw_dirs:
+        rs = os.path.normcase(str(raw.resolve())).casefold()
+        if ps == rs or ps.startswith(rs.rstrip(os.sep) + os.sep):
+            return True
+        if raw.exists():
+            for parent in p.parents:
+                try:
+                    if os.path.samefile(parent, raw):
+                        return True
+                except OSError:
+                    continue
+    return False
 
 
 def resolve_inside(ep: Episode, rel: str) -> Path:
@@ -37,12 +56,8 @@ def resolve_inside(ep: Episode, rel: str) -> Path:
         p.relative_to(root)
     except ValueError:
         raise ApiError(404, "not found") from None
-    for raw in ep.raw_dirs:
-        try:
-            p.relative_to(raw.resolve())
-            raise ApiError(403, "raw footage is not served")
-        except ValueError:
-            pass
+    if _in_raw(ep, p):
+        raise ApiError(403, "raw footage is not served")
     if not p.is_file():
         raise ApiError(404, "not found")
     return p
@@ -427,6 +442,47 @@ class App:
                 "duration": clip.get("duration"), "score": clip.get("total")}
 
     # ------------------------------------------------------------------ trim
+    def review(self, qs: dict | None = None) -> dict:
+        """The Review page: one edit's lanes, its render, its clips and every note on any version of it."""
+        ep, qs = self.ep, qs or {}
+        edits = review.edits(ep)
+        if not edits:
+            return {"edits": [], "edit": None, "kinds": list(review.KINDS)}
+        order = ("final", "rough", "assembly")
+        rank = lambda e: (order.index(e["stage"]) if e["stage"] in order else len(order), e["name"] or "", -e["version"])
+        edit = (qs.get("edit") or [min(edits, key=rank)["edit"]])[0]
+        row = next((e for e in edits if e["edit"] == edit), None)
+        if not row:
+            raise ApiError(404, f"no such edit: {edit}")
+        doc = review.load_edit(ep, edit)
+        found = sorted(ep.exports.glob(f"{edit}.*"), key=lambda p: (".proxy." not in p.name, p.name)) if ep.exports.is_dir() else []
+        video = next((_servable(ep, f) for f in found if f.suffix.lower() in (".mp4", ".mov", ".m4v", ".webm")), None)
+        latest, clips_doc = ledger.latest_decisions(ep), C.load_clips(ep)
+        clips = []
+        for c in (clips_doc or {}).get("clips", []):
+            src = c.get("source") or clips_doc.get("source") or {}
+            if (src.get("stage"), src.get("version"), src.get("name") or None) == (row["stage"], row["version"], row["name"]):
+                clips.append({"id": c["id"], "o0": c["start"], "o1": c["end"], "title": c.get("title") or c["id"],
+                              "verdict": (latest.get(c["id"]) or {}).get("verdict")})
+        same = lambda e: e["stage"] == row["stage"] and e["name"] == row["name"]
+        family = {e["edit"] for e in edits if same(e)}
+        return {"edits": edits, "edit": edit, "version": row["version"], "video": video, "render_cmd": f"ave render {ep.root} --stage {row['stage']}" + (f" --name {row['name']}" if row["name"] else "") + " --proxy",
+                "timeline": review.timeline(doc), "clips": clips, "kinds": list(review.KINDS),
+                "notes": [n for n in review.notes(ep) if n["edit"] in family]}
+
+    def review_note(self, body: dict) -> dict:
+        try:
+            return {"note": review.add_note(self.ep, edit=_need(body, "edit"), t0=body.get("t0"), t1=body.get("t1"), text=_need(body, "text"),
+                                            kind=body.get("kind") or "other", by=self.by)}
+        except (TypeError, ValueError) as e:
+            raise ApiError(400, str(e))
+
+    def review_withdraw(self, note: str) -> dict:
+        try:
+            return {"note": review.withdraw(self.ep, note, by=self.by)}
+        except ValueError as e:
+            raise ApiError(400, str(e))
+
     def trim(self) -> dict:
         ep = self.ep
         meta = read_json(ep.meta_path)

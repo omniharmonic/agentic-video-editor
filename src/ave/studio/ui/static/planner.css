@@ -1,0 +1,98 @@
+/* Planner-specific styles; the photos carry the visual weight. */
+.feed-planner { max-width: 1180px; margin: 0 auto; padding: 8px 8px 24px; }
+.planner-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 24px; }
+.planner-heading h1 { font: 600 30px/1.15 var(--sans); letter-spacing: -.035em; margin: 0 0 7px; }
+.planner-heading p, .planner-help, .planner-footnote { color: var(--ink-2); font-size: 13px; }
+.planner-heading-actions, .planner-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.planner-heading-actions .btn, .planner-heading-actions button { display: inline-flex; align-items: center; gap: 6px; }
+.planner-toolbar { padding: 0 0 14px; border-bottom: 1px solid var(--line); }
+.planner-toolbar select { min-width: 210px; max-width: 100%; }
+.planner-crop { display: inline-flex; align-items: center; gap: 6px; }
+.planner-crop[aria-pressed="true"] { background: var(--blue-wash); color: var(--blue); }
+.planner-save { margin-left: auto; color: var(--ink-2); font-size: 12px; }
+.planner-help { margin: 12px 0 18px; }
+.planner-layout { display: grid; grid-template-columns: minmax(0, 760px) minmax(230px, 300px); gap: 42px; align-items: start; }
+.planner-feed-header { display: flex; align-items: center; justify-content: space-between; padding: 4px 0 16px; }
+.planner-feed-header strong { font-size: 16px; font-weight: 600; }
+.planner-feed-header > span { color: var(--ink-2); font-size: 12px; }
+.planner-feed.g-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; padding: 0; margin: 0; list-style: none; background: transparent; }
+.planner-tile.gcell { position: relative; touch-action: none; user-select: none; -webkit-user-select: none; }
+.planner-tile.is-locked { touch-action: pan-y; }
+.planner-tile .g-link { cursor: grab; outline: none; height: 100%; }
+.planner-tile.is-locked .g-link { cursor: pointer; }
+.planner-image { display: block; position: relative; width: 100%; aspect-ratio: 3 / 4; overflow: hidden; background: var(--sheet-2); }
+.planner-image img { display: block; height: 100%; width: 100%; object-fit: cover; pointer-events: none; -webkit-user-drag: none; }
+.planner-full .planner-image img { object-fit: contain; }
+.planner-position, .planner-badge, .planner-count { position: absolute; z-index: 1; font-size: 11px; color: white; background: rgba(0,0,0,.5); border-radius: 4px; padding: 3px 6px; pointer-events: none; }
+.planner-position { left: 8px; top: 8px; opacity: 0; }
+.planner-badge { left: 7px; top: 7px; display: inline-flex; align-items: center; gap: 3px; }
+.planner-count { top: 8px; right: 8px; display: flex; gap: 4px; align-items: center; }
+.planner-caption { position: absolute; bottom: 0; left: 0; right: 0; padding: 26px 10px 10px; background: linear-gradient(transparent, rgba(0,0,0,.7)); font-size: 12px; line-height: 1.4; opacity: 0; pointer-events: none; }
+.planner-tile:hover .planner-caption, .planner-tile:focus-within .planner-caption, .planner-tile:hover .planner-position, .planner-tile:focus-within .planner-position { opacity: 1; }
+.planner-tile.is-selected::after, .planner-tile:focus-within::after { content: ""; position: absolute; inset: 0; border: 3px solid var(--blue); pointer-events: none; }
+.planner-tile.drop-hover::after, .planner-tile.kb-target::after { content: ""; position: absolute; inset: 0; border: 5px solid var(--blue); pointer-events: none; background: color-mix(in srgb, var(--blue) 15%, transparent); }
+.planner-placeholder { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; gap: 10px; height: 100%; padding: 14px; color: var(--ink-2); }
+.planner-placeholder > span { max-height: 5em; overflow: hidden; font-size: 14px; line-height: 1.5; }
+.planner-placeholder small { color: var(--ink-3); }
+.planner-inspector { position: sticky; top: 90px; padding-top: 4px; }
+.planner-detail-label { color: var(--ink-2); font-size: 12px; margin: 0 0 12px; }
+.planner-inspector h2 { font: 550 20px/1.4 var(--sans); margin: 0 0 12px; overflow-wrap: anywhere; }
+.planner-detail-status { display: flex; gap: 5px; align-items: center; font-size: 12px; text-transform: capitalize; }
+.planner-detail-time { font-size: 12px; color: var(--ink-2); margin: 8px 0 18px; }
+.planner-detail-image { margin: 0 0 16px; max-height: 260px; overflow: hidden; background: var(--sheet-2); }
+.planner-detail-image img { display: block; width: 100%; max-height: 260px; object-fit: contain; }
+.planner-position-control { display: flex; align-items: end; gap: 8px; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--line); }
+.planner-position-control label { display: grid; gap: 8px; font-size: 12px; flex: 1; }
+.planner-position-control select { width: 100%; }
+.planner-footnote { font-size: 12px; margin-top: 24px; max-width: 760px; line-height: 1.6; }
+.planner-error { padding: 12px; color: var(--danger, #a02a25); background: var(--sheet-2); margin: 12px 0; }
+.planner-empty { grid-column: 1 / -1; min-height: 360px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px; text-align: center; gap: 15px; border: 1px dashed var(--line); }
+.planner-empty h2 { font: 550 24px var(--sans); }
+.planner-empty p { color: var(--ink-2); max-width: 35ch; }
+.planner-tile.dnd-ghost { overflow: hidden; }
+@media (max-width: 850px) {
+  .planner-layout { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .planner-canvas { max-width: 660px; width: 100%; margin: auto; }
+  .planner-inspector { position: static; max-width: 660px; width: 100%; margin: auto; border-top: 1px solid var(--line); padding-top: 20px; }
+  .planner-detail-image { display: none; }
+}
+@media (max-width: 520px) {
+  .feed-planner { padding-inline: 0; }
+  .planner-heading { align-items: start; flex-direction: column; gap: 14px; margin-bottom: 20px; }
+  .planner-heading h1 { font-size: 26px; }
+  .planner-heading-actions { width: 100%; justify-content: space-between; }
+  .planner-toolbar { gap: 10px; }
+  .planner-toolbar select { min-width: 0; flex: 1; }
+  .planner-save { width: 100%; margin-left: 0; }
+  .planner-placeholder { padding: 8px; }
+  .planner-placeholder > span { font-size: 11px; }
+  .planner-caption { display: none; }
+  .planner-badge { font-size: 9px; left: 3px; top: 3px; padding: 2px; }
+}
+.planner-toolbar select, .planner-position-control select, .feed-planner button { min-height: 38px; border: 1px solid var(--line); border-radius: 6px; background: var(--sheet); color: var(--ink); padding: 7px 10px; font: inherit; font-size: 13px; }
+.feed-planner button.primary { background: var(--blue); color: var(--blue-ink); border-color: var(--blue); }
+.feed-planner button[aria-pressed="true"] { background: var(--blue-wash); color: var(--blue); }
+.planner-toolbar select[aria-label="Content surface"] { min-width: 105px; }
+.planner-feed.g-list { grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); }
+.planner-image { aspect-ratio: var(--cell-aspect, .75); }
+.planner-image video { display: block; height: 100%; width: 100%; object-fit: cover; pointer-events: none; }
+.planner-full .planner-image video { object-fit: contain; }
+.planner-detail-image video { display: block; width: 100%; max-height: 260px; object-fit: contain; }
+.ig-profile-tile video { display: block; width: 100%; height: 100%; object-fit: cover; }
+.planner-touch .planner-tile { touch-action: pan-y; }
+.planner-touch.is-arranging .planner-tile:not(.is-locked) { touch-action: none; }
+.feed-planner .fbar { margin-bottom: 12px; }
+@media (max-width: 520px) { .planner-toolbar select { flex-basis: calc(50% - 10px); } }
+@media (max-width: 520px) {
+  .planner-heading { flex-direction: row; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .planner-heading h1 { font-size: 21px; white-space: nowrap; margin: 0; }
+  .planner-heading > div > p { display: none; }
+  .planner-heading-actions { width: auto; gap: 6px; flex-wrap: nowrap; }
+  .planner-heading-actions .btn, .planner-heading-actions button { font-size: 12px; padding: 8px; }
+  .planner-heading-actions button .ico { display: none; }
+  .planner-toolbar { padding-bottom: 10px; }
+  .planner-toolbar .planner-save { width: auto; margin-left: auto; font-size: 10px; }
+  .planner-touch:not(.is-arranging) > .planner-help { display: none; }
+  .planner-touch.is-arranging > .planner-help { font-size: 11px; margin: 7px 0; }
+  .planner-feed-header { padding: 12px 0 10px; }
+}

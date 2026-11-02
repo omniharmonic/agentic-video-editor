@@ -1,0 +1,158 @@
+{
+  "$comment": "Spec 2.5: accounts/<id>.yaml parsed. NO secret values ever (credentials.ref only names the keychain entries).",
+  "type": "object",
+  "required": [
+    "id",
+    "platform",
+    "mode"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,40}$"
+    },
+    "platform": {
+      "enum": [
+        "youtube",
+        "facebook",
+        "instagram",
+        "threads",
+        "x",
+        "linkedin",
+        "tiktok",
+        "bluesky",
+        "pinterest",
+        "manual"
+      ]
+    },
+    "mode": {
+      "enum": [
+        "graph",
+        "aggregator",
+        "inbox",
+        "manual",
+        "direct",
+        "native"
+      ]
+    },
+    "label": {
+      "type": "string"
+    },
+    "brand": {
+      "type": "string",
+      "$comment": "Optional. Groups accounts into brands so one studio can plan two businesses; the UI's brand filter reads it. Policy, not identity: it is not in the live attestation."
+    },
+    "tz": {
+      "type": "string"
+    },
+    "post_types": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "credentials": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string"
+        }
+      }
+    },
+    "approval": {
+      "type": "object",
+      "properties": {
+        "ttl_days": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "properties": {
+        "max_per_day": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "min_gap_min": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "quiet_hours": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "from",
+          "to"
+        ],
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "catch_up": {
+      "type": "boolean"
+    },
+    "audited": {
+      "type": "boolean"
+    },
+    "connection": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "product": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "token_family": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "destination_id": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "source": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "checked_at": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "expires_at": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "scopes": {
+          "type": "array",
+          "maxItems": 40,
+          "items": {
+            "type": "string",
+            "maxLength": 120
+          }
+        },
+        "verified_domains": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 253
+          }
+        },
+        "root_revision": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{32}$"
+        }
+      }
+    }
+  }
+}

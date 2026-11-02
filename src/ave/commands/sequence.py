@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from .. import sequence
+from .. import humanpresence, sequence
 from ..episode import Episode, read_json, write_json
 
 
@@ -69,6 +69,7 @@ def cmd_preview(a) -> int:
 
 
 def cmd_approve(a) -> int:
+    humanpresence.require_human("opening/closing approval", "ave sequence approve %s%s" % (a.episode, (" --name " + a.name) if a.name else ""))
     ep = _ep(a)
     rec = _wrap(lambda: sequence.approve(ep, a.name, a.by, a.policy))
     _out({"approved": True, **rec})

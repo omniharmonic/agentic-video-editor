@@ -24,8 +24,8 @@ def _channel_map(media: dict, f: str) -> list[dict] | None:
     return cm if cm and any(m["use"] != "mix" for m in cm) else None
 
 
-def _build_from_cut(ep: Episode, cut: dict, canvas: tuple[int, int]) -> dict:
-    meta = read_json(ep.meta_path)
+def _build_from_cut(ep: Episode, cut: dict, canvas: tuple[int, int], *, metadata: dict | None = None) -> dict:
+    meta = metadata if metadata is not None else read_json(ep.meta_path)
     cams = {k: v for k, v in (meta.get("cameras") or {}).items() if "cameras" not in cut or k in cut["cameras"]}
     sync = read_json(ep.artifact("sync.json"))["files"] if ep.artifact("sync.json").exists() else {}
     media = {m["file"]: m for m in read_json(ep.artifact("media.json"))["files"]}
@@ -151,4 +151,16 @@ def build_combined(ep: Episode, canvas: tuple[int, int] = (1920, 1080)) -> dict:
     doc = _build_from_cut(ep, merged, canvas)
     doc["notes"] = f"combined: sessions {', '.join(ids)} joined with the uncovered gaps removed; episode time is preserved in each segment's e0."
     doc["sessions"] = ids
+    return doc
+
+
+def build_audio(ep: Episode, source: dict, bounds: dict, *, session: str) -> dict:
+    """Typed full-episode audio assembly: no fabricated picture or short cap."""
+    start, end = float(bounds['in']), float(bounds['out'])
+    if not 0 <= start < end: raise ValueError('Invalid audio assembly bounds')
+    doc = editdoc.new_doc('assembly', 24, (640, 360), {'M': source}, end-start, media_mode='audio')
+    doc['session'] = session
+    doc['trim'] = dict(bounds)
+    doc['tracks']['dialogue'] = [{'id':'d1','src':'M','o0':0.0,'o1':end-start,'e0':start,
+                                 'xfade_ms':0,'gain_db':0.0,'reason':'complete confirmed session span'}]
     return doc

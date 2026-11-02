@@ -110,7 +110,7 @@ def add_content(ep: Episode, *, thumb: Path | None = None, status: str = "approv
     def item(item_id, template, slots, outputs, st, platforms, caption=""):
         items.append({"id": item_id, "template": template, "style": "ink", "format": "4x5", "renderer": "motion-kit", "slots": slots, "source": None,
                       "platforms": platforms, "caption": caption, "alt_text": None, "outputs": outputs,
-                      "review": {"status": st, "critic": None, "by": "ben" if st == "approved" else None, "at": "2026-10-14T10:00:00" if st == "approved" else None, "note": ""},
+                      "review": {"status": st, "critic": None, "by": "maren" if st == "approved" else None, "at": "2026-10-14T10:00:00" if st == "approved" else None, "note": ""},
                       "provenance": {}, "license": {"assets": [], "ai_generated": False}, "reason": "r", "confidence": 0.9})
 
     if thumb is not None:

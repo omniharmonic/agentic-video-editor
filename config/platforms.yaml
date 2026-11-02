@@ -1,13 +1,22 @@
 # Per-platform limits used by `ave publish` preflight. Every value is UNVERIFIED unless `verified: true` with the
 # date and source it was checked against. Platforms change limits often: confirm before relying on a number.
+# `via:` (aggregator or manual) is informational: it records how a platform is posted and is read by humans, not by code.
+# `text:` = how the studio composes the FINAL post text (src/ave/studio/posttext.py): hashtags block | inline | none, hashtags_in_first_comment,
+# hashtags_max, unit (chars | graphemes | x_weighted | bytes). Read by `ave studio queue sync`; the legacy `ave publish` path ignores it.
 # Preflight only BLOCKS on values listed here; loosen a value here (not in code) when the platform allows more.
 youtube:
   verified: false
+  text: {unit: bytes, hashtags: block, hashtags_max: 15}   # the description; YouTube ignores all hashtags past 15 (U)
   source: https://developers.google.com/youtube/v3/docs/videos/insert
   title_max_chars: 100
   description_max_bytes: 5000
   tags_max_chars: 500
   max_file_bytes: 274877906944      # 256 GB
+  rate:
+    verified: false
+    source: https://developers.google.com/youtube/v3/determine_quota_cost
+    quota_units_per_day: 10000
+    upload_cost: 1600
   long:
     max_duration_s: 43200           # 12 h for verified accounts
   short:                            # a Short is vertical/square and at most this long
@@ -15,11 +24,6 @@ youtube:
     source: https://support.google.com/youtube/answer/10059070
     max_duration_s: 180
     aspect: ["vertical", "square"]
-  quota:
-    verified: false
-    source: https://developers.google.com/youtube/v3/determine_quota_cost
-    default_daily_units: 10000
-    upload_cost_units: 1600
   image:                            # a thumbnail, set by hand in Studio: the adapter itself publishes VIDEO ONLY (see adapters/youtube.py)
     verified: false
     source: https://support.google.com/youtube/answer/72431
@@ -30,6 +34,7 @@ youtube:
     aspect_max: 1.78
 facebook:
   verified: false
+  text: {unit: chars, hashtags: block}
   source: https://developers.facebook.com/docs/video-api/guides/reels-publishing
   graph_version: v21.0
   reel:
@@ -49,7 +54,11 @@ facebook:
   description_max_chars: 5000
   schedule_min_minutes: 10
   schedule_max_days: 75
-  image:                            # limits for planning only: the adapter publishes VIDEO ONLY (photo posts are not implemented)
+  rate:
+    verified: false
+    source: https://developers.facebook.com/docs/graph-api/overview/rate-limiting/
+    page_posts_per_24h: 50     # a cautious planning number, not a published limit
+  image:                            # photo and multi-photo posts (studio adapter platforms/facebook_page.py); the legacy ave publish adapter is video only
     verified: false
     source: https://developers.facebook.com/docs/graph-api/reference/page/photos/
     formats: [jpeg, png]
@@ -57,22 +66,29 @@ facebook:
     min_width: 200
     caption_max_chars: 5000
     alt_text_max_chars: 1000
-    carousel: {min_items: 2, max_items: 10}
-# Networks reachable only through the aggregator adapter. Direct Instagram/X/TikTok adapters are NOT implemented.
+    carousel: {min_items: 2, max_items: 20}
+# Networks reachable through the aggregator adapter (mode: aggregator) AND, for studio accounts, through a direct adapter in
+# src/ave/platforms (documentation-derived, verified: false until a human burn-in). `via:` is informational.
 instagram:
   via: aggregator
   verified: false
+  text: {unit: chars, hashtags: block, hashtags_in_first_comment: false, hashtags_max: 30}   # flag true = tags go in the first comment (U)
   source: https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/content-publishing
+  graph_version: v21.0
+  rate:
+    verified: false
+    source: https://developers.facebook.com/docs/instagram-platform/content-publishing#limits
+    api_posts_per_24h: 100
   reel:
     min_duration_s: 3
     max_duration_s: 90
     aspect: ["vertical"]
   long:
     max_duration_s: 3600
-  image:                            # feed photo, story, carousel (aggregator only)
+  image:                            # feed photo, story, carousel
     verified: false
     source: https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/content-publishing
-    formats: [jpeg, png]
+    formats: [jpeg]                 # Meta accepts JPEG only for image containers; the content renderer converts at render time (WS7)
     max_file_bytes: 8388608
     min_width: 320
     max_width: 1440
@@ -84,10 +100,17 @@ instagram:
 x:
   via: aggregator
   verified: false
+  text: {unit: x_weighted, hashtags: inline}
   source: https://docs.x.com/x-api/media/media-upload
+  rate:
+    verified: false
+    source: https://docs.x.com/x-api/getting-started/pricing
+    max_posts_per_day: 10           # set to YOUR plan; the scheduler blocks past it
+    est_cost_usd_per_post: 0.01     # logged per post; a plan-dependent estimate
   long:
     max_duration_s: 140
     max_file_bytes: 536870912
+  post: {caption_max_chars: 280}    # weighted length: URLs count 23, emoji and CJK 2
   image:
     verified: false
     source: https://docs.x.com/x-api/media/media-upload
@@ -100,33 +123,112 @@ x:
 tiktok:
   via: aggregator
   verified: false
+  text: {unit: chars, hashtags: block}
   source: https://developers.tiktok.com/doc/content-posting-api-get-started
+  rate:
+    verified: false
+    source: https://developers.tiktok.com/doc/content-posting-api-faq
+    api_posts_per_24h: 15
   reel:
     max_duration_s: 600
     aspect: ["vertical"]
   long:
     max_duration_s: 600
-  image:                            # photo mode
+  image:                            # photo mode (PULL_FROM_URL from a verified domain: needs the media host)
     verified: false
     source: https://developers.tiktok.com/doc/content-posting-api-reference-photo-post
     formats: [jpeg, png]
     max_file_bytes: 20971520
     caption_max_chars: 2200
+    alt_text_max_chars: 1000
     carousel: {min_items: 2, max_items: 35}
-# Networks `ave package` writes POST COPY for but that have no publisher at all (the human posts these by hand). Only the copy limit
-# is used (config/package.default.yaml). Unverified, commonly cited numbers: confirm before relying on them.
 linkedin:
   via: manual
   verified: false
-  source: none checked; commonly cited feed post limit
+  text: {unit: chars, hashtags: block}
+  source: https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/posts-api
+  api_version: "202610"             # Linkedin-Version header; each version sunsets after about a year: re-check monthly
+  rate:
+    verified: false
+    source: https://learn.microsoft.com/en-us/linkedin/shared/api-guide/concepts/rate-limits
+    max_posts_per_day: 20
   post: {caption_max_chars: 3000}
+  image:
+    verified: false
+    source: https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/images-api
+    formats: [jpeg, png, gif]
+    max_file_bytes: 36152320
+    caption_max_chars: 3000
+    alt_text_max_chars: 4086
+    carousel: {min_items: 2, max_items: 20}
 threads:
   via: manual
   verified: false
-  source: none checked; commonly cited post limit
+  text: {unit: chars, hashtags: block, hashtags_in_first_comment: false}
+  source: https://developers.facebook.com/docs/threads/posts
+  graph_version: v1.0
+  rate:
+    verified: false
+    source: https://developers.facebook.com/docs/threads/troubleshooting#retrieve-publishing-quota-limit
+    api_posts_per_24h: 250
   post: {caption_max_chars: 500}
+  image:
+    verified: false
+    source: https://developers.facebook.com/docs/threads/posts
+    formats: [jpeg, png]
+    max_file_bytes: 8388608
+    min_width: 320
+    caption_max_chars: 500
+    alt_text_max_chars: 1000
+    carousel: {min_items: 2, max_items: 20}
 bluesky:
   via: manual
   verified: false
-  source: none checked; commonly cited post limit (graphemes)
-  post: {caption_max_chars: 300}
+  text: {unit: graphemes, hashtags: inline}      # each #tag becomes a facet in the adapter (U)
+  source: https://docs.bsky.app/docs/tutorials/creating-a-post
+  rate:
+    verified: false
+    source: https://docs.bsky.app/docs/advanced-guides/rate-limits
+    max_posts_per_day: 100
+  post: {caption_max_chars: 300}    # graphemes
+  image:
+    verified: false
+    source: https://docs.bsky.app/docs/tutorials/creating-a-post#images
+    formats: [jpeg, png]
+    max_file_bytes: 976560          # the blob cap is about 1 MB: render a smaller deliverable BEFORE review
+    caption_max_chars: 300
+    alt_text_max_chars: 2000
+    carousel: {min_items: 2, max_items: 4}   # up to four images in one post
+pinterest:
+  via: manual
+  verified: false
+  text: {unit: chars, hashtags: block}
+  source: https://developers.pinterest.com/docs/api/v5/pins-create/
+  rate:
+    verified: false
+    source: https://developers.pinterest.com/docs/reference/rate-limits/
+    api_posts_per_24h: 50
+  post: {title_max_chars: 100, caption_max_chars: 800}
+  image:
+    verified: false
+    source: https://developers.pinterest.com/docs/api/v5/pins-create/
+    formats: [jpeg, png]
+    max_file_bytes: 20971520
+    min_width: 200
+    caption_max_chars: 800
+    alt_text_max_chars: 500
+    carousel: {min_items: 2, max_items: 5}
+manual:
+  via: manual
+  verified: false
+  text: {unit: chars, hashtags: block}
+  source: none, the human posts by hand (the studio manual platform)
+  post: {caption_max_chars: 5000}
+  image:
+    verified: false
+    source: none, a ready-to-post folder, so these limits are only sanity checks
+    formats: [jpeg, png, gif, webp]
+    max_file_bytes: 52428800
+    caption_max_chars: 5000
+    alt_text_max_chars: 2000
+    carousel: {min_items: 2, max_items: 20}

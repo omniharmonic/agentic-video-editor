@@ -35,6 +35,8 @@ def _first_existing(*candidates: str | Path | None) -> Path | None:
 
 
 def fluidaudio_cli() -> Path | None:
+    from .desktop_runtime import frozen, component
+    if frozen(): return component('speech') / 'fluidaudiocli'
     return _first_existing(
         os.environ.get("AVE_FLUIDAUDIO"),
         VENDOR / "FluidAudio/.build/release/fluidaudiocli",
@@ -67,6 +69,8 @@ def whisper_model() -> Path | None:
 
 
 def binary(name: str) -> Path | None:
+    from .desktop_runtime import frozen, component
+    if frozen() and name in ('ffmpeg', 'ffprobe'): return component('media') / name
     found = shutil.which(name)
     return Path(found) if found else None
 

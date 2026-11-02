@@ -53,7 +53,7 @@ def _setup(root: Path, with_rough=True, show=True) -> Episode:
     if show:
         meta["show"] = {"hosts": [{"name": "Maren", "title": "Co-host"}, {"name": "Tomas", "title": "Co-host"}],
                         "links": [{"label": "Subscribe", "value": "example.org"}]}
-        meta["episode_title"] = "Why we started this table"
+        meta["episode_title"] = "Why we are making this show"
     write_json(ep.meta_path, meta)
     if with_rough:
         doc = editdoc.clone(editdoc.load_latest(ep, "assembly"))
@@ -76,7 +76,7 @@ def ep(synth_episode):
     meta["title"] = "The Long Table 00"
     meta["show"] = {"hosts": [{"name": "Maren", "title": "Co-host"}, {"name": "Tomas", "title": "Co-host"}],
                     "links": [{"label": "Subscribe", "value": "example.org"}]}
-    meta["episode_title"] = "Why we started this table"
+    meta["episode_title"] = "Why we are making this show"
     write_json(synth_episode.meta_path, meta)
     return synth_episode
 
@@ -255,10 +255,10 @@ def test_approval_binds_to_the_plan_content(ep):
     pol = _policy(ep)
     pl = sequence.plan(ep, policy=pol)
     assert pl["approval"]["approved"] is False and pl["approval"]["required"]
-    rec = sequence.approve(ep, by="ben", policy=pol)
-    assert rec["by"] == "ben"
+    rec = sequence.approve(ep, by="maren", policy=pol)
+    assert rec["by"] == "maren"
     again = sequence.plan(ep, policy=pol)
-    assert again["approval"]["approved"] is True and again["approval"]["approved_by"] == "ben"
+    assert again["approval"]["approved"] is True and again["approval"]["approved_by"] == "maren"
     meta = read_json(ep.meta_path)
     meta["episode_title"] = "A different title"
     write_json(ep.meta_path, meta)
@@ -660,7 +660,7 @@ def test_handoff_warns_when_a_sequence_file_is_missing(world, tmp_path):
     assert any("closing sequence file" in w for w in p["warnings"]) and p["video"][-1]["id"] != "seq-closing" and p["video"][0]["id"] == "seq-opening"
 
 
-def test_sequence_cli_plan_status_approve(world, tmp_path, capsys):
+def test_sequence_cli_plan_status_approve(world, tmp_path, capsys, human):
     from ave.cli import main
     ep = Episode(shutil.copytree(world["ep"].root, tmp_path / "cli"))
     (ep.root / "policy").mkdir(exist_ok=True)
@@ -670,7 +670,7 @@ def test_sequence_cli_plan_status_approve(world, tmp_path, capsys):
     assert out["file"] == "work/sequence.json" and out["opening"]["enabled"]
     assert main(["sequence", "status", str(ep.root)]) == 0
     assert json.loads(capsys.readouterr().out)["approved"] is False
-    assert main(["sequence", "approve", str(ep.root), "--by", "ben"]) == 0
+    assert main(["sequence", "approve", str(ep.root), "--by", "maren"]) == 0
     capsys.readouterr()
     main(["sequence", "status", str(ep.root)])
     assert json.loads(capsys.readouterr().out)["approved"] is True
@@ -684,3 +684,62 @@ def test_preview_is_a_draft_with_stills_and_does_not_displace_the_master_build(w
     assert [s["item"] for s in rep["stills"]["closing"]] == ["thanks", "credits", "end_card", "tail"]
     assert all(Path(s["png"]).stat().st_size > 1000 for s in rep["stills"]["closing"])
     assert read_json(sequence.plan_path(ep))["built"]["closing"]["file"] == before            # still the master build
+
+
+def test_explicit_sequence_plan_uses_pinned_rough_and_does_not_reuse_legacy_approval(synth_episode):
+    ep=synth_episode
+    doc=editdoc.load_latest(ep,'assembly')
+    pinned={'stage':'rough','name':'main','version':4,'sha256':'a'*64}
+    meta={'show':{'name':'Selected show','hosts':[{'name':'Selected host','title':'Host'}]},
+          'episode_title':'Selected episode','sequences':{'cold_open':{'range':{'stage':'rough','name':'main','o0':1.0,'o1':4.0}}}}
+    plan=sequence.plan(ep,doc=doc,write=False,metadata=meta,policy_data=sequence.load_policy(),base_identity=pinned)
+    assert plan['identity']['show']['value']=='Selected show'
+    cold=next(item for item in plan['opening']['items'] if item['kind']=='cold_open')
+    assert cold['source']['version']==4 and cold['source']['edit_sha256']==pinned['sha256']
+    assert plan['approval']['approved'] is False
+    assert not sequence.plan_path(ep).exists()
+
+
+def test_audio_sequence_uses_real_components_and_sample_exact_join(tmp_path):
+    from ave import assemble
+    ep=Episode(tmp_path/'episode');ep.create()
+    sr=48000
+    audio=np.concatenate([np.full(sr,.1),np.full(sr,.3),np.full(sr,.2)]).astype('float32')
+    sf.write(ep.raw/'voice.wav',audio,sr,subtype='FLOAT')
+    sf.write(ep.work/'sting.wav',np.full(sr//2,.5,dtype='float32'),sr,subtype='FLOAT')
+    doc=assemble.build_audio(ep,{'file':'raw/voice.wav','kind':'audio','start_offset':0},{'in':0,'out':3},session='main')
+    out=ep.work/'opening.wav'
+    result=sequence.build_audio_components(ep,[{'kind':'excerpt','doc':doc,'o0':1,'o1':2},
+                                                 {'kind':'recording','file':'work/sting.wav','start':0,'duration':.5}],out,fade_s=0)
+    samples,rate=sf.read(out,dtype='float32',always_2d=True)
+    assert rate==sr and len(samples)==72000 and result['joins_samples']==[48000]
+    assert np.allclose(samples[10000],.3,atol=1e-5) and np.allclose(samples[60000],.5,atol=1e-5)
+    with pytest.raises(ValueError,match='real audio component'):
+        sequence.build_audio_components(ep,[],ep.work/'empty.wav',fade_s=0)
+
+
+def test_audio_file_join_streams_without_changing_sample_count(tmp_path):
+    rng=np.random.default_rng(44)
+    parts=[rng.uniform(-.2,.2,(48000,2)).astype('float32'),rng.uniform(-.2,.2,(24000,2)).astype('float32')]
+    paths=[]
+    for i,part in enumerate(parts):
+        path=tmp_path/f'{i}.wav';sf.write(path,part,48000,subtype='FLOAT');paths.append(path)
+    out=tmp_path/'joined.wav';result=sequence.join_audio_files(paths,out,fade_s=.2)
+    decoded,sr=sf.read(out,dtype='float32',always_2d=True);expected,joins=sequence.join_audio(parts,.2)
+    assert sr==48000 and len(decoded)==72000 and result['joins_samples']==joins==[48000]
+    assert np.array_equal(decoded,expected)
+    with pytest.raises(FileExistsError):sequence.join_audio_files(paths,out,fade_s=.2)
+
+
+def test_audio_excerpt_caption_boundaries_keep_occurrences_distinct(tmp_path):
+    import hashlib
+    ep=Episode(tmp_path/'episode');ep.create();sf.write(ep.raw/'source.wav',np.ones(48000,dtype='float32')*.1,48000,subtype='FLOAT')
+    transcript=ep.work/'words.json';write_json(transcript,{'words':[{'w':'alpha','start':.2,'end':.5},{'w':'beta','start':.7,'end':.9}]})
+    sha=hashlib.sha256(transcript.read_bytes()).hexdigest();source={'file':'raw/source.wav','kind':'audio','start_offset':0,'source_id':'source','sha256':'a'*64,'transcript':{'file':ep.rel(transcript),'sha256':sha}}
+    doc=editdoc.new_doc('short',24,(640,360),{'A':source},2,media_mode='audio');doc['independent_project']='fixture'
+    doc['tracks']['dialogue']=[{'id':'d1','src':'A','o0':0,'o1':1,'e0':0,'occurrence_id':'first','xfade_ms':0},
+                               {'id':'d2','src':'A','o0':1,'o1':2,'e0':0,'occurrence_id':'second','xfade_ms':0}]
+    result=sequence.build_audio_components(ep,[{'kind':'excerpt','doc':doc,'o0':.3,'o1':1.8}],ep.work/'out.wav',fade_s=0)
+    assert [(w['w'],w['occurrence_id']) for w in result['words']]==[('beta','first'),('alpha','second')]
+    assert [(w['word'],w['occurrence_id']) for w in result['partial_words']]==[('alpha','first'),('beta','second')]
+    assert any('cut through' in warning for warning in result['warnings'])

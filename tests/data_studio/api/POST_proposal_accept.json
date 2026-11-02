@@ -1,0 +1,16 @@
+{
+  "method": "POST",
+  "path": "/api/studio/schedule/proposals/sp_0001/accept",
+  "status": 200,
+  "request": {},
+  "response": {
+    "applied": [
+      {
+        "post": "p_20261104_m2a1",
+        "variant": "v_ig2",
+        "status": "moved"
+      }
+    ],
+    "conflicts": []
+  }
+}

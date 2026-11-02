@@ -92,7 +92,7 @@ def test_approve_requires_matching_hash_confirmation(ep, wide):
     it = queue_item(ep, wide)
     for bad in (None, "", "abc", "0" * 12):
         with pytest.raises(ValueError):
-            queue.approve(ep, it["id"], "ben", bad, publishers=pubs("youtube"))
+            queue.approve(ep, it["id"], "maren", bad, publishers=pubs("youtube"))
     assert queue.load(ep, it["id"])["status"] == "awaiting_approval"
     with pytest.raises(ValueError):
         queue.approve(ep, it["id"], "  ", it["sha256"][:12], publishers=pubs("youtube"))
@@ -102,13 +102,13 @@ def test_approve_records_who_when_hash(ep, wide):
     it = queue_item(ep, wide)
     d = approve_item(ep, it["id"], pubs("youtube"))
     a = d["approvals"][-1]
-    assert a["by"] == "ben" and a["sha256"] == it["sha256"] and a["at"] and a["sig"]
+    assert a["by"] == "maren" and a["sha256"] == it["sha256"] and a["at"] and a["sig"]
 
 
 def test_reject_voids_approval(ep, wide):
     it = queue_item(ep, wide)
     approve_item(ep, it["id"], pubs("youtube"))
-    queue.reject(ep, it["id"], "ben", "nope")
+    queue.reject(ep, it["id"], "maren", "nope")
     p = pubs("youtube")
     assert not queue.run(ep, it["id"], send=True, publishers=p)["ok"] and p["youtube"].publish_calls == 0
 
@@ -140,7 +140,7 @@ def test_crash_mid_publish_never_double_posts(ep, wide):
     rep = queue.run(ep, it["id"], send=True, publishers={"youtube": again})
     assert again.publish_calls == 0 and rep["platforms"]["youtube"]["outcome"] == "uncertain" and not rep["ok"]
     # operator says it was posted
-    queue.resolve(ep, it["id"], "youtube", posted_url="https://youtu.be/abc", by="ben")
+    queue.resolve(ep, it["id"], "youtube", posted_url="https://youtu.be/abc", by="maren")
     d = queue.load(ep, it["id"])
     assert d["status"] == "published"
     assert queue.run(ep, it["id"], send=True, publishers={"youtube": again})["ok"] and again.publish_calls == 0
@@ -151,7 +151,7 @@ def test_crash_recovery_found_marks_published_without_resend(ep, wide):
     approve_item(ep, it["id"], pubs("youtube"))
     with pytest.raises(KeyboardInterrupt):
         queue.run(ep, it["id"], send=True, publishers={"youtube": RecordingPublisher("youtube", "crash")})
-    rec = RecordingPublisher("youtube", recover={"id": "found", "url": "https://youtu.be/found"})
+    rec = RecordingPublisher("youtube", recover=__import__('ave.publish.receipts',fromlist=['result']).result('youtube','found','https://youtu.be/found'))
     queue.run(ep, it["id"], send=True, publishers={"youtube": rec})
     d = queue.load(ep, it["id"])
     assert rec.publish_calls == 0 and d["status"] == "published" and d["results"]["youtube"]["id"] == "found"
@@ -183,7 +183,7 @@ def test_resolve_retry_then_resend(ep, wide):
     approve_item(ep, it["id"], pubs("youtube"))
     p = {"youtube": RecordingPublisher("youtube", "network")}
     queue.run(ep, it["id"], send=True, publishers=p)
-    queue.resolve(ep, it["id"], "youtube", retry=True, by="ben")
+    queue.resolve(ep, it["id"], "youtube", retry=True, by="maren")
     p["youtube"].behavior = "ok"
     queue.run(ep, it["id"], send=True, publishers=p)
     assert queue.load(ep, it["id"])["status"] == "published" and p["youtube"].publish_calls == 2
@@ -226,3 +226,27 @@ def test_bad_ids_rejected(ep):
     for bad in ("../x", "a/b", ".hidden", ""):
         with pytest.raises(ValueError):
             queue.load(ep, bad)
+
+
+def test_standalone_terminal_receipt_survives_old_queue_snapshot(ep,wide,monkeypatch):
+    import copy
+    from ave.publish import receipts
+    from ave.studio import dispatch
+    class Pending(RecordingPublisher):
+        def publish(self,item,video,progress):
+            self.publish_calls+=1
+            return receipts.result('youtube','accepted',phase='processing')
+    a=Pending('youtube',recover=Absent('Accepted upload rejected'));ps={'youtube':a}
+    item=queue_item(ep,wide);old=copy.deepcopy(approve_item(ep,item['id'],ps))
+    queue.run(ep,item['id'],send=True,publishers=ps)
+    queue.refresh(ep,item['id'],publishers=ps)
+    assert dispatch.terminal_review(ep,old)['result']['receipt']['phase']=='failed'
+    queue.save(ep,old)
+    assert queue.run(ep,item['id'],send=True,publishers=ps)['blocked'] and a.publish_calls==1
+    queue.update(ep,item['id'],publishers=ps)
+    monkeypatch.setattr(queue,'now_iso',lambda:old['approvals'][-1]['at'])
+    renewed=approve_item(ep,item['id'],ps)
+    assert renewed['approvals'][-1]['sig']!=old['approvals'][-1]['sig']
+    assert renewed['approvals'][-1]['approval_v']==2
+    assert queue.run(ep,item['id'],send=True,publishers=ps)['platforms']['youtube']['outcome']=='processing'
+    assert a.publish_calls==2 and dispatch.terminal_review(ep,old)

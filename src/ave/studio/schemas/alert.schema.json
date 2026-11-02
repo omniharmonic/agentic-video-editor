@@ -1,0 +1,16 @@
+{
+  "$comment": "Spec 2.7 / 6.8: a line of ledger/alerts.jsonl. Acknowledging appends a separate {op: ack, alert, by, ts} line.",
+  "type": "object",
+  "required": ["id", "ts", "severity", "kind", "message"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^al_\\d{4,}$"},
+    "ts": {"type": "string"},
+    "severity": {"enum": ["info", "warn", "error"]},
+    "kind": {"enum": ["tamper", "auth_expired", "auth_expiring", "quota", "rejected", "uncertain", "missed", "late", "approval_expired", "license_gap",
+                      "host_failed", "duplicate", "daemon_stale", "credentials_missing", "account_not_live", "manual_post_due", "note"]},
+    "account": {"type": ["string", "null"]},
+    "post": {"type": ["string", "null"]},
+    "message": {"type": "string"},
+    "ack": {"type": ["object", "null"]}
+  }
+}

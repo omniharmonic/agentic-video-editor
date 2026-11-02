@@ -1,0 +1,22 @@
+id: before-after
+title: Before and after
+kind: image
+description: >
+  Two photographs side by side, each labelled, with an optional line beneath. Both photos are `x-asset`s from the studio library with their licenses on
+  record. Show real work: the photos are the claim, so use only what actually happened, and get consent if a person is identifiable.
+formats: [1x1, 4x5]
+styles: [ink, paper, clay]
+default_platforms: [instagram, facebook]
+renderers:
+  motion-kit: {template: before-after}
+slots:
+  type: object
+  required: [before, after]
+  additionalProperties: false
+  properties:
+    before:       {type: string, minLength: 3, maxLength: 400, x-asset: true, description: "Library file path of the before photo."}
+    after:        {type: string, minLength: 3, maxLength: 400, x-asset: true, description: "Library file path of the after photo."}
+    before_label: {type: string, maxLength: 20, default: "Before"}
+    after_label:  {type: string, maxLength: 20, default: "After"}
+    title:        {type: string, maxLength: 70, default: "", description: "A line beneath, plainly (Three days of feeding). Optional."}
+    show:         {type: string, maxLength: 40, default: ""}

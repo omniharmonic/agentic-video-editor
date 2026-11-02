@@ -19,7 +19,7 @@ reframe:
 
 build:
   min_hold_s: 2.0       # a shot shorter than this is re-assigned to the neighbouring camera (kept in sync: same e0, other lens)
-  gap_ok_s: 0.0
+  zoom_min_dwell_s: 8.0  # same zoom-state dwell as cleanup (src/ave/zoomstate.py): a jump-cut punch-in is skipped if the camera zoomed less than this many seconds ago (0 = off)
   jump_cut_zoom: 1.15   # centred punch-in on a shot that follows a jump cut on the same camera (1.0 = off); the rough cut's own punch-ins are kept
   cutaways: keep       # keep = reaction cutaways from the rough cut stay (approved pacing); speaker = the talker's camera in every shot
                         # (a cutaway every 2 s on a phone reads as flicker)

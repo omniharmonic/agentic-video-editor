@@ -34,7 +34,10 @@ No `episode.json`? `ave init-episode <dir>` (safe on an existing folder: it only
 | 8 | **final cut** | `ave final` (add `--opening --closing`, or policy `sequences:`, once 7b is approved) | `edits/final.vN.json`, render, SRT | `ave-final-cut` |
 | 9 | selects | `ave clips ...` | `work/clips.json`, `edits/select.*` | `ave-clip-finder` |
 | 10 | shorts | `ave shorts ...` | `exports/shorts/*.mp4` | `ave-shorts` |
+| 10b | release package | `ave package <ep> --dry-run`, then `ave package`; `ave package queue <ep>` adds approved items to the publish queue as drafts | `<exports>/package/<date>/` | `ave-package` |
 | 11 | publish | `ave publish ...` | human-approved, sent | `ave-publish` |
+
+Side tools: `ave proxies` (review proxies for Resolve), `ave ui` (the human's review pages), `ave content ...` (opt-in quote posts, thumbnails, carousels; `ave-content-plan`).
 
 At every cut stage: `ave handoff <episode>` puts it in Resolve for the human. Stages 1-8 run entirely in FFmpeg/Python; only the handoff needs Resolve's bridge.
 

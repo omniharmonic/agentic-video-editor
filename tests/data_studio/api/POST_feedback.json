@@ -1,0 +1,139 @@
+{
+  "method": "POST",
+  "path": "/api/studio/posts/p_20261104_m2a1/feedback",
+  "status": 201,
+  "request": {
+    "variant": "v_ig2",
+    "kinds": [
+      "rework_copy"
+    ],
+    "note": "too salesy, say it plainly",
+    "structured": {
+      "copy": {
+        "field": "caption",
+        "before": "Day 5: bubbles everywhere. Buy our starter kit today for 20% off!",
+        "after": null,
+        "selection": [
+          29,
+          68
+        ]
+      }
+    }
+  },
+  "response": {
+    "feedback": [
+      {
+        "v": 1,
+        "op": "feedback",
+        "id": "fb_0002",
+        "ts": "2026-10-19T12:10:00Z",
+        "post": "p_20261104_m2a1",
+        "variant": "v_ig2",
+        "rev": 3,
+        "asset": null,
+        "kind": "rework_copy",
+        "note": "too salesy, say it plainly",
+        "structured": {
+          "copy": {
+            "field": "caption",
+            "before": "Day 5: bubbles everywhere. Buy our starter kit today for 20% off!",
+            "after": null,
+            "selection": [
+              29,
+              68
+            ]
+          }
+        },
+        "by": "maren",
+        "source": "ui",
+        "resolved": null,
+        "claim": null
+      }
+    ],
+    "post": {
+      "v": 1,
+      "kind": "studio.post",
+      "id": "p_20261104_m2a1",
+      "rev": 3,
+      "stage": "active",
+      "campaign": "c_fall-launch",
+      "idea": {
+        "text": "Day 5 of the starter",
+        "origin": {
+          "type": "blog",
+          "ref": "writing/starter.md",
+          "passages": [
+            "s004",
+            "s005"
+          ]
+        },
+        "reason": "evergreen, matches the October theme",
+        "confidence": 0.7
+      },
+      "copy": {
+        "base": "Day 5: bubbles everywhere.",
+        "link": "https://acme.example/starter",
+        "first_comment": "",
+        "hashtags": [
+          "sourdough"
+        ],
+        "cta": ""
+      },
+      "media": [
+        {
+          "slot": 0,
+          "asset": "a_9f2c1d4e7b10",
+          "role": "image",
+          "alt": "A jar of starter with bubbles at the glass.",
+          "crop": {
+            "grid_focus": [
+              0.5,
+              0.4
+            ]
+          }
+        }
+      ],
+      "variants": [
+        {
+          "id": "v_ig2",
+          "account": "ig-main",
+          "platform": "instagram",
+          "post_type": "feed",
+          "copy": {
+            "caption": "Day 5: bubbles everywhere. Buy our starter kit today for 20% off!",
+            "first_comment": null,
+            "hashtags": null
+          },
+          "media": null,
+          "schedule": {
+            "local": "2026-11-04T09:00",
+            "tz": "America/Denver",
+            "utc": "2026-11-04T16:00:00Z",
+            "slot": "r1",
+            "locked": false,
+            "set_by": "agent"
+          },
+          "queue": {
+            "root": ".",
+            "id": "20261019-101502-day-5-bubbles-e5f6"
+          },
+          "queue_sha": "abababababababababababababababababababababababababababababababab",
+          "flags": [],
+          "attempts": [],
+          "result": null,
+          "dropped": false,
+          "status": "needs_rework",
+          "status_reason": "open rework feedback",
+          "queue_status": "awaiting_approval",
+          "approval": null
+        }
+      ],
+      "disclosure": {
+        "ai_generated": false
+      },
+      "created": "2026-10-19T10:15:00-0600",
+      "updated": "2026-10-19T11:02:00-0600",
+      "by": "claude"
+    }
+  }
+}

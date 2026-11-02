@@ -90,8 +90,9 @@ def build_argv(ep: Episode, cmd: str, args: dict | None) -> list[str]:
 
 def child_env() -> dict:
     env = dict(os.environ)
-    env.pop("AVE_ALLOW_UNATTENDED_APPROVAL", None)   # the UI is a human surface: never lend that switch to a child process
     env["PYTHONUNBUFFERED"] = "1"
+    env.pop("AVE_APPROVAL_KEY", None)      # allowlisted jobs never sign anything; do not hand the signing key to children
+    env["AVE_AGENT"] = "1"                  # a UI job is never a human at a keyboard (ave.humanpresence)
     return env
 
 
@@ -122,7 +123,12 @@ class JobRunner:
             fh.write(("$ ave " + " ".join(argv) + "\n").encode())
             fh.flush()
             code = "import sys; from ave.cli import main; sys.exit(main(sys.argv[1:]))"
-            proc = subprocess.Popen([sys.executable, "-c", code, *argv], stdout=fh, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+            if getattr(sys, 'frozen', False):
+                from ..desktop_worker import enqueue
+                command = [sys.executable, '--production-worker', enqueue(self.ep, cmd, args)]
+            else:
+                command = [sys.executable, "-c", code, *argv]
+            proc = subprocess.Popen(command, stdout=fh, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
                                     cwd=str(self.ep.root), env=child_env())
             self.jobs[jid] = job
         threading.Thread(target=self._wait, args=(job, proc, fh), daemon=True).start()

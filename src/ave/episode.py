@@ -74,6 +74,9 @@ def _ignored(rel_parts: tuple[str, ...]) -> bool:
 
 class Episode:
     def __init__(self, root: str | Path):
+        # In-memory only: native registered adapters may select a fixed analysis
+        # policy. Episode metadata and CLI callers never set an output path here.
+        self.analysis_context: str | None = None
         from . import workspace  # a bare name like "ep-001" resolves inside the workspace
         self.root = workspace.resolve_episode(root).resolve()
         self._load_layout()
@@ -155,9 +158,9 @@ class Episode:
                 meta["layout"] = layout
             write_json(self.meta_path, meta)
         self._load_layout()
-        dirs = [*self.raw_dirs, self.work, self.exports]
+        dirs = [*self.raw_dirs, self.work, self.edits, self.exports]
         if self.layout != PRESETS["flat"]:
-            dirs += [self.edits, self.gfx, self.music]
+            dirs += [self.gfx, self.music]
         for d in dirs:
             d.mkdir(parents=True, exist_ok=True)
 

@@ -205,3 +205,24 @@ def test_cmd_writes_the_srt_next_to_the_timeline_name(synth_episode, monkeypatch
     assert cmd_mod.cmd(Namespace(**args)) == 0
     copies = [p for p in ep.captions.glob("*assembly v*.srt")]
     assert len(copies) == 1 and copies[0].read_text() == SRT
+
+
+def test_cmd_prefers_the_retranscribed_srt_that_ships(synth_episode, monkeypatch):
+    monkeypatch.setattr(cmd_mod, "subprocess", SimpleNamespace(run=lambda c, **k: subprocess.CompletedProcess(c, 0)))
+    ep = synth_episode
+    planned = ep.captions / "x.srt"
+    planned.parent.mkdir(parents=True, exist_ok=True)
+    planned.write_text(SRT)
+    doc_path = next(iter(sorted((ep.edits).glob("assembly.v*.json"))))
+    d = json.loads(doc_path.read_text())
+    d["captions"] = {"srt": ep.rel(planned)}
+    doc_path.write_text(json.dumps(d))
+    version = int(doc_path.stem.rsplit(".v", 1)[1])
+    heard = SRT + "\n99\n00:01:00,000 --> 00:01:01,000\nheard in the render\n"
+    ep.exports.mkdir(parents=True, exist_ok=True)
+    (ep.exports / f"assembly.v{version}.srt").write_text(heard)
+    args = dict(episode=str(ep.root), stage="assembly", name=None, label=None, no_master=True, project=None,
+                dry_run=False, layers=False, use_proxies=False, try_subtitles=False)
+    assert cmd_mod.cmd(Namespace(**args)) == 0
+    copies = list(ep.captions.glob("*assembly v*.srt"))
+    assert len(copies) == 1 and copies[0].read_text() == heard

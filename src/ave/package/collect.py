@@ -60,6 +60,11 @@ def _approval(status: str, by=None, at=None) -> dict:
 def find_final(ep: Episode) -> dict | None:
     """The latest final render: highest version of the unnamed final (a multi-session episode's combined one), else the
     latest of each named session's final (all returned, the first is `primary`)."""
+    if read_json(ep.meta_path).get("workbench_project"):
+        from .. import editdoc
+        latest=editdoc.latest_path(ep,"short")
+        if latest and editdoc.effective_mode(editdoc.load(latest)) == "audio":
+            raise ValueError("Audio-only episode packages are not supported yet. Use direct WAV, AAC or MP3 export; episode package adaptation is pending.")
     if not ep.exports.is_dir():
         return None
     found: dict[str | None, list[tuple[int, int, float, Path]]] = {}
@@ -121,13 +126,20 @@ def credits_for(ep: Episode, doc: dict | None) -> dict:
     try:
         from .. import shorts
         from ..assets import licenses
+        from ..broll import place
         files = shorts.licensed_files(doc)
-        if not files:
+        lib = place.closure(ep, doc)             # B-roll placed from a studio library is covered by that library, not the episode's log
+        if not files and not lib["required"]:
             return {"lines": [], "missing": [], "assets": 0}
-        cov = licenses.coverage(ep, files)
-        entries = [c["entry"] for c in cov["covered"] if c.get("entry")]
-        return {"lines": licenses.attribution_lines(entries, include_optional=True),
-                "missing": [m["file"] for m in cov["missing"]] + list(cov["unreadable"]), "assets": len(files)}
+        lines, missing = [], []
+        if files:
+            cov = licenses.coverage(ep, files)
+            entries = [c["entry"] for c in cov["covered"] if c.get("entry")]
+            lines = licenses.attribution_lines(entries, include_optional=True)
+            missing = [m["file"] for m in cov["missing"]] + list(cov["unreadable"])
+        lines += [t for t in lib["attributions"] + lib["optional_attributions"] if t not in lines]
+        missing += [f"{m['asset']}: {m['why']}" for m in lib["missing"]] + list(lib["problems"])
+        return {"lines": lines, "missing": missing, "assets": len(files) + len(lib["assets"])}
     except Exception as e:      # a damaged license log must not stop the package; it is reported
         return {"lines": [], "missing": [], "assets": 0, "error": f"{type(e).__name__}: {e}"}
 

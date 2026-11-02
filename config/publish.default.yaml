@@ -1,0 +1,4 @@
+# Publishing policy. `ave publish run` refuses an approval older than this; approve again after re-reading the item.
+# Override per machine in ~/.config/ave/publish.yaml (same keys).
+publish:
+  approval_ttl_days: 14

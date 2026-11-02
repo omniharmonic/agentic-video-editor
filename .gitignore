@@ -37,3 +37,4 @@ node_modules/
 # macOS/editor backups
 *-E
 *.bak
+ave-demo/

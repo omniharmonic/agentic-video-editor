@@ -87,6 +87,12 @@ def get_style(name: str, styles: dict | None = None, ep: Episode | None = None, 
     return st
 
 
+def timing_adjustment_limit(ep: Episode | None = None) -> float:
+    value=load_styles(ep=ep).get('timing_adjustment_limit_s')
+    if type(value) not in (int,float) or not math.isfinite(value) or not 0<value<=30:raise ValueError('Caption timing adjustment limit must be within 0–30 seconds')
+    return float(value)
+
+
 def _rules(style_or_rules: dict | None) -> dict:
     if style_or_rules is None:
         return get_style("podcast")["rules"]
@@ -99,7 +105,7 @@ def episode_glossary(ep: Episode) -> dict | list:
     return read_json(ep.meta_path).get("glossary") or {}
 
 
-def map_words_to_output(words: list[dict], doc: dict) -> list[dict]:
+def map_words_to_output(words: list[dict], doc: dict, *, identities: dict | None = None) -> list[dict]:
     """Transcript words (episode time) -> words in output time through the doc's dialogue segments.
 
     A word belongs to the segment that contains its midpoint, so words in removed sections vanish and `fill` segments
@@ -107,7 +113,7 @@ def map_words_to_output(words: list[dict], doc: dict) -> list[dict]:
     straight on in the episode (an artificial split must not shave the word).
     """
     segs = [s for s in sorted(doc["tracks"]["dialogue"], key=lambda s: s["o0"]) if not s.get("fill") and "e0" in s]
-    ws = sorted(words, key=lambda w: w["start"])
+    ws = sorted((dict(w,_transcript_index=n) for n,w in enumerate(words)), key=lambda w: w["start"])
     mids = [(w["start"] + w["end"]) / 2 for w in ws]
     out: list[dict] = []
     for i, s in enumerate(segs):
@@ -124,6 +130,13 @@ def map_words_to_output(words: list[dict], doc: dict) -> list[dict]:
                 b = min(b, e1)
             m = dict(w)
             m["start"], m["end"] = round(s["o0"] + a - e0, 4), round(s["o0"] + b - e0, 4)
+            index=m.pop('_transcript_index')
+            if identities is not None:
+                occurrence=s.get('occurrence_id') or s['id'];sha=identities['transcript_sha256'];source=doc['sources'][s['src']]
+                m.update(word_id=f"{identities['source_sha256']}:{sha}:{index}",transcript_sha256=sha,occurrence_id=occurrence,
+                         continuity_id=s['id'],segment_ids=[s['id']],source_id=s['src'],source_start=editdoc.src_time(source,w['start']),
+                         source_end=editdoc.src_time(source,w['end']),occurrence_start=s['o0'],occurrence_end=s['o1'],
+                         partial_source_word=(a>w['start']+1e-8 or b<w['end']-1e-8))
             out.append(m)
     out.sort(key=lambda w: (w["start"], w["end"]))
     return [w for w in out if w["end"] > w["start"] and w["start"] < doc["duration"]]
@@ -161,7 +174,7 @@ def _apply_glossary(words: list[dict], glossary) -> list[dict]:
     while i < len(words):
         for n in range(min(longest, len(words) - i), 0, -1):
             key = tuple(_bare(w["w"]) for w in words[i:i + n])
-            if key in gmap:
+            if key in gmap and len({w.get("occurrence_id") for w in words[i:i+n]}) == 1:
                 span = words[i:i + n]
                 lead, tail = _split_punct(span[0]["w"])[0], _split_punct(span[-1]["w"])[2]
                 new = gmap[key].split()
@@ -169,6 +182,7 @@ def _apply_glossary(words: list[dict], glossary) -> list[dict]:
                 step = (t1 - t0) / len(new)
                 for j, tok in enumerate(new):
                     w = dict(span[0])
+                    if any(x.get("word_id") for x in span): w["word_refs"] = [ref for x in span for ref in x.get("word_refs", [x.get("word_id")]) if ref]
                     w["w"] = (lead if j == 0 else "") + tok + (tail if j == len(new) - 1 else "")
                     w["start"], w["end"] = round(t0 + j * step, 4), round(t0 + (j + 1) * step, 4)
                     out.append(w)
@@ -270,7 +284,7 @@ def _blocks(words: list[dict], rules: dict) -> list[list[dict]]:
         if blocks:
             p = blocks[-1][-1]
             same = w.get("speaker") == p.get("speaker") or w.get("speaker") is None or p.get("speaker") is None
-            if same and w["start"] - p["end"] < rules["pause_break_s"]:
+            if same and w.get("occurrence_id") == p.get("occurrence_id") and w["start"] - p["end"] < rules["pause_break_s"]:
                 blocks[-1].append(w)
                 continue
         blocks.append([w])
@@ -299,15 +313,16 @@ def _timed(chunks: list[list[dict]], rules: dict) -> list[Cue]:
         lines = _wrap([w["w"] for w in ch], rules) or [[w["w"] for w in ch]]
         spk = next((w.get("speaker") for w in ch if w.get("speaker")), None)
         cues.append(Cue(ch[0]["start"], ch[-1]["end"] + rules["tail_s"], "\n".join(" ".join(l) for l in lines), spk,
-                        [{"w": w["w"], "start": w["start"], "end": w["end"]} for w in ch]))
+                        [dict(w) for w in ch]))
     for i, c in enumerate(cues):
         limit = cues[i + 1].start - rules["min_gap_s"] if i + 1 < len(cues) else float("inf")
         end = min(c.end, limit)
         need = max(rules["min_cue_s"], c.chars / rules["max_cps"])
         end = max(end, min(c.start + need, limit))          # lengthen into the silence after the cue, never past it
+        limit = min(limit, min((w.get("occurrence_end", float("inf")) for w in c.words), default=float("inf")))
         c.end = round(min(math.ceil(end * 1000) / 1000, limit, c.start + rules["max_cue_s"]), 4)
         if c.end <= c.start:                                 # words so crowded there is no room: keep a sliver
-            c.end = round(c.start + 0.2, 4)
+            c.end = round(min(c.start + 0.2, limit), 4)
     return cues
 
 
@@ -332,8 +347,8 @@ def cues_from_transcript(transcript: dict | list, rules: dict | None = None, glo
 def cues_from_edit(ep: Episode, doc: dict, style: dict | str | None = None) -> list[Cue]:
     """Cues in the doc's OUTPUT time from work/transcript.json, honouring cuts, fills and the episode glossary."""
     st = get_style(style, ep=ep) if isinstance(style, str) else (style or get_style("podcast", ep=ep))
-    tr = read_json(ep.artifact("transcript.json"))
-    return cues_from_words(map_words_to_output(tr["words"], doc), st["rules"], episode_glossary(ep))
+    from .occurrences import mapped_words
+    return cues_from_words(mapped_words(ep, doc), st["rules"], episode_glossary(ep))
 
 
 # ---- check -------------------------------------------------------------------------------------
@@ -662,7 +677,7 @@ def _duration(wav: Path) -> float:
 
 
 def retranscribe(ep: Episode, video: Path | str, asr: str = "fluidaudio", language: str | None = None,
-                 diarize: bool = False) -> dict:
+                 diarize: bool = False, *, work_dir: Path | None = None, local_model_dir: Path | None = None) -> dict:
     """ASR the rendered final so captions match exactly what is heard (timing and wording after all edits).
 
     Extracts 16 kHz mono PCM (what the ASR engines expect) and reuses ave.transcribe's engine wrappers. Falls back to
@@ -676,7 +691,7 @@ def retranscribe(ep: Episode, video: Path | str, asr: str = "fluidaudio", langua
     ffmpeg = config.binary("ffmpeg")
     if not ffmpeg:
         raise RuntimeError("ffmpeg not found on PATH")
-    work = ep.work / "retranscribe"
+    work = work_dir if work_dir is not None else ep.work / "retranscribe"
     work.mkdir(parents=True, exist_ok=True)
     stem = video.stem
     wav = work / f"{stem}.16k.wav"
@@ -688,7 +703,7 @@ def retranscribe(ep: Episode, video: Path | str, asr: str = "fluidaudio", langua
     if asr == "fluidaudio" and not config.fluidaudio_cli():
         warnings.append("FluidAudio is not built; used whisper.cpp instead (run scripts/build-fluidaudio.sh for Parakeet).")
         asr = "whisper"
-    words = (transcribe.run_fluidaudio_asr(wav, work / f"{stem}.fluidaudio.json", language) if asr == "fluidaudio"
+    words = (transcribe.run_fluidaudio_asr(wav, work / f"{stem}.fluidaudio.json", language, **({'local_model_dir':local_model_dir} if local_model_dir is not None else {})) if asr == "fluidaudio"
              else transcribe.run_whisper_asr(wav, work / f"{stem.replace('.', '_')}_whisper", language))  # no dots: it uses with_suffix
     if not words:
         raise RuntimeError("ASR returned no words. Is there speech in the rendered video?")

@@ -1,0 +1,11 @@
+[
+  {
+    "method": "GET",
+    "url": "/v2/userinfo",
+    "response": {
+      "sub": "abc123",
+      "name": "Maren Okafor"
+    },
+    "_source": "documentation-derived, UNVERIFIED live: https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/posts-api"
+  }
+]

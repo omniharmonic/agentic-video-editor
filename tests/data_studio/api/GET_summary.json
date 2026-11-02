@@ -1,0 +1,28 @@
+{
+  "method": "GET",
+  "path": "/api/studio/summary",
+  "status": 200,
+  "response": {
+    "title": "Acme Bakery",
+    "tz": "America/Denver",
+    "now": "2026-10-19T18:30:00Z",
+    "paused": false,
+    "posts": 4,
+    "stages": {
+      "idea": 1,
+      "draft": 1,
+      "active": 2,
+      "dropped": 0,
+      "archived": 0
+    },
+    "variants_by_status": {
+      "scheduled": 1,
+      "in_review": 1,
+      "needs_rework": 1
+    },
+    "open_feedback": 1,
+    "open_alerts": 1,
+    "accounts": 2,
+    "cursor": "ev:18273"
+  }
+}

@@ -1,0 +1,13 @@
+id: visual-canvas
+title: Editable visual canvas
+kind: image
+description: Bounded text, image and shape layers with explicit authored or verbatim copy.
+formats: [1x1, 4x5, 9x16]
+styles: [ink, paper, clay]
+default_platforms: [instagram]
+renderers:
+  visual: {version: 1}
+slots:
+  type: object
+  additionalProperties: false
+  properties: {}

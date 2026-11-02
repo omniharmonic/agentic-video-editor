@@ -476,7 +476,7 @@ def test_concat_rejects_mismatched_sources():
 
 
 def test_a_small_cap_spreads_candidates_across_the_whole_episode(tmp_path, monkeypatch):
-    """REAL-FOOTAGE REGRESSION (first real episode): all windows tie on hint, ties sorted by start time, and a cap of 60 kept only the
+    """REAL-FOOTAGE REGRESSION (The Long Table 00): all windows tie on hint, ties sorted by start time, and a cap of 60 kept only the
     first 36 minutes of a 103-minute session without saying so. Truncation must be spread over the whole edit and must be reported."""
     monkeypatch.setattr(clips, "_hint", lambda f, d, h: (1.0, []))       # the real session: EVERY window scored the same hint
     ep = build_long_episode(tmp_path / "ep")

@@ -17,8 +17,8 @@ pause:                      # "dead air": a silence between two words that is lo
   target_tolerance_ms: 25   # snapping may not move the kept silence further than this from target_ms (else the unsnapped point is used)
   word_tail_pad_ms: 80      # when a removed word starts right after a kept one and the cut point is NOT in a quiet valley, the cut-out point may slide this far
                             # INTO the removed word (never more than 40% of it) to a REAL valley reached along a smooth decay, to leave the kept word's tail whole.
-                            # 80 ms = one frame of the Parakeet ASR (every word time is a multiple of 0.08 s, so an edge can be off by a frame). Measured on the first real
-                            # episode, session 2 (236 gaps >= 250 ms): energy above the quiet limit ran >= 40 ms past the ASR word end for 36% of words, >= 80 ms for 31%
+                            # 80 ms = one frame of the Parakeet ASR (every word time is a multiple of 0.08 s, so an edge can be off by a frame). Measured on Commons
+                            # Sense 00 s2 (236 gaps >= 250 ms): energy above the quiet limit ran >= 40 ms past the ASR word end for 36% of words, >= 80 ms for 31%
   word_lead_pad_ms: 80      # same for the cut-in point and the kept word's onset (>= 80 ms of energy before the ASR start for 14% of words)
   word_tail_pad_ghost_ms: 150   # when the first removed word is a "ghost" (<= ghost_max_ms long and ASR confidence < ghost_below_conf: usually the kept word's own tail
   word_lead_pad_ghost_ms: 150   # mis-heard as a word, e.g. "right." decaying over 145 ms then a 0.08 s "Oh" at 0.77) the slide may go this far
@@ -73,7 +73,7 @@ snap:                       # move every cut to the quietest spot nearby, then t
   quiet_db_below_speech: 20 # a cut point this far under typical speech level counts as "in a valley"
   unsnapped_confidence_penalty: 0.15   # cut lands in speech-level energy (no valley found): lower confidence
   widen_if_not_valley: false # true: if the point inside window_ms is still not a valley, look in the whole allowed range for a quieter one ...
-                            # (off by default: on the first real episode (session 2) it kept 4.2 s more silence over 123 cuts and did not reduce the speech-at-the-cut count)
+                            # (off by default: on The Long Table 00 s2 it kept 4.2 s more silence over 123 cuts and did not reduce the speech-at-the-cut count)
   widen_min_gain_db: 6      # ... and take it only if it is at least this much quieter (so a point never moves for nothing)
   pad_decay_tol_db: 8       #the word_tail_pad_ms / word_lead_pad_ms slide into a removed word is only taken along a smooth decay: the level may not climb more
                             # than this above its running minimum on the way (a climb is a new syllable, i.e. the removed word itself)
@@ -92,6 +92,7 @@ masks:                      # how a cut is hidden on screen; tried in this order
   min_hold_s: 1.2           # a shot must be on screen at least this long before and after a mask
   max_hold_s: 14.0          # longer unbroken holds are reported as warnings
   repeat_window_s: 4.0      # the same camera is not used as a cutaway twice inside this window
+  min_cutaway_gap_s: 30.0   # between cutaways a seam takes a punch-in: a conversation should not flick to the listener at every pause
   cutaway_s: 2.0            # preferred cutaway length
   cutaway_max_s: 3.0        # a cutaway may run up to the next camera change if that is not longer than this
   zooms: [1.12, 1.18]       # punch-in factors, used in turn; the next mask on the same shot returns to the base framing

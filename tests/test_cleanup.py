@@ -324,10 +324,10 @@ def test_punch_ins_alternate_and_return_to_base_framing():
 
 
 def test_same_camera_cutaway_is_not_repeated_inside_the_window():
-    mk, cuts, _ = _mask_world([10.0, 13.5])     # second cut 3.5 s after the first cutaway: inside repeat_window_s (4)
+    mk, cuts, _ = _mask_world([10.0, 13.5], pol_over={"min_cutaway_gap_s": 0})     # second cut 3.5 s after the first cutaway: inside repeat_window_s (4)
     assert cuts[0]["mask"]["type"] == "cutaway" and cuts[1]["mask"]["type"] == "punch_in"
     assert "repeat_window_s" in cuts[1]["mask"]["reason"]
-    mk, cuts, _ = _mask_world([10.0, 13.5], pol_over={"repeat_window_s": 0.0})
+    mk, cuts, _ = _mask_world([10.0, 13.5], pol_over={"repeat_window_s": 0.0, "min_cutaway_gap_s": 0})
     assert cuts[1]["mask"]["type"] == "cutaway"
 
 
@@ -604,3 +604,67 @@ def test_envelope_follows_clock_drift():
     slow = cleanup.Envelope(x, sr, 0.0, drift=80e-6)
     assert flat.db_at(1000.04) > slow.db_at(1000.04) + 20    # drift-aware: episode 1000.04 maps to file 999.96 s = silence
     assert slow.db_at(1000.25) > flat.db_at(1000.25) + 20    # the burst now lives at episode 1000.08..1000.28
+
+
+@needs_ffmpeg
+def test_audio_rough_cut_keeps_real_dialogue_without_camera_mask(tmp_path):
+    from ave import assemble, compile as comp
+    ep = Episode(tmp_path / 'episode')
+    ep.create()
+    original = np.concatenate([np.full(48000, .1), np.full(48000, .2),
+                               np.full(96000, .3)]).astype('float32')
+    sf.write(ep.raw / 'audio.wav', original, 48000, subtype='FLOAT')
+    doc = assemble.build_audio(ep, {'file': 'raw/audio.wav', 'kind': 'audio', 'start_offset': 0},
+                               {'in': 0, 'out': 4}, session='main')
+    cut = {'id': 'k1', 'e0': 1.0, 'e1': 2.0, 'xfade_ms': 20, 'decisions': ['c1']}
+    rough, _ = cleanup.build_rough(doc, [cut], {}, POL, 'test')
+    assert rough['tracks']['video'] == []
+    assert rough['duration'] == 3
+    assert [(s['o0'], s['o1'], s['e0']) for s in rough['tracks']['dialogue']] == [(0, 1, 0), (1, 3, 2)]
+    assert rough['tracks']['dialogue'][1]['xfade_ms'] == 20
+    assert cut['mask']['type'] == 'audio_crossfade'
+    assert editdoc.validate(rough) == []
+    out = tmp_path / 'rough.wav'
+    comp.compile_audio(ep, rough, out)
+    decoded, sr = sf.read(out, dtype='float32', always_2d=True)
+    assert sr == 48000 and len(decoded) == 3 * sr
+    assert np.allclose(decoded[sr // 2], .1, atol=1e-4)
+    assert np.allclose(decoded[2 * sr], .3, atol=1e-4)
+
+
+def test_audio_cleanup_analyzes_filler_and_reports_listening_seam(tmp_path):
+    from ave import assemble
+    from ave.episode import write_json
+    ep = Episode(tmp_path / 'episode')
+    ep.create()
+    source = {'file': 'raw/recording.wav', 'kind': 'audio', 'start_offset': 0}
+    samples = np.sin(np.arange(4 * 16000) * 2 * np.pi * 220 / 16000).astype('float32') * .1
+    wav = audio.analysis_wav_path(ep, source['file'])
+    wav.parent.mkdir(parents=True, exist_ok=True)
+    sf.write(wav, samples, 16000)
+    write_json(ep.artifact('transcript.json'), {'words': [W('Hello', .2, .5), W('um', 1, 1.2), W('there.', 2, 2.4)]})
+    doc = assemble.build_audio(ep, source, {'in': 0, 'out': 4}, session='main')
+    result = cleanup.analyze(ep, doc, POL)
+    assert any(d['type'] == 'filler' and d['action'] == 'cut' for d in result['decisions'])
+    assert result['cuts'] and all(c['mask']['type'] == 'audio_crossfade' and c['review'] for c in result['cuts'])
+    assert result['doc']['tracks']['video'] == []
+    assert result['pacing']['enabled'] is False
+    assert result['cutcheck']['audio_checked'] is True
+
+
+def test_streamed_envelope_matches_in_memory_clock_and_zero_crossings(tmp_path):
+    sr=16000;t=np.arange(sr*4)/sr
+    samples=(.2*np.sin(2*np.pi*137*t)+.03*np.sin(2*np.pi*7*t)).astype('float32')
+    wav=tmp_path/'source.wav';sf.write(wav,samples,sr,subtype='FLOAT')
+    old=cleanup.Envelope(samples,sr,.75,drift=.00002);new=cleanup.Envelope.from_wav(wav,.75,drift=.00002)
+    assert new.x is None and np.allclose(new.db,old.db,atol=1e-6)
+    assert abs(new.zero_cross(2,.9,3,.02)-old.zero_cross(2,.9,3,.02))<1e-9
+
+
+def test_streamed_envelope_covers_source_beyond_one_hour(tmp_path):
+    wav=tmp_path/'long.wav';sr=16000
+    with sf.SoundFile(wav,mode='w',samplerate=sr,channels=1,subtype='PCM_16') as f:
+        f.seek(3601*sr-1);f.write(np.array([.5],dtype='float32'))
+    envelope=cleanup.Envelope.from_wav(wav,0)
+    assert envelope.x is None and envelope.sample_count==3601*sr
+    assert envelope._k(3600)<len(envelope.db) and envelope.db_at(3600)<-100

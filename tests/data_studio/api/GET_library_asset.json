@@ -1,0 +1,66 @@
+{
+  "method": "GET",
+  "path": "/api/studio/library/a_9f2c1d4e7b10",
+  "status": 200,
+  "response": {
+    "asset": {
+      "v": 1,
+      "id": "a_9f2c1d4e7b10",
+      "sha256": "9f2c1d4e7b10a3b5c6d7e8f901234567890abcdef1234567890abcdef1234567",
+      "kind": "image",
+      "ext": ".jpg",
+      "file": "library/assets/9f/9f2c1d4e7b10a3b5c6d7e8f901234567890abcdef1234567890abcdef1234567.jpg",
+      "bytes": 214003,
+      "w": 1080,
+      "h": 1350,
+      "duration": null,
+      "fps": null,
+      "source": {
+        "type": "stock",
+        "provider": "pexels",
+        "asset_id": "2284",
+        "url": "https://www.pexels.com/photo/2284/"
+      },
+      "license": {
+        "entry": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "summary": "Pexels License",
+        "attribution": {
+          "required": false,
+          "text": "Photo by A. Baker on Pexels"
+        }
+      },
+      "ai_generated": false,
+      "derived_from": [],
+      "tags": [
+        "bread",
+        "kitchen"
+      ],
+      "alt": "A jar of starter with bubbles at the glass.",
+      "people": {
+        "faces": 0,
+        "release": null
+      },
+      "origin": null,
+      "added": "2026-10-19T09:00:00-0600",
+      "added_by": "claude"
+    },
+    "usage": [
+      {
+        "post": "p_20261102_k3f9",
+        "variant": "v_ig"
+      }
+    ],
+    "url": "/files/library/assets/9f/9f2c1d4e7b10a3b5c6d7e8f901234567890abcdef1234567890abcdef1234567.jpg",
+    "license": {
+      "covered": true,
+      "entries": [
+        {
+          "entry": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "provider": "pexels",
+          "summary": "Pexels License"
+        }
+      ],
+      "missing": []
+    }
+  }
+}

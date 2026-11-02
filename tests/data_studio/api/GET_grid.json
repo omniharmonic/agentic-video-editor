@@ -1,0 +1,81 @@
+{
+  "method": "GET",
+  "path": "/api/studio/grid/ig-main",
+  "status": 200,
+  "query": {
+    "limit": 30
+  },
+  "response": {
+    "account": {
+      "id": "ig-main",
+      "platform": "instagram",
+      "mode": "graph",
+      "label": "@acmebakery",
+      "tz": "America/Denver",
+      "post_types": [
+        "feed",
+        "carousel",
+        "story",
+        "reel"
+      ],
+      "live": false,
+      "paused": false,
+      "credentials": {
+        "ready": false,
+        "missing": [
+          "instagram_token@ig-main"
+        ]
+      },
+      "quota": {
+        "used_24h": 0,
+        "limit_24h": 2
+      },
+      "last_tick": null,
+      "token_expires": null
+    },
+    "layout": {
+      "kind": "profile_grid",
+      "columns": 3,
+      "cell_aspect": "3:4",
+      "crop": "center_cover",
+      "approximate": true,
+      "verified": false
+    },
+    "cells": [
+      {
+        "post": "p_20261104_m2a1",
+        "variant": "v_ig2",
+        "at": "2026-11-04T09:00:00-07:00",
+        "status": "needs_rework",
+        "thumb": "/files/library/assets/9f/9f2c1d4e7b10a3b5c6d7e8f901234567890abcdef1234567890abcdef1234567.jpg",
+        "w": 1080,
+        "h": 1350,
+        "rev": 3,
+        "locked": false,
+        "crop": {
+          "grid_focus": [
+            0.5,
+            0.4
+          ]
+        }
+      },
+      {
+        "post": "p_20261102_k3f9",
+        "variant": "v_ig",
+        "at": "2026-11-02T09:00:00-07:00",
+        "status": "scheduled",
+        "thumb": "/files/library/assets/9f/9f2c1d4e7b10a3b5c6d7e8f901234567890abcdef1234567890abcdef1234567.jpg",
+        "w": 1080,
+        "h": 1350,
+        "rev": 7,
+        "locked": false,
+        "crop": {
+          "grid_focus": [
+            0.5,
+            0.4
+          ]
+        }
+      }
+    ]
+  }
+}

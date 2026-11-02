@@ -1,0 +1,108 @@
+{
+  "method": "GET",
+  "path": "/api/studio/library",
+  "status": 200,
+  "query": {
+    "q": "bread",
+    "kind": "image"
+  },
+  "response": {
+    "assets": [
+      {
+        "v": 1,
+        "id": "a_9f2c1d4e7b10",
+        "sha256": "9f2c1d4e7b10a3b5c6d7e8f901234567890abcdef1234567890abcdef1234567",
+        "kind": "image",
+        "ext": ".jpg",
+        "file": "library/assets/9f/9f2c1d4e7b10a3b5c6d7e8f901234567890abcdef1234567890abcdef1234567.jpg",
+        "bytes": 214003,
+        "w": 1080,
+        "h": 1350,
+        "duration": null,
+        "fps": null,
+        "source": {
+          "type": "stock",
+          "provider": "pexels",
+          "asset_id": "2284",
+          "url": "https://www.pexels.com/photo/2284/"
+        },
+        "license": {
+          "entry": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "summary": "Pexels License",
+          "attribution": {
+            "required": false,
+            "text": "Photo by A. Baker on Pexels"
+          }
+        },
+        "ai_generated": false,
+        "derived_from": [],
+        "tags": [
+          "bread",
+          "kitchen"
+        ],
+        "alt": "A jar of starter with bubbles at the glass.",
+        "people": {
+          "faces": 0,
+          "release": null
+        },
+        "origin": null,
+        "added": "2026-10-19T09:00:00-0600",
+        "added_by": "claude",
+        "usage": [
+          {
+            "post": "p_20261102_k3f9",
+            "variant": "v_ig"
+          }
+        ],
+        "license_ok": true,
+        "url": "/files/library/assets/9f/9f2c1d4e7b10a3b5c6d7e8f901234567890abcdef1234567890abcdef1234567.jpg"
+      },
+      {
+        "v": 1,
+        "id": "a_0a1b2c3d4e5f",
+        "sha256": "0a1b2c3d4e5f0000000000000000000000000000000000000000000000000000",
+        "kind": "image",
+        "ext": ".png",
+        "file": "library/assets/0a/0a1b2c3d4e5f0000000000000000000000000000000000000000000000000000.png",
+        "bytes": 214003,
+        "w": 1080,
+        "h": 1350,
+        "duration": null,
+        "fps": null,
+        "source": {
+          "type": "render",
+          "provider": null,
+          "asset_id": null,
+          "url": null
+        },
+        "license": {
+          "entry": null,
+          "summary": "own work",
+          "attribution": {
+            "required": false,
+            "text": null
+          }
+        },
+        "ai_generated": false,
+        "derived_from": [
+          "a_9f2c1d4e7b10"
+        ],
+        "tags": [
+          "quote-card"
+        ],
+        "alt": "Quote card: a goal is a wish and a system is a habit.",
+        "people": {
+          "faces": 0,
+          "release": null
+        },
+        "origin": null,
+        "added": "2026-10-19T09:00:00-0600",
+        "added_by": "claude",
+        "usage": [],
+        "license_ok": true,
+        "url": "/files/library/assets/0a/0a1b2c3d4e5f0000000000000000000000000000000000000000000000000000.png"
+      }
+    ],
+    "total": 2
+  }
+}

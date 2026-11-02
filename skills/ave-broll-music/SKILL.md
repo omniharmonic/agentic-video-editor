@@ -13,7 +13,7 @@ The checklist is data (`ave assets checklist`, `config/assets.critic.yaml`); the
 1. **No asset without a license-log entry.** `work/assets/licenses.jsonl` is append-only and hash-chained. Provider downloads log themselves; everything else (own footage, a purchased or CC track) needs `ave assets log-license`.
 2. **A named human approves every download** (`--approved-by`). Show them the candidate (thumbnail, author, source page, why it fits) and wait. Downloading is a checkpoint.
 3. **Never judge from filenames or tags alone.** Look at a contact sheet / thumbnail, then score.
-4. **Run `ave assets license-check <ep>` before any render or publish.** Exit 1 means stop and fix; report the `missing` list to the human. Put `required_credits` in the description.
+4. **Run `ave assets license-check <ep>` before any render or publish.** Exit 1 means stop and fix; report the `missing` list to the human. Put `required_credits` in the description. (B-roll placed from the studio library with `ave broll place` is checked against that library's attested licenses, not the episode log; `ave broll check` reports it too.)
 5. No music downloads from services you cannot verify. Tracks come from a folder the human already has rights to.
 
 ## 1. B-roll from the user's own footage
@@ -56,7 +56,37 @@ ave assets critique candidates.json          # exit 1 if any fail; reasons and c
 - Use J/L cuts: let the insert's picture begin before the line it illustrates, or the line finish under it. Do not cut picture and sound together.
 - Add real ambience under silent clips. Do not stack effects, speed ramps or "cinematic" treatments.
 - Music: bed gain -18 to -24 dB (`gain_db`), ducked further under speech (`duck_db`). Drop the music out for ~0.6 s after a punchline (`--punchlines [{"t": 41.2}]`). Silence is a tool.
-- Add each insert to the EditDoc as an overlay `kind: "broll"` via `editdoc.save_new_version` (never edit a version in place).
+- Put each insert into the edit with `ave broll place` (next section), never by editing a version by hand.
+
+### Placing a studio-library asset: `ave broll place`
+
+B-roll that lives in the studio library (a stock pick, a still, your own clip; `ave-studio-broll` finds and licenses it) goes into a rough, final or short edit as an
+explicit, reversible step. The asset must be **licensed and human-attested in the library**, or placing refuses and says `ave studio library attest` (a human act).
+
+```bash
+# 1. SUGGEST: writes work/broll/proposals/bp_*.json and changes no edit. Read `checks` (license, pacing, warnings) first.
+ave broll place <ep> --asset a_9938... --at 41.2 --dur 2.5 [--stage rough|final|short] [--name <slug>] [--mode cutaway|overlay|insert] \
+     [--in 0.8] [--audio mute|keep] [--ken-burns push_in|pull_out|pan_left|pan_right|drift] [--credit auto|always|never] [--beats beats.json] \
+     [--studio DIR] --reason "hands match the line"
+# 2. APPLY the proposal (a NEW edit version with a history entry; refuses if the edit moved on), or pass --apply to step 1
+ave broll apply <ep> bp_4f2a...
+ave broll list <ep> [--stage S --name N]      # placements, history, license closure
+ave broll check <ep>                           # exit 1 = unlicensed/unattested asset; lists required credits; pacing advice
+ave broll remove <ep> --id b2                  # drop one placement (a new version)
+ave broll undo <ep>                            # restore the edit as it was before the latest B-roll step (a new version; refuses if something was saved since)
+```
+
+- **cutaway** (default) covers the whole frame for `[at, at+dur)` while the dialogue plays on, untouched. **overlay** is a picture-in-picture box (`--corner`, `--scale`, `--box`).
+  **insert** is a ripple: the cut grows by `dur`, the dialogue holds in exact silence, captions are dropped and must be regenerated (it warns when the point falls inside a word).
+  An insert is reversed with `undo`, not `remove`. Prefer cutaways: they never move the dialogue.
+- **Silent unless you say `--audio keep`.** Silent B-roll leaves the dialogue master bit-identical. `keep` mixes the asset's own sound under the dialogue and ducks it
+  (`config/broll_place.yaml` `audio`); lay real room tone under silent clips as before.
+- **Stills** hold still unless you ask for `--ken-burns`; a still on screen for more than a few seconds with no move reads as a slide. Judge the result by looking at a frame.
+- **Licenses and credits.** `ave render`, `ave final` and `ave shorts export` re-check the closure and BLOCK with a message naming the asset if it is unlicensed, unattested or its
+  file changed. The render report and the short's sidecar carry `derived_from` (every placed asset) and the attribution lines; when the license requires attribution a credit
+  caption is drawn on screen (`kind: "credit"` overlay) and the line belongs in the description. `ave assets license-check` accepts library placements.
+- Pacing (`ave assets pacing`, `ave broll check --beats`) is advice, not a block, unless you pass `--strict-pacing`. Emotional beats still belong to the face.
+- Every number (box size, fades, credit position) is in `config/broll_place.yaml` and has not been judged on real footage: LOOK at a frame (`ave frame`, or render a proxy) before telling the human it is good.
 
 ## 5. Music
 

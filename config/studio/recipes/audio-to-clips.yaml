@@ -1,0 +1,52 @@
+name: audio-to-clips
+title: Audio to clips and audiograms
+summary: >
+  A recording becomes a normal episode (transcript, recall-first clip proposals), the human keeps the clips they want, audiogram shorts are built,
+  and the approved exports are adopted into the studio to be queued and scheduled like anything else.
+inputs:
+  - {name: file, required: true, path: true, description: "The audio file (wav, mp3, m4a, ...)"}
+  - {name: episode, required: true, description: "Folder name of the episode this creates (beside the studio); the same value is used by every step"}
+steps:
+  - id: ingest
+    kind: mechanical
+    title: Create the episode, copy the file into raw/, probe it and make the analysis audio
+    command: "ave studio ingest audio {file} --name {episode} --studio {studio}"
+    done_when: {episode_file: "work/media.json"}
+  - id: transcribe
+    kind: mechanical
+    title: Transcribe with speakers (Parakeet primary)
+    command: "ave transcribe {episode} --speakers 2"
+    done_when: {episode_file: "work/transcript.json"}
+  - id: propose
+    kind: agent
+    skill: ave-clip-finder
+    title: Prepare and propose clips (recall first, complete statements)
+    checklist:
+      - "`ave clips prepare` then `ave clips propose`; every proposal records a reason and a confidence."
+      - "Never decide keep/skip for the human; surface everything above the floor."
+    done_when: {episode_file: "work/clips.json"}
+  - id: choose
+    kind: human
+    title: Keep, maybe or skip each clip
+    prompt: "Open `ave ui` for the episode and decide on the clips. Only kept clips continue."
+    command: "ave ui {episode}"
+    done_when: {episode_file: "work/learning/clip_decisions.jsonl"}
+  - id: shorts
+    kind: agent
+    skill: ave-shorts
+    title: Build and export the audiogram shorts
+    checklist:
+      - "`ave shorts build <episode> --layout audiogram` then `ave shorts preview` and LOOK at the frames."
+      - "`ave shorts export`; clips must be complete statements."
+    done_when: {episode_file: "exports/shorts"}
+  - id: adopt
+    kind: mechanical
+    title: Adopt the episode's queue items into the studio
+    command: "ave studio adopt {episode} --studio {studio}"
+    done_when: {posts: {origin: episode, min: 1}}
+  - id: review
+    kind: human
+    title: Review and approve (in the episode's queue, hash-bound)
+    prompt: "Approve each queued item (`ave publish approve` for adopted items, or the Studio review page for studio-native ones)."
+    command: "ave studio ui {studio}"
+    done_when: {variants: {status: [approved, scheduled], min: 1}}

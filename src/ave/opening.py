@@ -8,7 +8,7 @@ awkward. The quote must never be shown as a graphic before or while it is spoken
   title_card      a brief (~1.3 s) full-frame title screen (show name + topic title), then the clip. This adds `card_s` to the
                   short: video holds the clip's first frame under the card, dialogue gets a silent lead-in, captions start after it.
 
-The title is a TOPIC written from the clip ("Why we started this table"), a draft the human edits. Its text comes from, in order,
+The title is a TOPIC written from the clip ("Why we are making this show"), a draft the human edits. Its text comes from, in order,
 `--title`, `work/shorts/titles.json` (`{"<slug or clip id>": "..."}`), the clip's own `title`. It must pass the repo's voice critic
 (`package.postcopy.critique`: no hype, no emoji, no exclamation, no question in our own words) and must not be the speaker's words
 (`max_verbatim_share`): a title that is a quote of the clip is exactly what the creator rejected. A title that fails leaves the short
@@ -50,7 +50,7 @@ def config(cfg: dict | None) -> dict:
 # ---- the title text -------------------------------------------------------------------------------------------------
 
 def show_name(ep: Episode, cfg: dict) -> str:
-    if cfg.get("show"):
+    if cfg.get("show") is not None:
         return str(cfg["show"])
     try:
         meta = read_json(ep.meta_path)
@@ -138,12 +138,12 @@ def resolve_title(ep: Episode, clip: dict, cfg: dict, explicit: str | None = Non
 
 # ---- rendering and placing it ---------------------------------------------------------------------------------------
 
-def render_overlay(ep: Episode, props: dict, duration: float, canvas: tuple[int, int], fps: float) -> Path:
+def render_overlay(ep: Episode, props: dict, duration: float, canvas: tuple[int, int], fps: float, *, materialize=True) -> Path:
     """The title as an alpha .mov in work/motion (reused when the same spec was rendered before)."""
     spec = motion.normalize_spec({"template": TEMPLATE, "props": props, "duration": duration, "fps": fps, "canvas": canvas})
-    rel = ep.work.relative_to(ep.root) / "motion" / f"{TEMPLATE}-{motion.spec_hash(spec)}.mov"
+    rel = Path(ep.rel(ep.work / "motion" / f"{TEMPLATE}-{motion.spec_hash(spec)}.mov"))
     target = ep.root / rel
-    if not target.exists():
+    if materialize and not target.exists():
         motion.render(spec, target)
     return rel
 
@@ -175,7 +175,7 @@ def _lead(doc: dict, lead: float, gain_db: float) -> None:
 
 
 def apply(ep: Episode, doc: dict, clip: dict, cfg: dict, mode: str | None = None, title: str | None = None,
-          layout: str = "crop") -> dict:
+          layout: str = "crop", *, materialize=True) -> dict:
     """Add the opening to a short doc IN PLACE (before captions are made) and return the sidecar record."""
     oc = config(cfg)
     requested = mode or oc["mode"]
@@ -206,7 +206,7 @@ def apply(ep: Episode, doc: dict, clip: dict, cfg: dict, mode: str | None = None
         at = float(oc["title_overlay"]["at_s"])
         dur = min(dur, doc["duration"] - at)
         props, add = {"title": got["text"], "show": show, "mode": "overlay", "bottom": float(oc["title_overlay"]["bottom"])}, 0.0
-    rel = render_overlay(ep, props, dur, cv, doc["fps"])
+    rel = render_overlay(ep, props, dur, cv, doc["fps"]) if materialize else render_overlay(ep, props, dur, cv, doc["fps"], materialize=False)
     overlays = doc["tracks"].setdefault("overlays", [])
     used = {o.get("id") for o in overlays}
     n = 1

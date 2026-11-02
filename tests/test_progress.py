@@ -193,3 +193,27 @@ def test_adopt_command_on_an_existing_numbered_folder(tmp_path, capsys):
     r = jrun(capsys, "adopt", d)
     assert r["layout"] == "numbered" and (d / "PROGRESS.md").exists()
     assert (d / "01_PROJECT" / "work").is_dir()
+
+
+def test_installed_package_agents_md_has_no_bogus_venv_or_missing_rules(tmp_path, monkeypatch):
+    """From a wheel, REPO_ROOT is site-packages/ave/_data: no .venv/bin/ave there, and AGENTS.md must be bundled or not referenced."""
+    from ave import config, resources
+    data = tmp_path / "site" / "ave" / "_data"
+    (data / "skills" / "ave-session-protocol").mkdir(parents=True)
+    monkeypatch.setattr(resources, "is_checkout", lambda: False)
+    monkeypatch.setattr(config, "REPO_ROOT", data)
+    monkeypatch.setattr(resources, "path", lambda *parts: data.joinpath(*parts))
+    monkeypatch.setattr(progress.shutil, "which", lambda name: "/usr/local/bin/ave")
+    ep = Episode(tmp_path / "e")
+    text = progress._agents_md(ep)
+    assert ".venv" not in text and "/usr/local/bin/ave doctor" in text and str(data / "AGENTS.md") not in text   # not bundled -> not pointed at
+    assert "no source checkout" in text and "never publish without approval" in text
+    (data / "AGENTS.md").write_text("rules\n")                              # bundled -> pointed at
+    assert str(data / "AGENTS.md") in progress._agents_md(ep)
+    assert ".venv" not in progress._template(ep)
+
+
+def test_checkout_has_agents_md_for_resources():
+    from ave import resources
+    if resources.is_checkout():
+        assert resources.path("AGENTS.md").is_file()

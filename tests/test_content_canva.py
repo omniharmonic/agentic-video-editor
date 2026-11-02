@@ -81,8 +81,10 @@ def make_job(ep, capsys, *args):
 
 
 def approve(ep, job_id, monkeypatch, capsys):
-    monkeypatch.setenv("AVE_ALLOW_UNATTENDED_APPROVAL", "1")
-    code = cli.main(["content", "canva-approve", str(ep.root), job_id, "--by", "ben", "--confirm", C.load_job(ep, job_id)["fields_sha256"][:8]])
+    from ave import humanpresence
+    monkeypatch.setattr(humanpresence, "is_human_terminal", lambda: True)
+    monkeypatch.setattr("builtins.input", lambda prompt="": C.load_job(ep, job_id)["fields_sha256"][:8])
+    code = cli.main(["content", "canva-approve", str(ep.root), job_id, "--by", "maren"])
     assert code == 0, capsys.readouterr().out
     capsys.readouterr()
 
@@ -156,13 +158,17 @@ def test_writes_are_refused_until_the_human_approves(planned, canva_on, capsys, 
     with pytest.raises(C.CanvaError, match="must approve"):
         C.run_job(fake, ep, job_id)
     assert fake.calls == []
-    with pytest.raises(SystemExit, match="terminal"):                                  # no tty, no opt-in: an agent cannot approve
+    with pytest.raises(SystemExit, match="ave content canva-approve"):               # no tty: an agent cannot approve
         cli.main(["content", "canva-approve", str(ep.root), job_id])
-    monkeypatch.setenv("AVE_ALLOW_UNATTENDED_APPROVAL", "1")
-    with pytest.raises(SystemExit, match="does not match"):
+    with pytest.raises(SystemExit):                                                    # the removed bypass flag is gone
         cli.main(["content", "canva-approve", str(ep.root), job_id, "--confirm", "00000000"])
+    from ave import humanpresence
+    monkeypatch.setattr(humanpresence, "is_human_terminal", lambda: True)
+    monkeypatch.setattr("builtins.input", lambda prompt="": "00000000")
+    with pytest.raises(SystemExit, match="does not match"):
+        cli.main(["content", "canva-approve", str(ep.root), job_id])
     approve(ep, job_id, monkeypatch, capsys)
-    assert C.load_job(ep, job_id)["approval"]["by"] == "ben"
+    assert C.load_job(ep, job_id)["approval"]["by"] == "maren"
 
 
 def test_full_handshake_with_a_fake_client_then_normal_review_and_approval(planned, canva_on, capsys, monkeypatch, tmp_path):
@@ -193,7 +199,7 @@ def test_full_handshake_with_a_fake_client_then_normal_review_and_approval(plann
     assert "not measured" in open(rv["index"]).read()
     d = ep.root / "decisions.json"
     d.write_text(json.dumps([{"id": it["id"], "decision": "approve", "note": "looked at it"}]))
-    run(capsys, "decide", ep.root, d, "--by", "ben")
+    run(capsys, "decide", ep.root, d, "--by", "maren")
     assert M.load_latest(ep)["items"][0]["review"]["status"] == "approved"
     _, rep = run(capsys, "render", ep.root)                                             # default render never touches a Canva item
     assert rep["rendered"] == [] and "approved" in rep["skipped"][0]["why"]
@@ -280,7 +286,7 @@ def test_named_inhouse_render_after_a_canva_import_records_the_switch(planned, c
     assert rep["rendered"] == [] and "rendered by Canva" in rep["skipped"][0]["why"]
     run(capsys, "render", ep.root, "--item", "quote-c01-4x5")
     it = M.load_latest(ep)["items"][0]
-    assert it["renderer"] == "motion-kit" and it["provenance"]["canva"]["fallback"]["was"] == "DAF1" and it["outputs"][0]["file"].endswith("quote-c01-4x5.png")
+    assert it["renderer"] == "motion-kit" and it["provenance"]["canva"]["fallback"]["was"] == "DAF1" and it["outputs"][0]["file"].endswith(("quote-c01-4x5.png", "quote-c01-4x5.jpg"))
 
 
 def test_registry_only_accepts_the_canva_renderer_when_this_install_mapped_the_template(planned, canva_on):

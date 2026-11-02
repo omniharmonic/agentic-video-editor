@@ -51,7 +51,7 @@ crossing. Audio crossfade: 5-15 ms inside speech, 20-40 ms across a kept pause. 
 
 ## 3a. Zoom state: one punch-in, a real dwell, then out (never in-out-in)
 
-A punch-in that goes IN, OUT, IN within a few seconds reads as jumpy (creator feedback on the first real final cut: 19 of 42 gaps between zoom changes were under
+A punch-in that goes IN, OUT, IN within a few seconds reads as jumpy (creator feedback on the real final, The Long Table 00: 19 of 42 gaps between zoom changes were under
 8 s, 4 in-out-in runs). A slow in/out is natural. So every producer of punch-ins (the masks above, the pacing pass, shorts' jump-cut masks) shares one rule (`src/ave/zoomstate.py`,
 keys `masks.zoom_min_dwell_s` and `pacing.zoom_min_dwell_s`, default 8 s, and `max_ins_per_shot: 1`; 0 turns it off):
 
@@ -76,8 +76,8 @@ listen to each at its output time before approving. `ave final` runs the same ch
 
 ## 3b. Pacing: breaking long holds (after the masks)
 
-Masks only fire at cut points, so a long turn would stay on one camera for a minute. After masking, the pacing pass inserts a 2-4 s **reaction shot** into every hold
-longer than `pacing.max_hold_s` (14): a `role: wide` camera first, else the listener's camera (never while they speak), else a punch-in (1.10/1.20x alternating). It cuts
+Masks only fire at cut points, so a long turn would stay on one camera for a minute. After masking, the pacing pass inserts a **reaction shot** (2-4 s for a cutaway; a punch-in fallback is held, see 3a) into every hold
+longer than `pacing.max_hold_s` (14): a `role: wide` camera first, else the listener's camera (never while they speak), else a sustained punch-in (1.10/1.20x, held to the end of the hold; see 3a). It cuts
 only between words, preferably at the end of a strong sentence, at least 2.5 s from the neighbouring cuts, and never touches the dialogue. Each one is a video segment
 `reason: "pacing: reaction"` with a `confidence`.
 

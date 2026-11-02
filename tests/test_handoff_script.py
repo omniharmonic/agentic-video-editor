@@ -298,3 +298,25 @@ def test_a_bridge_exception_mid_run_is_recovered_like_a_returned_error(monkeypat
     _, plan_path = layered_plan
     code, data, err = run_script(monkeypatch, capsys, fake, plan_path, chunk=2)
     assert code == 0 and data.get("ok") is True, (data, err[-600:])
+
+
+@pytest.mark.parametrize('audio_only',[True,False])
+def test_exact_master_review_and_actual_report(monkeypatch,capsys,synth_episode,tmp_path,audio_only):
+    doc=editdoc.clone(editdoc.load_latest(synth_episode,'assembly'))
+    if audio_only:
+        doc['media_mode']={'version':1,'kind':'audio'};doc['tracks']['video']=[]
+    master=tmp_path/('finished.wav' if audio_only else 'finished.mp4');master.write_bytes(b'synthetic bridge fixture')
+    plan=handoff.master_review_plan(doc,name='exact final v2',master=master,duration=doc['duration']+3.25)
+    assert len(plan['video'])==(0 if audio_only else 1)
+    assert len(plan['audio'])==1 and not plan['music']
+    assert plan['audio'][0]['end_frame']==round((doc['duration']+3.25)*doc['fps'])
+    path=tmp_path/'exact-plan.json';path.write_text(json.dumps(plan));fake=FakeResolve()
+    code,result,err=run_script(monkeypatch,capsys,fake,path)
+    assert code==0 and result['ok'],(result,err)
+    assert handoff.checked_report(json.dumps(result),returncode=code,expected_name=plan['name'])['project']=='fake'
+    for bad in ({**result,'dry_run':True},{**result,'timeline':'wrong'},{**result,'ok':False}):
+        with pytest.raises(ValueError):handoff.checked_report(json.dumps(bad),returncode=0,expected_name=plan['name'])
+    fake=FakeResolve();fake.corrupt=(2,1)
+    code,result,err=run_script(monkeypatch,capsys,fake,path)
+    assert code!=0 and not result['ok']
+    with pytest.raises(ValueError):handoff.checked_report(json.dumps(result),returncode=code,expected_name=plan['name'])

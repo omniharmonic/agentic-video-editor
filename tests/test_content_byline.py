@@ -1,6 +1,7 @@
 """Regression: the show name prints ONCE per graphic, and the speaker's name has its title (CO-HOST) beneath it.
 
-Reported on the first drafts: the show name was printed twice and the CO-HOST title was missing beneath the host names. Root cause: the stored ContentDoc carried role == show == "The Long Table", the drafts on disk were
+The creator's feedback on the first drafts: "it still has the double 'The Long Table' and should have CO-HOST as the title beneath Tomas and
+my names, with The Long Table on top." Root cause: the stored ContentDoc carried role == show == "The Long Table", the drafts on disk were
 rendered before the blank-the-duplicate fix, and the doc could not be re-rendered at all because the clips had been renumbered
 (`Sources changed since the plan was made`). Covered here for every template, with real browser measurements of the DOM text.
 """
@@ -61,7 +62,7 @@ def _count(shot, phrase=SHOW):
 # every duplicate the show name could arrive through, one per template
 DUPES = {
     "quote-post": {"quote": Q, "attribution": "Maren", "role": SHOW, "title": SHOW, "show": SHOW},
-    "thumbnail": {"title": "Soil is a habit, not a goal", "guest": f"Maren Okafor, {SHOW}", "show": SHOW},
+    "thumbnail": {"title": "Soil is a habit, not a goal", "guest": f"Rosa Okafor, {SHOW}", "show": SHOW},
     "carousel": {"show": SHOW, "cover": {"title": "What soil teaches about staying", "subtitle": SHOW},
                  "slides": [{"kind": "quote", "quote": "A goal is a wish and a system is a habit", "attribution": "Maren", "title": SHOW}],
                  "closing": {"line": "Listen to the full conversation", "cta": SHOW}},
@@ -94,12 +95,12 @@ def test_quote_card_shows_the_show_once_at_the_top_then_the_name_with_co_host_be
     """ink 4:5, paper 1:1, clay 9:16 (the three real drafts): show mark on top, 'Maren'/'Tomas', 'CO-HOST' directly beneath the name."""
     for style, fmt, who in (("ink", "4x5", "Maren"), ("paper", "1x1", "Tomas"), ("clay", "9x16", "Tomas")):
         # stored the way the first drafts had it: full surname attribution and the show repeated as the role
-        shot, props = _shoot(kit, "quote-post", style, fmt, {"quote": Q, "attribution": f"{who} Okafor" if who == "Maren" else who,
+        shot, props = _shoot(kit, "quote-post", style, fmt, {"quote": Q, "attribution": f"{who} Life" if who == "Maren" else who,
                                                               "role": SHOW, "show": SHOW})
         assert _count(shot) == 1, (style, fmt, shot["text"])
         el = {e["name"]: e for e in shot["measure"]}
         assert el["show"]["text"] == SHOW and el["attribution"]["text"] == who and el["byline_title"]["text"] == "CO-HOST"
-        assert "Okafor" not in shot["text"]
+        assert "Life" not in shot["text"]
         top, name, title = el["show"]["rect"], el["attribution"]["rect"], el["byline_title"]["rect"]
         assert top["y"] + top["h"] < el["quote"]["rect"]["y"]                       # show mark above the quote
         assert name["y"] > el["quote"]["rect"]["y"] + el["quote"]["rect"]["h"]       # name below it
@@ -122,21 +123,21 @@ def test_render_item_records_one_show_name_for_a_clean_item_and_alt_text_names_i
     res = RM.render_item(ep, it, s, M.content_dir(ep) / "renders" / "once", reg, cfg)
     assert res["critic"]["ok"] and res["critic"]["images"][0]["show_name_count"] == 1
     alt = res["outputs"][0]["alt_text"]
-    assert alt.count(SHOW) == 1 and "Maren, CO-HOST" in alt and "Okafor" not in alt
+    assert alt.count(SHOW) == 1 and "Maren, CO-HOST" in alt and "Life" not in alt
 
 
 # ---- who is named, and how ------------------------------------------------------------------------------
 
 def test_speaker_names_and_titles_come_from_episode_json(cep):
     _set_speakers(cep, {"S1": {"name": "Maren", "full_name": "Maren Okafor"}, "S2": {"name": "Tomas", "display_name": "Tomas R.", "title": "PRODUCER"},
-                        "S3": {"name": "Ines", "guest": True}})
+                        "S3": {"name": "Rosa", "guest": True}})
     spk = people.load_speakers(cep)
     assert people.byline(spk, "Maren Okafor") == ("Maren", "CO-HOST")       # full_name matches; it is never printed
     assert people.byline(spk, "maren") == ("Maren", "CO-HOST")
     assert people.byline(spk, "Tomas") == ("Tomas R.", "PRODUCER")              # display_name prints, title overrides the default
     assert people.byline(spk, "S2") == ("Tomas R.", "PRODUCER")
-    assert people.byline(spk, "Ines") == ("Ines", "")                         # a guest has no default title
-    assert people.byline(spk, "Ines", "Soil ecologist") == ("Ines", "Soil ecologist")   # an explicit title wins
+    assert people.byline(spk, "Rosa") == ("Rosa", "")                         # a guest has no default title
+    assert people.byline(spk, "Rosa", "Soil ecologist") == ("Rosa", "Soil ecologist")   # an explicit title wins
     assert people.byline(spk, "Someone Else", "") == ("Someone Else", "")       # unknown people are left as written
     assert people.load_speakers(None) == []
 

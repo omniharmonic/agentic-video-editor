@@ -1,6 +1,6 @@
 """Zoom-state limiter (no in-out-in jumpiness) and the cut-inside-a-word check. Synthetic fixtures only.
 
-Real-episode origin (first real episode, session 2): the rough cut had 43 same-camera zoom changes, 19 of them closer than 8 s to the
+Real-episode origin (The Long Table 00, session 2): the rough cut had 43 same-camera zoom changes, 19 of them closer than 8 s to the
 previous one and 4 in-out-in runs inside 8 s; and a cut at the ASR end of "right." sliced its decaying tail."""
 
 import copy
@@ -73,7 +73,7 @@ def test_masks_never_go_in_out_in_inside_the_dwell_and_say_why():
 
 
 def test_a_cutaway_is_still_preferred_to_a_blocked_punch_in():
-    mk, cuts, _ = _mask_world([10.0, 20.0], pol_over={"zoom_min_dwell_s": 8.0})
+    mk, cuts, _ = _mask_world([10.0, 20.0], pol_over={"zoom_min_dwell_s": 8.0, "min_cutaway_gap_s": 0})
     assert [k["mask"]["type"] for k in cuts] == ["cutaway", "cutaway"]               # other masks are untouched by the limiter
 
 

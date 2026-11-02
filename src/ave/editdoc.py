@@ -8,9 +8,18 @@ dialogue boundaries that differ.
 """
 
 from __future__ import annotations
+from .atomic import publish as publish_atomic
 
 import bisect
 import copy
+import contextlib
+import fcntl
+import hashlib
+import json
+import math
+import os
+import stat
+import tempfile
 import re
 from pathlib import Path
 from typing import Iterable
@@ -25,11 +34,12 @@ EPS = 1e-3          # 1 ms tolerance for contiguity checks
 KINDS = ("video", "audio")
 
 
-def new_doc(stage: str, fps: float, canvas: tuple[int, int], sources: dict, duration: float = 0.0) -> dict:
+def new_doc(stage: str, fps: float, canvas: tuple[int, int], sources: dict, duration: float = 0.0, *, media_mode: str | None = None) -> dict:
     if stage not in STAGES:
         raise ValueError(f"stage must be one of {STAGES}")
     return {
         "version": VERSION, "stage": stage, "fps": float(fps),
+        **({"media_mode": {"version": 1, "kind": media_mode}} if media_mode is not None else {}),
         "canvas": {"w": int(canvas[0]), "h": int(canvas[1])},
         "sources": sources,
         "tracks": {"video": [], "dialogue": [], "room_tone": None, "music": [], "overlays": []},
@@ -38,9 +48,26 @@ def new_doc(stage: str, fps: float, canvas: tuple[int, int], sources: dict, dura
     }
 
 
+def effective_mode(doc: dict) -> str:
+    mode = doc.get("media_mode", {"version": 1, "kind": "audiovisual"})
+    if not isinstance(mode, dict) or set(mode) != {"version", "kind"} or type(mode["version"]) is not int or mode["version"] != 1 or mode["kind"] not in ("audiovisual", "audio", "silent_video"):
+        raise ValueError("Unsupported EditDoc media mode or version")
+    return mode["kind"]
+
+
+def require_monotonic(doc: dict, action: str):
+    if doc.get("independent_project"):
+        raise ValueError(f"{action} is not supported for independent recording projects. Use the Media editor; episode adaptation is pending.")
+
+
 def validate(doc: dict) -> list[str]:
     """Return a list of problems (empty means valid). Never raises, so callers can show every issue."""
     p: list[str] = []
+    try: mode = effective_mode(doc)
+    except ValueError as exc: p.append(str(exc)); mode = "audiovisual"
+    def finite(value): return type(value) in (int, float) and math.isfinite(value)
+    for key in ("duration", "fps"):
+        if not finite(doc.get(key)) or doc[key] < 0: p.append(f"{key} must be finite and nonnegative")
     if doc.get("version") != VERSION:
         p.append(f"version must be {VERSION}")
     if doc.get("stage") not in STAGES:
@@ -56,14 +83,17 @@ def validate(doc: dict) -> list[str]:
             p.append(f"source {k}: kind must be one of {KINDS}")
         if not s.get("file"):
             p.append(f"source {k}: file is required")
-        if "start_offset" not in s:
-            p.append(f"source {k}: start_offset is required")
+        if not finite(s.get("start_offset")):
+            p.append(f"source {k}: start_offset must be finite")
         d = s.get("drift_ppm", 0)
-        if not isinstance(d, (int, float)) or isinstance(d, bool) or abs(d) > 5000:
+        if not finite(d) or abs(d) > 5000:
             p.append(f"source {k}: drift_ppm must be a number within +-5000 (got {d!r})")
         sm = s.get("sync_map")
         if sm is not None and (not isinstance(sm, list) or any(not isinstance(x, (list, tuple)) or len(x) != 2 for x in sm)):
             p.append(f"source {k}: sync_map must be a list of [file_t, offset] pairs")
+        if sm is not None and isinstance(sm,list) and all(isinstance(x,(list,tuple)) and len(x)==2 for x in sm):
+            if any(not all(finite(y) for y in x) for x in sm): p.append(f"source {k}: sync_map values must be finite")
+            elif any(b[0]<=a[0] or sum(b)<=sum(a) for a,b in zip(sm,sm[1:])): p.append(f"source {k}: sync_map clocks must increase")
         for m in s.get("channel_map") or []:
             if m.get("use") not in ("left", "right", "mix", "sum") or not m["end"] > m["start"] >= 0:
                 p.append(f"source {k}: bad channel_map range {m!r} (need start < end and use left|right|mix|sum)")
@@ -71,7 +101,18 @@ def validate(doc: dict) -> list[str]:
     dur = doc.get("duration", 0.0)
     for name in ("video", "dialogue"):
         segs = tr.get(name) or []
-        p += _check_track(name, segs, src, dur, required_kind="video" if name == "video" else None)
+        if name == "video" and mode == "audio":
+            if segs: p.append("Audio edit cannot contain picture")
+        else:
+            p += _check_track(name, segs, src, dur, required_kind="video" if name == "video" else None)
+        for segment in segs:
+            if any(not finite(segment.get(k)) for k in ("o0", "o1", "e0")): p.append(f"{name}: times must be finite numbers")
+            if name == "dialogue" and segment.get("fill") not in (None, "silence", "room_tone", "muted"): p.append("Unknown dialogue fill")
+            if name == "dialogue" and mode == "silent_video" and segment.get("fill") != "silence": p.append("Silent video requires explicit silence fills")
+    if mode == "silent_video" and (tr.get("music") or any(o.get("audio") == "keep" for o in tr.get("overlays") or [])):
+        p.append("Silent video cannot contain audible music or B-roll")
+    if mode == "audio" and (tr.get("overlays") or (doc.get("captions") or {}).get("burn")):
+        p.append("Audio edit cannot contain visual overlays or burned captions")
     for name in ("music", "overlays"):
         for s in tr.get(name) or []:
             if s["o1"] <= s["o0"]:
@@ -170,6 +211,12 @@ def episode_time(src: dict, file_t):
     return _interp(file_t, ft, et, k, k)
 
 
+def clock_boundaries(src: dict, e0: float, e1: float) -> list[float]:
+    """Interior episode-clock knots where the local mapping may change slope."""
+    knots = _knots(src)
+    return [e for e in knots[1] if e0 < e < e1] if knots else []
+
+
 def clock_rate(src: dict, episode_t: float) -> float:
     """Episode seconds per file second at `episode_t` (1 + drift for a plain source; the local segment slope for a piecewise
     one). Consumers that stretch media to follow the source clock use this, never drift_of directly."""
@@ -177,6 +224,8 @@ def clock_rate(src: dict, episode_t: float) -> float:
     if kn is None:
         return 1.0 + drift_of(src)
     ft, et = kn
+    if episode_t < et[0] or episode_t >= et[-1]:
+        return 1.0 + drift_of(src)
     i = int(np.searchsorted(et, episode_t, side="right")) - 1
     i = min(max(i, 0), len(ft) - 2)
     dt = ft[i + 1] - ft[i]
@@ -241,6 +290,8 @@ def list_versions(ep: Episode, stage: str, name: str | None = None) -> list[int]
     for f in edits_dir(ep).glob(f"{stage}*.json") if edits_dir(ep).is_dir() else []:
         m = _V.match(f.name)
         if m and m["stage"] == stage and (m["name"] or None) == name:
+            _safe_components(f)
+            if not f.is_file(): raise ValueError("Edit versions must be regular files")
             out.append(int(m["n"]))
     return sorted(out)
 
@@ -255,15 +306,76 @@ def latest_path(ep: Episode, stage: str, name: str | None = None) -> Path | None
     return path_for(ep, stage, v[-1], name) if v else None
 
 
-def save_new_version(ep: Episode, doc: dict, name: str | None = None) -> Path:
-    """Write the doc as the next version of its stage. Refuses an invalid doc; never overwrites."""
+class EditConflict(ValueError):
+    code = "conflict.edit"
+
+
+def _safe_components(path: Path):
+    for component in (path, *path.parents):
+        if component.is_symlink(): raise ValueError("Edit paths cannot contain symlinks")
+
+
+@contextlib.contextmanager
+def mutation_lock(ep: Episode, *, cancelled=None):
+    """Shared local POSIX lock for every CLI and workbench EditDoc writer."""
+    directory = edits_dir(ep)
+    _safe_components(directory)
+    directory.mkdir(parents=True, exist_ok=True)
+    fd = os.open(directory / ".versions.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    try:
+        if not stat.S_ISREG(os.fstat(fd).st_mode): raise ValueError("Version lock is not a regular file")
+        if cancelled is None:
+            fcntl.flock(fd, fcntl.LOCK_EX)
+        else:
+            import time
+            while True:
+                if cancelled():raise ValueError('Edit operation cancelled while waiting for the version lock')
+                try:
+                    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    break
+                except BlockingIOError:time.sleep(.05)
+            if cancelled():raise ValueError('Edit operation cancelled before acquiring the version lock')
+        yield
+    finally: os.close(fd)
+
+
+def save_new_version(ep: Episode, doc: dict, name: str | None = None, *, expected_version=None,
+                     expected_sha256=None, request_id=None, locked=False) -> Path:
+    """Atomic no-clobber publication. New callers pin CAS; legacy writers share allocation."""
+    if name is not None and (not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", name)):
+        raise ValueError("Invalid edit name")
     problems = validate(doc)
-    if problems:
-        raise ValueError("invalid EditDoc:\n  - " + "\n  - ".join(problems))
-    v = (list_versions(ep, doc["stage"], name) or [0])[-1] + 1
-    path = path_for(ep, doc["stage"], v, name)
-    write_json(path, doc)
-    return path
+    if problems: raise ValueError("invalid EditDoc:\n  - " + "\n  - ".join(problems))
+    with contextlib.nullcontext() if locked else mutation_lock(ep):
+        versions = list_versions(ep, doc["stage"], name)
+        current = versions[-1] if versions else 0
+        if request_id:
+            wanted = next((h for h in reversed(doc.get("history", [])) if h.get("request_id") == request_id), None)
+            if not wanted: raise ValueError("Request identity requires operation history")
+            for v in versions:
+                oldpath = path_for(ep, doc["stage"], v, name); _safe_components(oldpath)
+                old = load(oldpath)
+                found = next((h for h in old.get("history", []) if h.get("request_id") == request_id), None)
+                if found:
+                    if found != wanted: raise EditConflict("Request ID already belongs to different edit parameters")
+                    return oldpath
+        if expected_version is not None and (type(expected_version) is not int or expected_version != current):
+            raise EditConflict(f"Edit changed; current version is {current}")
+        if expected_sha256 is not None:
+            latest = path_for(ep, doc["stage"], current, name); _safe_components(latest)
+            if not current or hashlib.sha256(latest.read_bytes()).hexdigest() != expected_sha256:
+                raise EditConflict("Edit bytes differ from the captured base")
+        path = path_for(ep, doc["stage"], current + 1, name); _safe_components(path)
+        data = (json.dumps(doc, ensure_ascii=False, indent=2, allow_nan=False) + "\n").encode()
+        fd, temp = tempfile.mkstemp(prefix=".edit-", dir=ep.edits)
+        try:
+            with os.fdopen(fd, "wb") as out: out.write(data); out.flush(); os.fsync(out.fileno())
+            publish_atomic(temp, path)  # EEXIST is a refusal, never a replacement
+            dfd = os.open(ep.edits, os.O_RDONLY)
+            try: os.fsync(dfd)
+            finally: os.close(dfd)
+        finally: Path(temp).unlink(missing_ok=True)
+        return path
 
 
 def load(path: Path | str) -> dict:

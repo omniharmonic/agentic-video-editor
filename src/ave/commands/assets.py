@@ -180,17 +180,21 @@ def cmd_license_check(a) -> int:
     ep = _ep(a)
     doc, path = _latest_doc(ep, a.stage)
     files = [m["file"] for m in doc["tracks"].get("music", []) if m.get("file")]
-    files += [o["file"] for o in doc["tracks"].get("overlays", []) if o.get("kind") == "broll" and o.get("file")]
+    files += [o["file"] for o in doc["tracks"].get("overlays", []) if o.get("kind") == "broll" and o.get("file") and not o.get("library")]
     # Library tracks and clips that were never logged are exactly the legal gap this check exists to catch.
     cov = licenses.coverage(ep, sorted(set(files)))
     log = licenses.log_for(ep)
     chain = log.verify()
     used = [c["entry"] for c in cov["covered"]]
     cov["covered"] = [{k: v for k, v in c.items() if k != "entry"} for c in cov["covered"]]
-    ok = not cov["missing"] and not cov["unreadable"] and not chain
-    _out({"ok": ok, "edit": path.name, "assets_in_edit": len(files), **cov, "log_problems": chain,
-          "required_credits": licenses.attribution_lines(used),
-          "courtesy_credits": licenses.attribution_lines(used, include_optional=True),
+    from ..broll import place
+    lib = place.closure(ep, doc)         # B-roll placed from a studio library (`ave broll place`) is licensed and attested there
+    ok = not cov["missing"] and not cov["unreadable"] and not chain and lib["ok"]
+    req = licenses.attribution_lines(used)
+    _out({"ok": ok, "edit": path.name, "assets_in_edit": len(files) + len(lib["assets"]), **cov, "log_problems": chain,
+          **({"library": {"assets": lib["assets"], "missing": lib["missing"], "problems": lib["problems"]}} if lib["required"] else {}),
+          "required_credits": req + [t for t in lib["attributions"] if t not in req],
+          "courtesy_credits": licenses.attribution_lines(used, include_optional=True) + lib["attributions"] + lib["optional_attributions"],
           "fix": None if ok else "Each missing file needs a license entry: ave assets stock-get (providers) or ave assets log-license (anything else). Do not render or publish until ok."})
     return 0 if ok else 1
 

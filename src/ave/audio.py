@@ -23,6 +23,7 @@ import soundfile as sf
 from . import config
 from .episode import Episode, read_json
 
+REGISTERED_ANALYSIS_CONTEXT = "registered-source-v1"
 SAMPLE_RATE = 16000
 LIMIT_KNEE = 0.8      # below this the sum is untouched; above it peaks are compressed smoothly toward (never past) 1.0
 
@@ -41,6 +42,15 @@ def soft_limit(x: np.ndarray, knee: float = LIMIT_KNEE) -> np.ndarray:
 
 
 def analysis_wav_path(ep: Episode, rel_file: str) -> Path:
+    context = getattr(ep, "analysis_context", None)
+    if context is not None:
+        if context != REGISTERED_ANALYSIS_CONTEXT:
+            raise ValueError("Unknown analysis context")
+        # The full registered relative path, including extension, distinguishes
+        # take.mov/take.wav and cam/take.wav/cam__take.wav. No caller path override.
+        import hashlib
+        key = hashlib.sha256(rel_file.encode("utf-8")).hexdigest()
+        return ep.work / "audio" / REGISTERED_ANALYSIS_CONTEXT / (key + ".16k.wav")
     # Flatten the relative path so cam/A.mp4 and cam/B.mp4 can't collide.
     safe = rel_file.replace("/", "__").rsplit(".", 1)[0]
     return ep.work / "audio" / f"{safe}.16k.wav"

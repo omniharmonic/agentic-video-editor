@@ -5,6 +5,8 @@ description: Produce the final cut, the third stage after assembly and rough cut
 
 # Final cut
 
+`--burn` (captions baked in) needs an FFmpeg with libass (macOS: `brew install ffmpeg-full`; `ave doctor` checks). The SRT sidecar is always written.
+
 Input: the approved **rough** cut (`edits/rough.vN.json`). Output: `edits/final.vN.json`, a verified master render, and an SRT that matches the rendered audio exactly.
 
 ## 1. Decide the creative layer (propose, then confirm with the human)

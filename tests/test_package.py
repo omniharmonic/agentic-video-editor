@@ -541,7 +541,7 @@ def test_queue_hash_binds_to_the_packaged_bytes_and_approval_stays_human(full, b
     assert yt["sha256"] == sha(pkg_file) == sha(full.exports / "final.v1.master.mp4")
     assert yt["status"] == "awaiting_approval"
     with pytest.raises(ValueError, match="confirmation hash"):
-        pubq.approve(full, yt["id"], "ben", "deadbeef", publishers=fakes())      # only the hash prefix of the exact file approves
+        pubq.approve(full, yt["id"], "maren", "deadbeef", publishers=fakes())      # only the hash prefix of the exact file approves
     run = pubq.run(full, yt["id"], send=False, publishers=fakes())
     assert run["mode"] == "dry-run" and run["ok"] is False and run["blocked"]       # not approved: even the dry run says so
 
@@ -593,3 +593,24 @@ def test_cli_queue_dry_run(full, built, capsys):
     rc = main(["package", "queue", str(full.root), "--dry-run", "--platforms", "youtube", "--ai-disclosure", "no"])
     out = json.loads(capsys.readouterr().out)
     assert rc == 0 and out["queued"] and pubq.list_items(full) == []
+
+
+def test_each_session_final_gets_its_own_captions_audio_and_chapters(tmp_path, final_video):
+    from ave import ffutil
+    from ave.episode import write_json
+    ep = make_episode(tmp_path / "ep")
+    ep.exports.mkdir(parents=True, exist_ok=True)
+    for s in ("s1", "s2"):
+        shutil.copy(final_video, ep.exports / f"final.{s}.v1.master.mp4")
+        (ep.exports / f"final.{s}.v1.srt").write_text(f"1\n00:00:00,000 --> 00:00:01,000\nspoken in {s}\n")
+    dur = ffutil.probe(ep.exports / "final.s2.v1.master.mp4")["duration"]
+    write_json(ep.work / "chapters.s2.json", [{"start": 0, "title": "Only in s2"}, {"start": dur / 2, "title": "Later in s2"}])
+    write_json(ep.work / "chapters.json", [{"start": 0, "title": "Whose are these?"}, {"start": dur / 2, "title": "Nobody says"}])
+    rep = build(ep, include={"video", "captions", "audio"})
+    m = manifest(rep)
+    paths = {f["package_path"] for f in m["files"]}
+    assert {"captions/final.s1.v1.srt", "captions/final.s2.v1.srt", "captions/final.s1.v1.vtt", "captions/final.s2.v1.vtt",
+            "audio/final.s1.v1.master.mp3", "audio/final.s2.v1.master.mp3", "audio/chapters.s2.txt"} <= paths
+    out = Path(rep["manifest"]).parent
+    assert "Only in s2" in (out / "audio" / "chapters.s2.txt").read_text()
+    assert not (out / "audio" / "chapters.txt").exists()      # the shared list must not land on a session it may not belong to

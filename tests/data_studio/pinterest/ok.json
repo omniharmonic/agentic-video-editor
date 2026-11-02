@@ -1,0 +1,22 @@
+[
+  {
+    "method": "POST",
+    "url": "/v5/pins",
+    "final": true,
+    "status": 201,
+    "response": {
+      "id": "813744226420795884",
+      "link": "https://www.pinterest.com/pin/813744226420795884/"
+    },
+    "expect": {
+      "json_keys": [
+        "board_id",
+        "media_source"
+      ],
+      "headers": [
+        "Authorization"
+      ]
+    },
+    "_source": "documentation-derived, UNVERIFIED live: https://developers.pinterest.com/docs/api/v5/pins-create/"
+  }
+]

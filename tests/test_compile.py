@@ -632,6 +632,35 @@ def test_overlay_appears_only_inside_its_window(synth_episode):
     assert dominant(np.ascontiguousarray(f[int(300 * sc):, int(300 * sc):])) == "blue"
 
 
+@needs_libass
+@pytest.mark.parametrize('preset,height',[('episode_draft',540),('episode_hd',1080)])
+def test_explicit_episode_delivery_scales_picture_overlay_and_captions(synth_episode,preset,height):
+    # Authored 640x360 coordinates remain stable at both explicit output sizes.
+    doc=solid_doc(synth_episode,'A',[(0,1,0)],dur=1)
+    _overlay_png(synth_episode.work/'ov.png',(0,255,0,255))
+    doc['tracks']['overlays']=[overlay(o0=0,o1=1)]
+    write_ass(synth_episode.root/'delivery.ass',start='0:00:00.00',end='0:00:01.00')
+    doc['captions']={'srt':None,'ass':'delivery.ass','burn':True}
+    out=synth_episode.root/(preset+'.mp4')
+    phases=[]
+    report=comp.render(synth_episode,doc,out,preset=preset,progress=lambda *values:phases.append(values))
+    segments=[row for row in phases if row[0]=='Rendering camera segments']
+    assert segments[0][1]==0 and segments[-1][1]==segments[-1][2]>0
+    assert any(row[0]=='Applying picture overlays and captions' for row in phases)
+    assert any(row[0].startswith('Encoding programme audio · peak check ') for row in phases)
+    assert phases[-1][0].startswith('Verifying encoded programme and loudness · peak check ')
+    p=ffutil.probe(out);assert (p['w'],p['h'])==(height*16//9,height)
+    f=frame_at(out,.5);scale=height/360
+    pixel=f[round(80*scale),round(100*scale)]
+    assert pixel[1]>180 and pixel[0]<90 and pixel[2]<90
+    outside=f[round(80*scale),round(170*scale)]
+    assert outside[1]<100
+    white=(f[:,:,0]>200)&(f[:,:,1]>200)&(f[:,:,2]>200)
+    ys,xs=np.where(white)
+    assert len(xs)>100 and ys.min()/height>.55 and ys.max()/height<.94
+    assert report['preset']==preset and doc['canvas']=={'w':640,'h':360}
+
+
 def test_overlay_alpha_blends_and_layers_order(synth_episode):
     _overlay_png(synth_episode.work / "ov.png", (255, 255, 255, 128))          # 50 % white
     _overlay_png(synth_episode.work / "top.png", (0, 255, 0, 255))
@@ -877,7 +906,7 @@ def make_spiky_speech_episode(tmp_path, sr=48000, total=40.0):
 
 @pytest.mark.parametrize("preset,ext", [("audio_only", ".m4a"), ("podcast_mp3", ".mp3")])
 def test_spiky_speech_never_ends_above_the_true_peak_ceiling(tmp_path, preset, ext):
-    """REAL-FOOTAGE REGRESSION (first real episode): a proxy render came out at +1.5 dBTP because gain-only loudnorm met -16 LUFS by
+    """REAL-FOOTAGE REGRESSION (The Long Table 00): a proxy render came out at +1.5 dBTP because gain-only loudnorm met -16 LUFS by
     pushing the transients past full scale. The delivered file must stay at or under the ceiling, and still land near the target."""
     ep = make_spiky_speech_episode(tmp_path)
     doc = audio_doc("raw/spiky.wav", 0.0, [(0.0, 38.0, 0.0, 0)])

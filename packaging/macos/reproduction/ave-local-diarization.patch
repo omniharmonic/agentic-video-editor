@@ -1,0 +1,65 @@
+--- a/Sources/FluidAudioCLI/Commands/ProcessCommand.swift
++++ b/Sources/FluidAudioCLI/Commands/ProcessCommand.swift
+@@ -33,6 +33,11 @@
+             fflush(stderr)
+             logger.error("Invalid mode: \(parsed.mode). Must be 'streaming' or 'offline'")
+             printUsage()
++            exit(1)
++        }
++
++        if parsed.localModelDirectory != nil && parsed.mode != "offline" {
++            fputs("ERROR: --local-model-dir requires --mode offline\n", stderr)
+             exit(1)
+         }
+ 
+@@ -150,7 +155,19 @@
+                 )
+             }
+ 
+-            let modelDir = OfflineDiarizerModels.defaultModelsDirectory()
++            let modelDir: URL
++            if let local = args.localModelDirectory {
++                var isDirectory: ObjCBool = false
++                guard FileManager.default.fileExists(atPath: local, isDirectory: &isDirectory), isDirectory.boolValue else {
++                    throw NSError(domain: "AVEDiarization", code: 1, userInfo: [NSLocalizedDescriptionKey: "Local model directory does not exist"])
++                }
++                // AVE supplies a verified pinned component root. Never download,
++                // purge or fall back to a user-global cache for this operation.
++                ModelHub.offlineMode = true
++                modelDir = URL(fileURLWithPath: local, isDirectory: true)
++            } else {
++                modelDir = OfflineDiarizerModels.defaultModelsDirectory()
++            }
+             let manager = OfflineDiarizerManager(config: offlineConfig)
+ 
+             let configuration = MLModelConfigurationUtils.defaultConfiguration(
+@@ -246,6 +263,7 @@
+     private struct ParsedArgs {
+         var mode = "streaming"
+         var outputFile: String?
++        var localModelDirectory: String?
+         var debug = false
+         var rttmFile: String?
+         var embeddingExportPath: String?
+@@ -297,6 +315,13 @@
+                     parsed.mode = args[i + 1]
+                     i += 1
+                 }
++            case "--local-model-dir":
++                guard i + 1 < args.count, !args[i + 1].isEmpty, !args[i + 1].hasPrefix("--") else {
++                    fputs("ERROR: --local-model-dir requires a directory\n", stderr)
++                    exit(1)
++                }
++                parsed.localModelDirectory = args[i + 1]
++                i += 1
+             case "--output":
+                 if i + 1 < args.count {
+                     parsed.outputFile = args[i + 1]
+@@ -503,6 +528,7 @@
+                 --min-embed-update <sec>        Min segment duration to update embeddings (default: 2.0)
+ 
+             OFFLINE MODE OPTIONS (VBx clustering, all optional):
++                --local-model-dir <directory>  Pinned component root; no downloads or cache fallback
+                 --rttm <file>                   Compute DER/JER against RTTM annotations
+                 --threshold <0-2>               AHC cut distance, higher = fewer speakers (default: 0.6)
+                 --fa <float>                    VBx warm-start precision (default: 0.07)

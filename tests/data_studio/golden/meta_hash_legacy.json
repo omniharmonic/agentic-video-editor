@@ -1,0 +1,136 @@
+{
+  "note": "Captured BEFORE E1 (meta_v) with AVE_APPROVAL_KEY=golden-test-key-0001. Legacy items (no meta_v) must keep these hashes and signatures forever.",
+  "approval_key": "golden-test-key-0001",
+  "cases": [
+    {
+      "item": {
+        "id": "20260101-000000-golden-a1b2",
+        "video": "exports/final.mp4",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "platforms": [
+          "youtube",
+          "facebook"
+        ],
+        "title": "Golden Title",
+        "description": "Desc é",
+        "tags": [
+          "a",
+          "b"
+        ],
+        "caption": "cap",
+        "schedule": "2026-01-02T09:00:00-0700",
+        "visibility": "private",
+        "ai_disclosure": false,
+        "made_for_kids": false,
+        "format": "auto",
+        "status": "approved",
+        "approvals": [],
+        "results": {},
+        "created": "2026-01-01T00:00:00-0700",
+        "events": []
+      },
+      "meta_hash": "82e970e6481646a5e9f9778f4a8d2ee62b05c11316427e348b0a38aa541c6f20",
+      "approval": {
+        "by": "ben",
+        "at": "2026-01-01T01:00:00-0700",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "meta_sha256": "82e970e6481646a5e9f9778f4a8d2ee62b05c11316427e348b0a38aa541c6f20",
+        "sig": "137351e2fd50ed4a782e4b398d126797aa5bc6cf4371b12be422dfcea19888a2"
+      }
+    },
+    {
+      "item": {
+        "id": "20260101-000001-golden-img-c3d4",
+        "video": "exports/final.mp4",
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "platforms": [
+          "facebook"
+        ],
+        "title": "Golden Title",
+        "description": "Desc é",
+        "tags": [
+          "a",
+          "b"
+        ],
+        "caption": "cap",
+        "schedule": null,
+        "visibility": "private",
+        "ai_disclosure": false,
+        "made_for_kids": false,
+        "format": "auto",
+        "status": "approved",
+        "approvals": [],
+        "results": {},
+        "created": "2026-01-01T00:00:00-0700",
+        "events": [],
+        "media_type": "image",
+        "files": [
+          "exports/a.png"
+        ],
+        "alt_texts": [
+          "alt text"
+        ],
+        "file_sha256": [
+          "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        ]
+      },
+      "meta_hash": "ec66cef3a39fbaba6780547a0cff7be092423e57c99ce834c66102825f5fd7a8",
+      "approval": {
+        "by": "ben",
+        "at": "2026-01-01T01:00:00-0700",
+        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "meta_sha256": "ec66cef3a39fbaba6780547a0cff7be092423e57c99ce834c66102825f5fd7a8",
+        "sig": "30e1bc5694f31f77cc85294bc890b5753dfc577d88885bd6ddbda14f06ad8183"
+      }
+    },
+    {
+      "item": {
+        "id": "20260101-000002-golden-car-e5f6",
+        "video": "exports/final.mp4",
+        "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "platforms": [
+          "youtube",
+          "facebook"
+        ],
+        "title": "Golden Title",
+        "description": "Desc é",
+        "tags": [
+          "a",
+          "b"
+        ],
+        "caption": "cap",
+        "schedule": "2026-01-02T09:00:00-0700",
+        "visibility": "private",
+        "ai_disclosure": null,
+        "made_for_kids": false,
+        "format": "auto",
+        "status": "approved",
+        "approvals": [],
+        "results": {},
+        "created": "2026-01-01T00:00:00-0700",
+        "events": [],
+        "media_type": "carousel",
+        "files": [
+          "a.png",
+          "b.png"
+        ],
+        "alt_texts": [
+          "x",
+          "y"
+        ],
+        "file_sha256": [
+          "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        ]
+      },
+      "meta_hash": "b5c7489875d985614e1b732e8afb395ddf0a9c8b6146f9bdbcd6880091530710",
+      "approval": {
+        "by": "ben",
+        "at": "2026-01-01T01:00:00-0700",
+        "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "meta_sha256": "b5c7489875d985614e1b732e8afb395ddf0a9c8b6146f9bdbcd6880091530710",
+        "sig": "5716debdc91712728c35a607e7d58b0d473f6a23a910fee4dd1d6720fb809026"
+      }
+    }
+  ]
+}

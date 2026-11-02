@@ -25,7 +25,18 @@ SLOTS = {
                             {"kind": "point", "text": "Repair is a practice, not a project.", "label": "Point 1"}],
                  "closing": {"line": "Listen to the full conversation", "cta": "Episode 00"}},
     "reel-card": {"kind": "intro", "title": "Soil is a habit, not a goal", "subtitle": "Maren Okafor", "show": "The Long Table"},
+    # the studio pack (spec 9.4): words only; the photo templates get real files in the test that renders them
+    "announcement": {"kicker": "Now open", "title": "The Saturday market stall opens this week", "sub": "Bring a jar and we will fill it", "cta": "Order by Nov 15", "show": "Acme Bakery"},
+    "offer": {"kicker": "Pre-order", "title": "The October bake box", "price": "$38", "valid": "Until Nov 15, while the dough lasts", "cta": "Order at the counter", "show": "Acme Bakery"},
+    "stat-card": {"stat": "73%", "title": "of our loaves are sold before noon on a Saturday", "source": "Our own till, 2026", "show": "Acme Bakery"},
+    "event": {"kicker": "Saturday market", "title": "Bread and jam stall", "when": "Sat Nov 8", "time": "9 to noon", "place": "Pearl Street", "cta": "Come hungry", "show": "Acme Bakery"},
+    "testimonial": {"quote": "The sourdough tastes like the bread my grandmother made.", "attribution": "Dana R.", "title": "Regular since 2022", "show": "Acme Bakery"},
+    "tip-list": {"show": "Acme Bakery", "cover": {"title": "Three tips for a young starter", "subtitle": "Week one"},
+                 "slides": [{"kind": "point", "text": "Feed it at the same time every day.", "label": "Tip 1"},
+                            {"kind": "point", "text": "Keep it warm, not hot.", "label": "Tip 2"}],
+                 "closing": {"line": "Ask us anything at the counter", "cta": "Acme Bakery"}},
 }
+PHOTO_TEMPLATES = ("product-spotlight", "before-after")
 
 
 @pytest.fixture(scope="module")
@@ -49,6 +60,8 @@ def test_every_template_style_format_renders_at_exact_pixel_size_with_text_in_sa
     out = M.content_dir(ep) / "renders" / "matrix"
     seen = 0
     for row in reg.matrix():
+        if row["template"] in PHOTO_TEMPLATES or "motion-kit" not in reg.get(row["template"]).renderers:
+            continue                                     # these need real image files: test_photo_templates_render_with_library_photos
         it = _item(row["template"], row["style"], row["format"])
         res = RM.render_item(ep, it, s, out, reg, cfg)
         files = sorted({o["file"] for o in res["outputs"]})
@@ -67,7 +80,7 @@ def test_every_template_style_format_renders_at_exact_pixel_size_with_text_in_sa
             for el in img["elements"]:
                 assert el["inside_safe_area"] and not el["overflow"], (row, el)
         seen += 1
-    assert seen == len(reg.matrix()) == 18
+    assert seen == len([r for r in reg.matrix() if r['template'] not in PHOTO_TEMPLATES and 'motion-kit' in reg.get(r['template']).renderers]) and seen >= 18
 
 
 def test_style_colours_reach_the_pixels(kit):
@@ -139,10 +152,10 @@ def test_carousel_renders_one_numbered_image_per_slide_and_a_changed_slide_chang
     a = RM.render_item(ep, _item("carousel", platforms=["instagram"]), s, M.content_dir(ep) / "renders" / "c1", reg, cfg)
     files = [o["file"] for o in a["outputs"]]
     assert len(files) == 4 and [o["slide"] for o in a["outputs"]] == [1, 2, 3, 4]
-    assert files[0].endswith("-s01.png") and files[3].endswith("-s04.png")
+    assert files[0].endswith("-s01.jpg") and files[3].endswith("-s04.jpg")          # instagram takes JPEG only: the reviewed file is that JPEG
     changed = json.loads(json.dumps(SLOTS["carousel"]))
     changed["slides"][1]["text"] = "Repair is a practice, not a project, and it needs people."
-    b = RM.render_item(ep, _item("carousel", slots=changed), s, M.content_dir(ep) / "renders" / "c2", reg, cfg)
+    b = RM.render_item(ep, _item("carousel", slots=changed, platforms=["instagram"]), s, M.content_dir(ep) / "renders" / "c2", reg, cfg)
     ha, hb = [o["sha256"] for o in a["outputs"]], [o["sha256"] for o in b["outputs"]]
     assert [x == y for x, y in zip(ha, hb)] == [True, False, False, True] or ha[0] == hb[0]
     assert ha[2] != hb[2] or ha[1] != hb[1]
@@ -170,7 +183,7 @@ def test_unlicensed_asset_blocks_rendering_until_logged(kit, tmp_path):
     assert "UNLICENSED" in flagged["warnings"][0]
     licenses.log_for(ep).append({"source": "own", "url": "file://own", "file": "guest.jpg", "sha256": licenses.sha256_file(photo),
                                  "license": "own work", "license_url": "file://own", "license_text": "taken by the creator; guest consented",
-                                 "approved_by": "ben"})
+                                 "approved_by": "maren"})
     ok = RM.render_item(ep, it, s, M.content_dir(ep) / "renders" / "lic", reg, cfg)
     assert ok["warnings"] == [] and ok["critic"]["ok"]
     # the photo is really on the right of the frame
@@ -206,3 +219,49 @@ def test_propose_rejects_a_slot_that_repeats_the_show(cep):
     pick["slots"]["role"] = "the long table"
     out = P.propose(cep, [pick], allow_unapproved=True)
     assert out["rejected"] and "repeats the show name" in out["rejected"][-1]["problems"][-1]
+
+
+def test_instagram_output_is_a_jpeg_and_other_platforms_keep_the_png(kit):
+    """Instagram takes JPEG only (config/platforms.yaml): the file the human reviews is the JPEG that gets queued and posted."""
+    from ave.publish import safety
+    ep, cfg, reg, s = kit
+    it = _item("quote-post", "ink", "4x5", platforms=["instagram", "bluesky"])
+    out = M.content_dir(ep) / "renders" / "ig"
+    res = RM.render_item(ep, it, s, out, reg, cfg)
+    by = {o["platform"]: o for o in res["outputs"]}
+    assert by["instagram"]["file"].endswith(".jpg") and by["bluesky"]["file"].endswith(".png")
+    ig = ep.root / by["instagram"]["file"]
+    assert Image.open(ig).format == "JPEG" and Image.open(ig).size == (1080, 1350) and ig.read_bytes()[:3] == b"\xff\xd8\xff"
+    assert by["instagram"]["sha256"] == safety.sha256_file(ig) and by["bluesky"]["sha256"] == safety.sha256_file(ep.root / by["bluesky"]["file"])
+    assert by["instagram"]["sha256"] != by["bluesky"]["sha256"]
+    again = RM.render_item(ep, it, s, M.content_dir(ep) / "renders" / "ig2", reg, cfg)
+    assert {o["platform"]: o["sha256"] for o in again["outputs"]} == {k: v["sha256"] for k, v in by.items()}      # deterministic
+
+
+def test_photo_templates_render_with_library_photos(kit, tmp_path):
+    """product-spotlight and before-after take x-asset files; every style x format fits the safe area with legible text."""
+    ep, cfg, reg, s = kit
+    from PIL import Image as PI
+    photos = []
+    for n, color in enumerate(((200, 150, 90), (90, 120, 200))):
+        p = ep.root / "gfx" / f"p{n}.jpg"
+        p.parent.mkdir(exist_ok=True)
+        PI.new("RGB", (1600, 1200), color).save(p, "JPEG")
+        photos.append(str(p.relative_to(ep.root)))
+    slots = {"product-spotlight": {"title": "Country sourdough", "sub": "$9 a loaf", "detail": "Baked Fridays and Saturdays", "image": photos[0], "show": "Acme Bakery"},
+             "before-after": {"before": photos[0], "after": photos[1], "title": "Seven days of feeding", "show": "Acme Bakery"}}
+    out = M.content_dir(ep) / "renders" / "photo"
+    seen = 0
+    for row in reg.matrix():
+        if row["template"] not in PHOTO_TEMPLATES:
+            continue
+        it = _item(row["template"], row["style"], row["format"], slots=slots[row["template"]])
+        res = RM.render_item(ep, it, s, out, reg, cfg, allow_unlicensed=True)
+        assert res["critic"]["ok"], (row, res["critic"]["notes"])
+        im = Image.open(ep.root / res["outputs"][0]["file"])
+        assert im.size == (row["w"], row["h"])
+        assert res["outputs"][0]["alt_text"].startswith(row["template"].replace("-", " ").capitalize())
+        seen += 1
+    assert seen == 3 * (3 + 2)
+    with pytest.raises(FileNotFoundError, match="not found"):
+        RM.render_item(ep, _item("product-spotlight", slots={**slots["product-spotlight"], "image": "gfx/missing.jpg"}), s, out, reg, cfg, allow_unlicensed=True)

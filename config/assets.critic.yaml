@@ -120,7 +120,7 @@ pacing:
   broll_max_s: 4.0
   max_coverage: 0.40            # fraction of the programme covered by B-roll (a podcast is voice-led)
   min_gap_between_broll_s: 1.0  # let the speaker's face breathe between inserts
-  emotional_beat_rule: never_cover   # B-roll never covers an emotional beat (laugh, crack in the voice, silence that lands)
+  emotional_beat_rule: never_cover   # prose for the agent; not read by code (the arithmetic check flags any beat a B-roll covers regardless). B-roll never covers an emotional beat (laugh, crack in the voice, silence that lands)
   music_under_dialogue_db: [-24, -18]   # range for a music segment's `gain_db` (the bed level under speech); `duck_db` dips further on top
   silence_after_punchline_s: 0.6        # music drops out / no insert for this long after a flagged punchline
   j_l_cuts: true                        # let B-roll audio/picture overlap the cut points; never cut picture and sound together
@@ -140,4 +140,3 @@ music:
     rms_variation_max: 0.9      # coefficient of variation of frame RMS: huge swells wreck a consistent mix
   default_fade_in_s: 1.5
   default_fade_out_s: 3.0
-  skip_leading_silence_db: -40

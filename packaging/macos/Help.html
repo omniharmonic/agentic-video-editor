@@ -1,0 +1,18 @@
+<!doctype html><meta charset="utf-8"><title>AVE Studio Help</title><style>body{max-width:760px;margin:60px auto;font:18px/1.6 system-ui;padding:24px}h1,h2{line-height:1.2}code{font-size:.9em}@media(prefers-color-scheme:dark){body{background:#1c1c1e;color:#eee}}</style>
+<h1>AVE Studio</h1>
+<p>AVE Studio is a local video workspace. You direct and review here, your AI agent does the labor, and DaVinci Resolve and Canva handle the craft. Your footage stays on your Mac.</p>
+<h2>First run</h2>
+<ol><li>Drag AVE Studio to Applications and open it. Choose or create a workspace.</li>
+<li>To let your agent work, open Terminal once and run:<br><code>"/Applications/AVE Studio.app/Contents/MacOS/AVE Studio" --install-cli</code><br>This adds the <code>ave</code> command, adds the agent skills to Claude Code, and installs the DaVinci Resolve bridge. It never replaces files it did not create.</li>
+<li>If Terminal says <code>ave</code> is not found, add <code>~/.local/bin</code> to your PATH.</li>
+<li>Run <code>ave doctor</code> to see what is ready.</li></ol>
+<h2>DaVinci Resolve</h2>
+<p>Use Resolve 21.0.x. Free Resolve needs Python 3 installed from python.org for its Scripts menu. Open a project made for this work, then choose Workspace &gt; Scripts &gt; resolve_bridge. Your agent builds new timelines and never changes existing ones. Captions need one manual step on free Resolve: File &gt; Import &gt; Subtitle.</p>
+<h2>Working with a collaborator</h2>
+<ol><li>Both people install Tailscale from tailscale.com (not the App Store) and join the same tailnet.</li>
+<li>In Collaborate, choose Enable sharing and pick an exchange folder outside your studios and footage.</li>
+<li>One person creates an invitation and sends it directly. The other adds it. Compare the six-digit code by voice, then both confirm.</li>
+<li>Share drafts from Collaborate. Use Send a file for footage or edits. Transfers resume if the connection drops, and each file is verified as a whole.</li></ol>
+<p>Received files stay in the exchange folder until you import them. Approvals, accounts and publishing never cross. Stop sharing or Revoke collaborator ends access immediately.</p>
+<h2>What stays human</h2>
+<p>Approving, publishing and setting trims are yours. Your agent cannot sign off for you, and nothing is posted without your approval.</p>

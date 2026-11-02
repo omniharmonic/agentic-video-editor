@@ -1,4 +1,6 @@
 """Music analysis on synthetic signals with known ground truth (tempo, key, density, silence)."""
+import importlib.util
+
 import numpy as np
 import pytest
 import soundfile as sf
@@ -6,6 +8,9 @@ import soundfile as sf
 from ave.assets import critic, music
 
 SR = 22050
+
+needs_librosa = pytest.mark.skipif(importlib.util.find_spec("librosa") is None,
+                                reason="needs the 'audio' extra (librosa): uv sync --extra audio, or --all-extras")
 
 
 def click_track(bpm: float, seconds: float, lead_silence: float = 0.0, amp=0.8) -> np.ndarray:
@@ -113,6 +118,7 @@ def test_mood_scoring_prefers_the_matching_energy(tmp_path):
         music.score_mood(calm, "spooky-fun", cfg)
 
 
+@needs_librosa
 def test_pick_ranks_folder_with_reasons_and_skips_non_audio(tmp_path):
     d = tmp_path / "lib"
     d.mkdir()
@@ -138,6 +144,7 @@ def test_pick_on_empty_or_missing_folder_is_a_clear_error(tmp_path):
     assert music.pick(tmp_path / "empty", mood="warm", need_s=10)["ranked"] == []
 
 
+@needs_librosa
 def test_unreadable_audio_is_reported_per_file(tmp_path):
     d = tmp_path / "lib"
     d.mkdir()

@@ -1,0 +1,636 @@
+{
+  "$comment": "Spec 2.2. Frozen contract (WS0). Unknown extra keys are allowed (forward compatible); the listed ones are checked.",
+  "type": "object",
+  "required": [
+    "v",
+    "kind",
+    "id",
+    "rev",
+    "stage",
+    "copy",
+    "media",
+    "variants",
+    "created"
+  ],
+  "properties": {
+    "v": {
+      "const": 1
+    },
+    "kind": {
+      "const": "studio.post"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^p_[A-Za-z0-9_-]{1,60}$"
+    },
+    "rev": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "stage": {
+      "enum": [
+        "idea",
+        "draft",
+        "active",
+        "dropped",
+        "archived"
+      ]
+    },
+    "campaign": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "brand": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "$comment": "Optional: which business this post is for (an account's `brand` says the same). The UI's brand filter and the Ideas page read it."
+    },
+    "idea": {
+      "type": "object",
+      "required": [
+        "text"
+      ],
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "origin": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "copy": {
+      "$ref": "#/definitions/post_copy"
+    },
+    "media": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/media_item"
+      }
+    },
+    "variants": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/variant"
+      }
+    },
+    "disclosure": {
+      "type": "object",
+      "properties": {
+        "ai_generated": {
+          "type": "boolean"
+        }
+      }
+    },
+    "created": {
+      "type": "string",
+      "minLength": 10
+    },
+    "updated": {
+      "type": "string"
+    },
+    "by": {
+      "type": "string"
+    },
+    "production": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "status": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 81,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,80}$"
+        },
+        "owner": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 81,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,80}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reviewer": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 81,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,80}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "priority": {
+          "enum": [
+            "low",
+            "normal",
+            "high",
+            "urgent"
+          ]
+        },
+        "start_date": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "due_date": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "workflow": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 81,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,80}$"
+        },
+        "brief": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "audience": {
+              "type": "string",
+              "maxLength": 10000
+            },
+            "objective": {
+              "type": "string",
+              "maxLength": 10000
+            },
+            "message": {
+              "type": "string",
+              "maxLength": 10000
+            },
+            "cta": {
+              "type": "string",
+              "maxLength": 10000
+            }
+          }
+        },
+        "blocked_reason": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "estimate_minutes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "depends_on": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 81,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,80}$"
+          }
+        },
+        "checklist": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "title",
+              "done"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 81,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,80}$"
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              "owner": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 81,
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,80}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "done": {
+                "type": "boolean"
+              },
+              "due_date": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              }
+            }
+          }
+        },
+        "sources": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "source_id"
+            ],
+            "properties": {
+              "source_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
+              },
+              "label": {
+                "type": "string",
+                "maxLength": 300
+              },
+              "locator": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "start",
+                  "end"
+                ],
+                "properties": {
+                  "start": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1000000000
+                  },
+                  "end": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1000000000
+                  }
+                }
+              }
+            }
+          }
+        },
+        "links": {
+          "type": "array",
+          "maxItems": 12,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "tool",
+              "label"
+            ],
+            "properties": {
+              "tool": {
+                "enum": [
+                  "resolve",
+                  "canva",
+                  "other"
+                ]
+              },
+              "label": {
+                "type": "string"
+              },
+              "url": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "post_copy": {
+      "type": "object",
+      "properties": {
+        "base": {
+          "type": "string"
+        },
+        "link": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "first_comment": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "hashtags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cta": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "media_item": {
+      "type": "object",
+      "required": [
+        "slot",
+        "asset",
+        "role"
+      ],
+      "properties": {
+        "slot": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "asset": {
+          "type": "string",
+          "pattern": "^a_[0-9a-f]{12}$"
+        },
+        "role": {
+          "enum": [
+            "image",
+            "video",
+            "audio",
+            "document",
+            "cover"
+          ]
+        },
+        "alt": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "crop": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,80}$"
+        }
+      }
+    },
+    "schedule": {
+      "type": "object",
+      "required": [
+        "local",
+        "tz",
+        "utc"
+      ],
+      "properties": {
+        "local": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2})?$"
+        },
+        "tz": {
+          "type": "string",
+          "minLength": 1
+        },
+        "utc": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+        },
+        "slot": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "set_by": {
+          "enum": [
+            "agent",
+            "human"
+          ]
+        }
+      }
+    },
+    "variant": {
+      "type": "object",
+      "required": [
+        "id",
+        "account",
+        "platform",
+        "post_type",
+        "copy",
+        "media"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^v_[A-Za-z0-9_-]{1,40}$"
+        },
+        "account": {
+          "type": "string",
+          "minLength": 1
+        },
+        "platform": {
+          "enum": [
+            "youtube",
+            "facebook",
+            "instagram",
+            "threads",
+            "x",
+            "linkedin",
+            "tiktok",
+            "bluesky",
+            "pinterest",
+            "manual"
+          ]
+        },
+        "post_type": {
+          "enum": [
+            "feed",
+            "carousel",
+            "story",
+            "reel",
+            "video",
+            "text",
+            "document",
+            "pin",
+            "short"
+          ]
+        },
+        "copy": {
+          "type": "object",
+          "properties": {
+            "caption": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "first_comment": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "hashtags": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "media": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/definitions/media_item"
+          }
+        },
+        "schedule": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/definitions/schedule"
+            }
+          ]
+        },
+        "queue": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "required": [
+                "root",
+                "id"
+              ],
+              "properties": {
+                "root": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string"
+                }
+              }
+            }
+          ]
+        },
+        "queue_sha": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "flags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "attempts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "at",
+              "outcome"
+            ]
+          }
+        },
+        "result": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "dropped": {
+          "type": "boolean"
+        },
+        "delivery": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "method"
+          ],
+          "properties": {
+            "method": {
+              "enum": [
+                "manual",
+                "automatic"
+              ]
+            }
+          }
+        },
+        "presentation": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "feed_presence": {
+              "type": "boolean"
+            }
+          }
+        },
+        "payload_version": {
+          "const": 3
+        }
+      }
+    }
+  }
+}

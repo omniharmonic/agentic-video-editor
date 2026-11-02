@@ -1,0 +1,23 @@
+{
+  "$comment": "Spec 2.6: schedule/proposals/<id>.json. Accepting a proposal applies its moves as ordinary `move` ops.",
+  "type": "object",
+  "required": ["id", "by", "at", "moves"],
+  "properties": {
+    "id": {"type": "string"},
+    "by": {"type": "string"},
+    "at": {"type": "string"},
+    "moves": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["post", "variant", "to"],
+        "properties": {
+          "post": {"type": "string"},
+          "variant": {"type": "string"},
+          "to": {"type": "object", "required": ["local", "tz"], "properties": {"local": {"type": "string"}, "tz": {"type": "string"}}},
+          "why": {"type": "string"}
+        }
+      }
+    }
+  }
+}

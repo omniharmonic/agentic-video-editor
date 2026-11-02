@@ -2,7 +2,8 @@
 
 ## Reporting a vulnerability
 
-Please do not open a public issue for a security problem. Report it privately to **GitHub private vulnerability reporting** (the repository's Security tab, then "Report a vulnerability") with:
+Please do not open a public issue for a security problem. Report it privately to **[INSERT SECURITY CONTACT: private
+vulnerability reporting on the hosting platform, or an email address]** with:
 
 - what you found and where (file, command, or UI route),
 - steps or a small script to reproduce it,
@@ -14,6 +15,14 @@ reasonable window to fix the problem before you publish details.
 Supported versions: only the latest release (and `main`) receive fixes.
 
 ## What is in scope
+
+### Desktop, external agents and collaboration
+
+The optional native desktop shell reuses the loopback server's token, Host/Origin checks, media review and PIN gates. It exposes no JavaScript/Python bridge and starts only after the existing human-terminal check. The Finder launcher opens a real Terminal and retains the PIN there; it never removes agent markers or creates a pseudoterminal. Harness deny rules should cover `ave desktop*` and installation-specific executable/module spellings in addition to the existing UI commands. Fictional `--fixtures` engineering runs cannot approve real posts.
+
+The stdio MCP server fixes its studio at process launch. It exposes explicit projected reads and draft-only writes, rejects unknown fields, checks revisions and provides no shell, arbitrary path, publishing, approval or account tool. Project text remains untrusted. The same-user shell limitation below still applies; MCP is a narrow interface, not isolation from an agent that already has full local filesystem access.
+
+Collaboration bundles carry editorial content and optional SHA-verified media. Checksums detect corruption, not sender identity: exchange them through an authenticated channel with a trusted collaborator. Identity bindings and common bases persist locally; concurrent edits create retained conflicts. Media is staged without license attestations. Credentials, signed ledgers, queue state and approval keys must never be synchronized. Tailscale diagnostics do not establish a restricted OS account, change ACLs or expose the local approval server. See [collaboration.md](docs/collaboration.md).
 
 `ave` runs on your own machine against your own footage and, optionally, your own social accounts. The parts that matter for
 security are the ones that touch credentials, the network, or the filesystem outside the repo.
@@ -30,9 +39,83 @@ security are the ones that touch credentials, the network, or the filesystem out
   resort `~/.config/ave/approval.key` (mode 0600), so a hand-edited queue file cannot grant itself approval. A send requires status
   `approved`, a valid signature, the current file hash equal to the approved hash, and unchanged metadata. `ave publish run` is a dry
   run unless `--yes` is passed.
-- `AVE_ALLOW_UNATTENDED_APPROVAL` exists for test automation. It must never be set in a real session; the local UI strips it from the
-  environment of jobs it starts.
+- There is no environment switch or flag that skips the human terminal (`AVE_ALLOW_UNATTENDED_APPROVAL` and `--confirm-sha` were removed).
+  Tests call `ave.publish.queue.approve(...)` directly or patch `ave.humanpresence.is_human_terminal`.
+- Approvals expire: `approval_problems` refuses an approval older than `publish.approval_ttl_days` (default 14, `config/publish.default.yaml`,
+  override in `~/.config/ave/publish.yaml`); approve again after re-reading the item.
+- The bytes sent are the bytes hashed: before each platform send the approved file(s) are copied to a private temp directory, hashed
+  there, and the platform adapter is handed the verified copy.
+- The aggregator API key is sent only to a host the human pinned (`ave publish auth aggregator --host H`, or `AVE_AGGREGATOR_HOSTS`),
+  over https (or loopback), never to whatever `base_url` a config file names.
+
+#### Honest limits: what is a convention and what is a control
+
+Human-only commands (`ave publish approve`, `ave sequence approve`, `ave trim set`, `ave learn taste apply`, `ave content canva-approve`, and the content
+studio's `ave studio approve|ui|account live|account auth|resume|resolve|broll pick|broll generate|schedule apply|tick --send|run --send|send enable|send disable|library attest`)
+call `ave.humanpresence.require_human`: stdin and stdout must be a terminal and none of `CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`,
+`AVE_AGENT` may be set. **This stops an accident, not an adversary.** An agent that can run shell commands as your user can allocate a
+pty (`script`, `expect`, `python -c "import pty"`), unset the markers, and read the HMAC approval key from the keychain or
+`~/.config/ave/approval.key`; the signature protects against hand-edited queue files, not against code running as you. The real
+control is the agent harness. Add deny rules so the agent cannot start these commands at all (copy
+[`.claude/settings.example.json`](.claude/settings.example.json) into `.claude/settings.json` or `~/.claude/settings.json`):
+
+```json
+{"permissions": {"deny": ["Bash(ave publish approve*)", "Bash(ave publish run*)", "Bash(ave sequence approve*)",
+                          "Bash(ave trim set*)", "Bash(ave learn taste apply*)", "Bash(ave studio approve*)", "Bash(ave studio ui*)",
+                          "Bash(ave studio account live*)", "Bash(ave studio account auth*)", "Bash(ave studio resume*)", "Bash(ave studio resolve*)",
+                          "Bash(ave studio broll pick*)", "Bash(ave studio broll generate*)", "Bash(ave studio schedule apply*)",
+                          "Bash(ave studio tick --send*)", "Bash(ave studio run --send*)", "Bash(ave studio send*)", "Bash(ave studio library attest*)",
+                          "Bash(ave studio account set*)", "Bash(ave studio library add*)", "Bash(ave studio adopt*)", "Bash(ave studio feedback resolve*)",
+                          "Bash(ave publish resolve*)", "Edit(**/studio/ledger/**)", "Write(**/studio/accounts/**)"]}}
+```
+
+(abridged: the full list, including `Edit`/`Write`/shell-redirect rules for the gating files, is in `.claude/settings.example.json`.)
+
+Consider also denying `python -c` style escapes and running the agent as a different OS user than the one holding the keychain.
+`ave clips decide` and `ave content decide` stay open to the agent but every ledger line records `via: tty|notty`.
 - Full description and the per-platform setup: [docs/publishing-setup.md](docs/publishing-setup.md).
+
+### Content studio threat model (read this before trusting any gate)
+
+The studio posts to real public accounts, so its controls are described by what they do and do NOT do.
+
+**The attacker we design for** is a coding agent (or text it was talked into obeying) with a same-user shell, that is, a shell as YOUR OS user. Such an agent can edit any file the
+studio keeps, can run any `ave` command that is not behind a human check, and can read the HMAC key (keychain, `AVE_APPROVAL_KEY`, or
+`~/.config/ave/approval.key`). **File-level tampering therefore cannot be made impossible**, and nothing below pretends it is. The goals are:
+
+1. **Every sanctioned path is safe.** Each agent-open command and each UI path either cannot satisfy a human gate or is limited to its safe direction:
+   `queue sync` never approves; `feedback resolve` closes a send-back only with evidence the post changed (and a send-back already voided the approval);
+   `library add` and `adopt` record a license CLAIM that does not count until `library attest`; `account set` of platform, mode, time zone or credentials
+   voids the live attestation; `pause` is open but `resume` is not; the UI approves the queue item it shows and refuses when the item differs from the post;
+   `ave publish run` refuses studio items.
+2. **Tampering is DETECTED loudly, not silently honoured.** The feedback, dispatch and control ledgers are hash-chained and HMAC-signed with a signed head
+   record (`src/ave/studio/seal.py`): an edited, removed, reordered or truncated line, a deleted ledger or head, or an unsigned appended line fails
+   verification. Approvals carry a signed binding (account, slot, approval-lifetime policy) and are single-use through the sealed dispatch ledger. A live
+   attestation binds the account's credentials and carries a sequence number the sealed control ledger also holds (`--off` is a signed record; a saved copy
+   of an older "on" file is stale). A pause also lives in the sealed ledger: `rm studio/PAUSE` does not resume. **Every tick verifies all of this first;
+   on a failure it raises a `tamper` alert and sends nothing**, and `ave studio doctor` reports it.
+3. **The harness protects the gating files.** Copy [`.claude/settings.example.json`](.claude/settings.example.json) into `.claude/settings.json`: it denies
+   the agent `Edit`/`Write` and shell redirects to `studio/accounts/**` (account YAML, `*.live.json`, `*.paused`), `studio/ledger/**`,
+   `studio/publish/queue/**`, `studio/schedule/**`, `studio/PAUSE`, `studio/send.enabled`, `studio/studio.json` (approval TTL and mode, quiet-hour and
+   retime policy), `studio/policy/**`, `~/.config/ave/**` (publish.yaml TTL, host.yaml) and `approval.key`, plus the human-only commands
+   (`ave studio approve|ui|resume|resolve|account live|account auth|account set|account add|account remove|library add|library attest|adopt|`
+   `feedback resolve|send|broll pick|broll generate|schedule apply|tick --send|run --send`, `ave publish approve|run|resolve`). A shell deny rule is a
+   speed bump (`python -c` still writes); running the agent as a DIFFERENT OS user than the one that owns the keychain and the studio is the real wall.
+
+**What is NOT defended (documented limits).** An agent that reads the HMAC key can forge approvals, attestations and ledger lines. A pty-spawning agent
+that strips the agent markers passes `require_human`, including for `ave studio ui` (it prints the token and PIN to a terminal the agent owns). Restoring
+a ledger together with its signed head from an EARLIER backup is not detected (there is no off-machine anchor). Removing a file and its record together
+from a backup is not detected. A tamper alert only helps if a human reads it. The PIN is out-of-band only against an agent that cannot see your terminal.
+Hardening that would help and is not built: a per-use OS authentication prompt (Touch ID) on approve and on `account live`, a keychain item the venv
+python cannot read, and refusing `ave studio ui` when an agent is in the process chain.
+
+**Unattended sender.** A launchd job has no terminal, so `ave studio tick --send` accepts the human's signed `studio/send.enabled` instead
+(`ave studio send enable`, a human act; bound to the studio's path; `send disable` writes a signed off; an agent marker still refuses).
+`ave studio daemon-plist --send` prints a job that runs `tick --send` on an interval; installing it is yours.
+
+**Untrusted text.** Captions, feedback notes, alerts, platform error text, B-roll provider titles and tags, transcripts, ingested Markdown and library
+metadata are data, never instructions. Every `ave-studio*` skill and `AGENTS.md` say so; the dangerous commands above are human-gated so that an
+injected instruction has no lever.
 
 ### Local web UI (`ave ui`)
 

@@ -1,0 +1,64 @@
+[
+  {
+    "method": "POST",
+    "url": "/2/media/upload/initialize",
+    "early": true,
+    "response": {
+      "data": {
+        "id": "1880000000000000001",
+        "media_key": "3_1880000000000000001",
+        "expires_after_secs": 86400
+      }
+    },
+    "expect": {
+      "json_keys": [
+        "media_type",
+        "total_bytes",
+        "media_category"
+      ]
+    },
+    "_source": "documentation-derived, UNVERIFIED live: https://docs.x.com/x-api/posts/creation-of-a-post"
+  },
+  {
+    "method": "POST",
+    "url": "/append",
+    "response": {},
+    "status": 204,
+    "_source": "documentation-derived, UNVERIFIED live: https://docs.x.com/x-api/posts/creation-of-a-post"
+  },
+  {
+    "method": "POST",
+    "url": "/finalize",
+    "response": {
+      "data": {
+        "id": "1880000000000000001",
+        "media_key": "3_1880000000000000001"
+      }
+    },
+    "_source": "documentation-derived, UNVERIFIED live: https://docs.x.com/x-api/posts/creation-of-a-post"
+  },
+  {
+    "method": "POST",
+    "url": "/2/media/metadata",
+    "response": {},
+    "_source": "documentation-derived, UNVERIFIED live: https://docs.x.com/x-api/posts/creation-of-a-post"
+  },
+  {
+    "method": "POST",
+    "url": "/2/tweets",
+    "final": true,
+    "status": 201,
+    "response": {
+      "data": {
+        "id": "1850000000000000000",
+        "text": "x"
+      }
+    },
+    "expect": {
+      "json_keys": [
+        "text"
+      ]
+    },
+    "_source": "documentation-derived, UNVERIFIED live: https://docs.x.com/x-api/posts/creation-of-a-post"
+  }
+]

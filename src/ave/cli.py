@@ -29,6 +29,8 @@ def cmd_init(args) -> int:
     """Idempotent and non-destructive: safe on a drive folder that already holds footage. Only missing pieces are created."""
     from . import episode as epmod
     ep = Episode(args.episode)
+    from . import workspace
+    workspace.refuse_repo_relative(args.episode, ep.root)
     existed = ep.meta_path.exists()
     choice = args.layout if args.layout != "auto" else epmod.detect_layout(ep.root)
     note = None
@@ -232,7 +234,11 @@ def main(argv: list[str] | None = None) -> int:
         from .commands import learn_taste
         return learn_taste.main(argv[2:])
     args = build_parser().parse_args(argv)
-    return args.fn(args)
+    try:
+        return args.fn(args)
+    except FileNotFoundError as e:   # a bad queue/clip/content id or a missing file: one line, not a traceback
+        print(f"ave: error: {e}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

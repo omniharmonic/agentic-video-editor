@@ -1,0 +1,78 @@
+[
+  {
+    "method": "POST",
+    "url": "/post/publish/creator_info/query/",
+    "response": {
+      "data": {
+        "creator_username": "acme",
+        "privacy_level_options": [
+          "SELF_ONLY",
+          "PUBLIC_TO_EVERYONE"
+        ],
+        "max_video_post_duration_sec": 600
+      },
+      "error": {
+        "code": "ok",
+        "message": "",
+        "log_id": "202610191600000000"
+      }
+    },
+    "_source": "documentation-derived, UNVERIFIED live: https://developers.tiktok.com/doc/content-posting-api-reference-upload-video"
+  },
+  {
+    "method": "POST",
+    "url": "/post/publish/inbox/video/init/",
+    "early": true,
+    "response": {
+      "data": {
+        "publish_id": "v_inbox_file~v2.123456789",
+        "upload_url": "https://open-upload.tiktokapis.com/video/?upload_id=67890&upload_token=abcd1234"
+      },
+      "error": {
+        "code": "ok",
+        "message": "",
+        "log_id": "202610191600000000"
+      }
+    },
+    "expect": {
+      "json_keys": [
+        "source_info"
+      ]
+    },
+    "_source": "documentation-derived, UNVERIFIED live: https://developers.tiktok.com/doc/content-posting-api-reference-upload-video"
+  },
+  {
+    "method": "PUT",
+    "url": "open-upload.tiktokapis.com",
+    "final": true,
+    "status": 201,
+    "response": {},
+    "expect": {
+      "headers": [
+        "Content-Range"
+      ]
+    },
+    "_source": "documentation-derived, UNVERIFIED live: https://developers.tiktok.com/doc/content-posting-api-reference-upload-video"
+  },
+  {
+    "method": "POST",
+    "url": "/post/publish/status/fetch/",
+    "response": {
+      "data": {
+        "status": "SEND_TO_USER_INBOX",
+        "uploaded_bytes": 1
+      },
+      "error": {
+        "code": "ok",
+        "message": "",
+        "log_id": "202610191600000000"
+      }
+    },
+    "expect": {
+      "json_keys": [
+        "publish_id"
+      ]
+    },
+    "_source": "documentation-derived, UNVERIFIED live: https://developers.tiktok.com/doc/content-posting-api-reference-upload-video"
+  }
+]

@@ -3,7 +3,7 @@
 Who each document is for: **user** (you run `ave` on your own episodes), **contributor** (you change the code, skills or policy),
 **history** (internal working notes kept as evidence, not instructions).
 
-Start with the project [README](../README.md). The first-run walkthrough, `docs/getting-started.md`, is maintained alongside it.
+Start with the project [README](../README.md). The first-run walkthrough, `docs/getting-started.md`, is maintained alongside it: [getting-started.md](getting-started.md).
 For anyone, human or agent, [AGENTS.md](../AGENTS.md) is the canonical statement of the rules and the pipeline, and
 [skills/](../skills/) holds the playbooks an agent reads for each stage.
 
@@ -11,16 +11,23 @@ For anyone, human or agent, [AGENTS.md](../AGENTS.md) is the canonical statement
 
 | Document | What it is for | Audience |
 |---|---|---|
+| [shared-studio.md](shared-studio.md) | First shared studio for Maren and Tomas, launch and validation boundaries | user |
+| [manual-publishing.md](manual-publishing.md) | Exact-resolution media/caption handoff for manual Instagram posting | user |
+| [desktop.md](desktop.md) | Native window, optional runtime and installation-bound Finder launcher | user |
+| [agents.md](agents.md) | External-agent stdio MCP and CLI integration | user, contributor |
+| [collaboration.md](collaboration.md) | Local/offline draft exchange, conflicts, media and Tailscale setup boundaries | user |
+| [getting-started.md](getting-started.md) | First episode, start to release package, with the human checkpoints | user |
 | [ROADMAP.md](ROADMAP.md) | What is built, what is verified on real footage, what is not, known limits, and what is next | user, contributor |
 | [cleanup-policy.md](cleanup-policy.md) | How the rough-cut cleanup decides (pauses, fillers, masks) and which YAML numbers to tune | user |
 | [motion.md](motion.md) | The motion-graphics kit: templates, tokens, brand fonts, alpha renders | user, contributor |
 | [sequences.md](sequences.md) | Opening and closing sequences (cold open, title, host card, credits, end card) and their approval | user |
 | [content.md](content.md) | The opt-in content kit: quote posts, thumbnails, carousels, reel cards, the Canva renderer | user |
 | [ui.md](ui.md) | The local review UI (`ave ui`): pages, shortcuts, and its safety model | user |
+| [studio.md](studio.md) | The content studio (`ave studio`): calendar, library, B-roll, platform adapters, scheduler; the honest status table (nothing verified live) and the human-only acts | user |
 | [publishing-setup.md](publishing-setup.md) | One-time credential setup per platform and the publishing safety model | user |
 | [asset-licensing.md](asset-licensing.md) | The license log for music and B-roll, provider terms, and the warnings that go with them (mostly unverified) | user |
 
-Screenshots used by these pages live in `images/` (UI) and `sequence-stills/` (title and credit cards). Both are generated from a synthetic demo episode with a fictional show ("The Long Table"); `scripts/shoot_ui_screenshots.py` rebuilds them.
+Screenshots used by these pages live in `images/` (UI) and `sequence-stills/` (title and credit cards).
 
 ## For contributors
 

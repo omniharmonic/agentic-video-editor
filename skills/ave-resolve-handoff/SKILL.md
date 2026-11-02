@@ -78,13 +78,15 @@ ave handoff <episode> --use-proxies              # links the proxies; the timeli
 
 **UNVERIFIED in real Resolve** (the code paths are tested against an in-memory fake bridge only). Manual check, 2 minutes, on a scratch project: run `ave proxies` on a short clip, `ave handoff --use-proxies`, then in the Media Pool select the clip and confirm Clip Attributes / the Proxy column shows the proxy file; switch Proxy Mode on and play. Report what you saw and update ROADMAP row W10. Do not claim "linked" in your report unless `readback_verified` equals `requested`; say "linked per the bridge, unverified in Resolve" otherwise.
 
-## Subtitles on the timeline (W7, UNVERIFIED)
+## Subtitles on the timeline (W7)
+
+Measured 2026-11-01 on free 21.0.4.5 with a real 18-minute final: `--try-subtitles` is accepted by Resolve but makes no subtitle track, and leaves the timeline unchanged. On free Resolve, expect the manual steps; the flag is only worth trying on Studio. For a final, the handoff uses the retranscribed `06_EXPORTS/<tag>.vN.srt`, the same captions that ship.
 
 Routes considered (MCP docs and `api-limitations.md`; there is no dedicated subtitle-import API method):
 
 | Route | Status |
 |---|---|
-| `ImportMedia(srt)` then `AppendToTimeline(clip_ids)` | Reported working on Studio 21.0.4.5 (MCP issue #169); not measured on free 21.0.4. **This is the `--try-subtitles` route.** |
+| `ImportMedia(srt)` then `AppendToTimeline(clip_ids)` | Reported working on Studio 21.0.4.5 (MCP issue #169); on free 21.0.4.5 it makes no subtitle track (measured). **This is the `--try-subtitles` route.** |
 | UI: File > Import > Subtitle..., or drag the SRT from the Media Pool onto the timeline | The fallback; printed by the handoff as `subtitle_instructions`. |
 | `Timeline.ImportIntoTimeline` | AAF/EDL/XML only; not a subtitle route. |
 | `CreateSubtitlesFromAudio` | Never: modal on free Resolve, and it ignores our transcript. |

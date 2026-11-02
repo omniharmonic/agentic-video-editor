@@ -9,7 +9,7 @@ from ave.assets import licenses
 def entry(**kw):
     base = dict(source="pexels", asset_id="1", url="https://www.pexels.com/video/x-1/", file="work/assets/downloads/pexels-1.mp4",
                 sha256="ab" * 32, license="Pexels License", license_url="https://www.pexels.com/license/",
-                license_text="Free to use...", query="hands clay", approved_by="ben")
+                license_text="Free to use...", query="hands clay", approved_by="maren")
     base.update(kw)
     return base
 

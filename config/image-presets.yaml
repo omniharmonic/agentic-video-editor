@@ -1,0 +1,6 @@
+version: 1
+presets:
+  neutral: {exposure_ev: 0.0, contrast: 1.0, saturation: 1.0, warmth: 0.0}
+  soft: {exposure_ev: 0.15, contrast: 0.9, saturation: 0.9, warmth: 0.05}
+  vivid: {exposure_ev: 0.0, contrast: 1.15, saturation: 1.2, warmth: 0.0}
+  warm: {exposure_ev: 0.1, contrast: 1.0, saturation: 1.0, warmth: 0.25}

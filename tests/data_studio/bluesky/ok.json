@@ -1,0 +1,61 @@
+[
+  {
+    "method": "POST",
+    "url": "com.atproto.server.createSession",
+    "early": true,
+    "response": {
+      "accessJwt": "eyJ.bsky-access-jwt-value.sig",
+      "refreshJwt": "eyJ.bsky-refresh-jwt-value.sig",
+      "did": "did:plc:z72i7hdynmk6r22z27h6tvur",
+      "handle": "acme.bsky.social"
+    },
+    "expect": {
+      "json_keys": [
+        "identifier",
+        "password"
+      ]
+    },
+    "_source": "documentation-derived, UNVERIFIED live: https://docs.bsky.app/docs/api/com-atproto-repo-create-record"
+  },
+  {
+    "method": "POST",
+    "url": "com.atproto.repo.uploadBlob",
+    "response": {
+      "blob": {
+        "$type": "blob",
+        "ref": {
+          "$link": "bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku"
+        },
+        "mimeType": "image/jpeg",
+        "size": 12345
+      }
+    },
+    "expect": {
+      "headers": [
+        "Authorization",
+        "Content-Type"
+      ]
+    },
+    "_source": "documentation-derived, UNVERIFIED live: https://docs.bsky.app/docs/api/com-atproto-repo-create-record"
+  },
+  {
+    "method": "POST",
+    "url": "com.atproto.repo.createRecord",
+    "final": true,
+    "response": {
+      "uri": "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.post/3kkz2ofqbl22q",
+      "cid": "bafyreib2rxk3rybk3aobmv5cjuql3bm2twh4jo5uxgf5kpqcsgz7soitae"
+    },
+    "expect": {
+      "json_keys": [
+        "repo",
+        "collection",
+        "record"
+      ],
+      "headers": [
+        "Authorization"
+      ]
+    },
+    "_source": "documentation-derived, UNVERIFIED live: https://docs.bsky.app/docs/api/com-atproto-repo-create-record"
+  }
+]

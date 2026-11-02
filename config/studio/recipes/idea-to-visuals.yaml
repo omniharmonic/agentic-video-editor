@@ -1,0 +1,25 @@
+name: idea-to-visuals
+title: One-line idea to three on-brand image options
+summary: A single idea becomes three rendered image options for the human to choose between.
+inputs:
+  - {name: idea, required: true, description: "The idea in a line"}
+steps:
+  - id: capture
+    kind: mechanical
+    title: Record the idea as a post
+    command: "ave studio ingest idea \"{idea}\" --studio {studio}"
+    done_when: {posts: {stage: idea, min: 1}}
+  - id: options
+    kind: agent
+    skill: ave-studio-visuals
+    title: Render three options (different template or style) and critique each
+    checklist:
+      - "The words are the agent's own here (not a quote): use announcement, tip-list or stat-card and pass `--slots FILE`."
+      - "Look at each image. Keep the one that is plain and specific; say why."
+    done_when: {library: {source: render, min: 3}}
+  - id: choose
+    kind: human
+    title: Choose the option you like
+    prompt: "Open the library in `ave studio ui`, pick one, and say so; the others stay unused."
+    command: "ave studio ui {studio}"
+    done_when: {posts: {has_media: true, min: 1}}

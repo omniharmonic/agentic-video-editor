@@ -5,6 +5,8 @@ description: Turn approved clips into vertical 1080x1920 shorts (YouTube Shorts,
 
 # Shorts: approved clip to vertical export
 
+Shorts always burn captions, so they need an FFmpeg with libass (macOS: `brew install ffmpeg-full`; `ave doctor` checks).
+
 Needs: `work/clips.json` with approved clips built into `edits/select.<slug>.vN.json` (skill `ave-clip-finder`), `work/transcript.json`.
 Nothing here publishes. Raw footage is never touched; outputs are `edits/short.<slug>.vN.json`, `captions/short.<slug>.vN.*`, `exports/shorts/`.
 
@@ -22,7 +24,7 @@ Nothing here publishes. Raw footage is never touched; outputs are `edits/short.<
 3. **A short opens with a title, never the quote.** `--opening none|title_card|title_overlay` (default `title_overlay`, `config/shorts.yaml` `opening`):
    - `title_overlay`: a lower-area title panel (show name + topic title) over the first ~2 s of the clip, above the captions. No extra time.
    - `title_card`: a ~1.4 s full-frame title screen, then the clip. Adds that time (silent lead-in; captions start with the clip).
-   The title is a DRAFT the human edits, plain topic wording ("Why we started this table"), written from the clip. Source order: `--title`, `work/shorts/titles.json`
+   The title is a DRAFT the human edits, plain topic wording ("Why we are making this show"), written from the clip. Source order: `--title`, `work/shorts/titles.json`
    (`{"<slug or clip id>": "..."}`), then the clip title. It must pass the voice critic (`package.postcopy.critique`: no hype, no emoji, no exclamation, no question) and must not be
    the speaker's own words (a quote on screen before or while it is spoken is what the creator rejected). A title that fails leaves the short without an opening and says why in
    `needs_review`. Write the titles yourself for the shorts you build, then tell the human they are drafts (sidecar `opening.title`, `opening.title_source`, `opening.edit`).
@@ -50,6 +52,30 @@ Options (all opt-in; the defaults are unchanged):
 - `--cutaways speaker` (or `build.cutaways: speaker`): keep the talker on screen instead of the rough cut's listener reaction shots.
 - `ave motion place <ep> --template lower-third --props ... --at S --dur S --stage short --name <slug>`: a graphic on a short (new version;
   re-export). In portrait the lower-third sits above the caption line.
+
+### Polishing a finished short (new versions, never in place)
+
+```bash
+ave shorts recut <ep> --clip <slug> --drop-start-words 7 [--drop-end-words 10 | --trim-start S --trim-end S] --dry-run   # first: which words, is each edge a complete statement?
+ave shorts recut <ep> --clip <slug> --drop-start-words 7                                                                # then for real (add --by NAME)
+ave shorts retitle <ep> --clip <slug> --title "Why finishing is hard"                                                    # swap the opening's title overlay only
+ave broll place <ep> --stage short --name <slug> --asset a_... --at 4 --dur 2   # licensed B-roll over the speaker (skill ave-broll-music); proposes first
+```
+
+- `recut` moves a start or end INWARD on whole words (seconds are snapped to word edges). It cuts a new `select.<slug>` version from the exact edit the clip was picked from and builds the
+  short through `build_short`, so the complete-statement gate, word-gap snapping, captions and the opening all run again: a trim whose new first or last words are not a complete statement
+  is REFUSED with both edges quoted (`--allow-incomplete` is the same logged override as for `build`). `--dry-run` shows the new range, first/last words and verdict and writes nothing.
+  The approved clip in `work/clips.json` is NOT changed (the human approved that range): the new short is flagged `needs_review` ("recut by ...: the human has not seen this range") in the doc
+  and the sidecar until they look at it. To start EARLIER or end LATER, nudge by sentences (`ave clips decide` with a nudge), then `ave shorts build --force`.
+- `retitle` re-renders only the title overlay; crops, captions and timing are copied. The title passes the same critic as at build time (no hype, not the speaker's words, one short topic),
+  and `work/shorts/titles.json` is updated so `build --force` keeps it. It refuses a short built with `--opening none`.
+- Both write a new `short.<slug>.vN` (re-export it: new files, the old exports stay). Neither renders, posts or approves.
+
+### To the studio
+
+Approved shorts go to the studio with `ave studio ingest shorts <episode> [--clips ids] [--accounts ids] [--dry-run] [--sync]` (skill `ave-studio-recipes`, recipe `episode-shorts-to-posts`).
+It takes only clips a NAMED human kept from a terminal or `ave ui` (a keep typed through an agent shell, `via: notty`, does not count), only exports that are not drafts, match their recorded
+sha256, pass limits/encode/licenses, are complete statements and are the latest cut. Export every platform the studio's accounts post to (`--platforms reels,youtube,facebook,x`).
 
 `build` does: 1080x1920 canvas; per camera, Apple Vision finds the face on sampled frames and one static 9:16 crop is computed
 (eyes at the upper third, head-and-shoulders size, medians so it does not jitter); shots under `build.min_hold_s` (2 s) are shown from
@@ -81,7 +107,8 @@ the neighbouring camera at the same episode time (still in sync); karaoke captio
 `limits.ok` (duration/size/1080x1920; limits in `config/shorts.yaml` are UNVERIFIED, confirm before relying), `loudness` (target -14 LUFS, true peak under -1 dBTP; a
 value within 1 LU is normal for peaky speech), `encode.problems` (H.264 High, yuv420p, BT.709), `licenses` (music/B-roll must be in the license log, else `ok: false`
 and the file must not be posted), `needs_review`, `description` (a DRAFT built from the hook: improve it).
-Each sidecar also carries `completeness`, `edges` and `opening` (mode, title, title_source, draft: true). Files are named `<slug>.v<doc version>.<platform>.mp4`; an unchanged doc is not re-rendered, a changed doc makes new files.
+Each sidecar also carries `completeness`, `edges` and `opening` (mode, title, title_source, draft: true). `licenses` covers music, other licensed files and B-roll placed from a studio library
+(`library_assets`, `derived_from`, `attribution`, `attribution_required`): an unlicensed or unattested placed asset blocks the export with a message naming it. Files are named `<slug>.v<doc version>.<platform>.mp4`; an unchanged doc is not re-rendered, a changed doc makes new files.
 
 ## Checkpoint
 

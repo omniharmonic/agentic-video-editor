@@ -95,7 +95,7 @@ def test_doctor_is_grouped_and_has_a_verdict(capsys):
     code = doctor.run()
     out = capsys.readouterr().out
     assert "Required" in out and "For real footage" in out and "Optional" in out
-    assert out.strip().splitlines()[-1].startswith(("READY", "NOT READY"))
+    assert out.strip().splitlines()[-1].startswith(("READY", "PARTLY READY", "NOT READY"))
     assert code == (0 if shutil.which("ffmpeg") else 1)
 
 
@@ -104,7 +104,7 @@ def test_doctor_optional_gaps_never_fail_and_every_gap_has_a_fix():
     for c in checks:
         if c.status in (doctor.WARN, doctor.FAIL):
             assert c.fix, f"{c.name} has no fix command"
-        if c.group != doctor.REQUIRED:
+        if c.group not in (doctor.REQUIRED, doctor.CAPTIONS):
             assert c.status != doctor.FAIL
 
 

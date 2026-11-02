@@ -9,6 +9,8 @@ formats:
   4x5:  {w: 1080, h: 1350, title: "Portrait post / carousel slide"}
   9x16: {w: 1080, h: 1920, title: "Story / reel card"}
   16x9: {w: 1280, h: 720,  title: "Podcast thumbnail"}
+  2x3:  {w: 1000, h: 1500, title: "Pinterest pin"}                 # UNVERIFIED against Pinterest's current guidance (spec E7)
+  191x100: {w: 1200, h: 628, title: "Link card (1.91:1)"}           # the shared-link image size Facebook, LinkedIn and X draw (UNVERIFIED)
 
 # Safe area per format as fractions of the canvas kept free of text. UNVERIFIED against each platform's current UI:
 # 9x16 reserves the top and bottom bands that Instagram/TikTok/YouTube Shorts overlay with their own interface.
@@ -17,13 +19,10 @@ safe_area:
   4x5:  {x: 0.085, top: 0.075, bottom: 0.075}
   9x16: {x: 0.085, top: 0.13,  bottom: 0.20}
   16x9: {x: 0.05,  top: 0.07,  bottom: 0.12}     # bottom band: YouTube draws the duration stamp there
+  2x3:  {x: 0.085, top: 0.07,  bottom: 0.09}     # Pinterest overlays little on the pin itself; generous margins keep text clear of the crop in feeds
+  191x100: {x: 0.06, top: 0.09, bottom: 0.09}
 
-# Where each platform can take each format. `alt_text_max` / `caption_max` are checked at queue time.
-platforms:
-  instagram: {formats: [1x1, 4x5, 9x16], carousel_formats: [4x5], carousel_max_slides: 10, caption_max: 2200, alt_text_max: 1000}
-  facebook:  {formats: [1x1, 4x5, 9x16, 16x9], carousel_formats: [1x1, 4x5], carousel_max_slides: 10, caption_max: 5000, alt_text_max: 1000}
-  x:         {formats: [1x1, 16x9, 4x5], carousel_formats: [1x1, 16x9, 4x5], carousel_max_slides: 4, caption_max: 280, alt_text_max: 1000}
-  youtube:   {formats: [16x9], carousel_formats: [], caption_max: 5000, alt_text_max: 1000}     # thumbnails are set in Studio; no direct image adapter
+# Per-platform caption/alt-text/format limits are NOT read from this file: they live in config/platforms.yaml (`image:` blocks), which `ave publish` preflight uses.
 
 critic:
   min_contrast: 4.5            # WCAG AA for normal text

@@ -1,0 +1,110 @@
+{
+  "method": "GET",
+  "path": "/api/studio/calendar",
+  "status": 200,
+  "query": {
+    "from": "2026-11-01",
+    "to": "2026-11-30",
+    "accounts": "ig-main"
+  },
+  "response": {
+    "tz": "America/Denver",
+    "cursor": "ev:18273",
+    "accounts": [
+      {
+        "id": "ig-main",
+        "platform": "instagram",
+        "live": false,
+        "paused": false,
+        "brand": null,
+        "label": "@ig-main"
+      }
+    ],
+    "days": {
+      "2026-11-02": [
+        {
+          "post": "p_20261102_k3f9",
+          "variant": "v_ig",
+          "at": "2026-11-02T09:00:00-07:00",
+          "slot": "r1",
+          "status": "scheduled",
+          "title": "Day 3: the starter smells like pears",
+          "thumb": "/files/library/assets/9f/9f2c1d4e7b10a3b5c6d7e8f901234567890abcdef1234567890abcdef1234567.jpg",
+          "rev": 7,
+          "locked": false,
+          "flags": [
+            "moved_after_approval"
+          ],
+          "account": "ig-main",
+          "tz": "America/Denver",
+          "campaign": null
+        }
+      ],
+      "2026-11-04": [
+        {
+          "post": "p_20261104_m2a1",
+          "variant": "v_ig2",
+          "at": "2026-11-04T09:00:00-07:00",
+          "slot": "r1",
+          "status": "needs_rework",
+          "title": "Day 5: bubbles everywhere",
+          "thumb": "/files/library/assets/9f/9f2c1d4e7b10a3b5c6d7e8f901234567890abcdef1234567890abcdef1234567.jpg",
+          "rev": 3,
+          "locked": false,
+          "flags": [],
+          "account": "ig-main",
+          "tz": "America/Denver",
+          "campaign": null
+        }
+      ]
+    },
+    "slots": {
+      "2026-11-06": [
+        {
+          "account": "ig-main",
+          "at": "2026-11-06T09:00:00-07:00",
+          "rule": "r1",
+          "free": true
+        }
+      ],
+      "2026-11-04": [
+        {
+          "account": "ig-main",
+          "at": "2026-11-04T09:00:00-07:00",
+          "rule": "r1",
+          "free": false
+        }
+      ]
+    },
+    "unscheduled": [
+      {
+        "post": "p_20261030_b7c4",
+        "variant": null,
+        "status": "draft",
+        "title": "Why we weigh flour",
+        "thumb": "/files/library/assets/9f/9f2c1d4e7b10a3b5c6d7e8f901234567890abcdef1234567890abcdef1234567.jpg",
+        "rev": 2,
+        "account": null,
+        "campaign": null
+      }
+    ],
+    "proposals": [
+      {
+        "id": "sp_0001",
+        "by": "claude",
+        "at": "2026-10-19T12:20:00Z",
+        "moves": [
+          {
+            "post": "p_20261104_m2a1",
+            "variant": "v_ig2",
+            "to": {
+              "local": "2026-11-06T09:00",
+              "tz": "America/Denver"
+            },
+            "why": "the 4th is a Wednesday you skip; Friday morning is free"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -10,7 +10,7 @@ from ave.episode import read_json
 
 from recall_synth import build_marathon
 
-SPEC_KEYS = {"v", "ts", "episode", "clip_id", "session", "edit", "verdict", "reasons", "note", "by", "source", "features"}
+SPEC_KEYS = {"v", "ts", "episode", "clip_id", "session", "edit", "verdict", "reasons", "note", "by", "source", "via", "features"}
 FEATURE_KEYS = {"score", "rubric", "duration_s", "tags", "speaker_balance", "hook_pos_s", "ends_on_sentence", "text_sha"}
 
 
@@ -170,10 +170,10 @@ def run(capsys, *argv):
 
 def test_cli_decide_one_clip_with_verdict_and_repeated_reasons(ep, capsys):
     a = ids(ep)[0]
-    rc, out = run(capsys, "clips", "decide", ep.root, a, "--verdict", "skip", "--reason", "weak_ending", "--reason", "hook_late", "--note", "sags", "--by", "ben")
+    rc, out = run(capsys, "clips", "decide", ep.root, a, "--verdict", "skip", "--reason", "weak_ending", "--reason", "hook_late", "--note", "sags", "--by", "maren")
     assert rc == 0 and out["applied"][0]["status"] == "rejected"
     rec = learning.latest_decisions(ep)[a]
-    assert rec["reasons"] == ["weak_ending", "hook_late"] and rec["note"] == "sags" and rec["by"] == "ben" and rec["source"] == "cli"
+    assert rec["reasons"] == ["weak_ending", "hook_late"] and rec["note"] == "sags" and rec["by"] == "maren" and rec["source"] == "cli"
     assert status(ep)[a][0] == "rejected"
 
 

@@ -9,7 +9,7 @@ from urllib.parse import unquote
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
-SKIP_DIRS = {".venv", "venv", "node_modules", ".pytest_cache", "vendor", ".claude", ".agents", "__pycache__", ".git", "work", "episodes"}
+SKIP_DIRS = {".superpowers", ".venv", "venv", "node_modules", ".pytest_cache", "vendor", ".claude", ".agents", "__pycache__", ".git", "work", "episodes"}
 
 LINK = re.compile(r"\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
 FENCE = re.compile(r"^\s*(```|~~~)")

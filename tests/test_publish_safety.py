@@ -49,27 +49,30 @@ def test_logger_redacts(caplog):
     assert "tok-ABCDEF-123" not in caplog.text and safety.MASK in caplog.text
 
 
+NOW = 1767312000.0      # 2026-01-02, one day after the fixed approval time used below
+
+
 def test_approval_signature_and_tamper(isolated_secrets):
     item = {"id": "a", "status": "approved", "sha256": "h1", "platforms": ["youtube"], "title": "t"}
-    item["approvals"] = [safety.make_approval(item, "h1", "ben", "2026-01-01T00:00:00+0000")]
-    assert safety.approval_problems(item, "h1") == []
+    item["approvals"] = [safety.make_approval(item, "h1", "maren", "2026-01-01T00:00:00+0000")]
+    assert safety.approval_problems(item, "h1", now=NOW) == []
     # file changed
-    assert any("sha256" in p for p in safety.approval_problems(item, "h2"))
+    assert any("sha256" in p for p in safety.approval_problems(item, "h2", now=NOW))
     # metadata changed
     item["title"] = "other"
-    assert any("changed since approval" in p for p in safety.approval_problems(item, "h1"))
+    assert any("changed since approval" in p for p in safety.approval_problems(item, "h1", now=NOW))
     item["title"] = "t"
     # forged approval (no valid signature)
     item["approvals"][0]["sig"] = "0" * 64
-    assert any("signature" in p for p in safety.approval_problems(item, "h1"))
+    assert any("signature" in p for p in safety.approval_problems(item, "h1", now=NOW))
     # wrong status
-    item["approvals"] = [safety.make_approval(item, "h1", "ben", "t")]
+    item["approvals"] = [safety.make_approval(item, "h1", "maren", "t")]
     item["status"] = "awaiting_approval"
-    assert any("not approved" in p for p in safety.approval_problems(item, "h1"))
+    assert any("not approved" in p for p in safety.approval_problems(item, "h1", now=NOW))
     # hand-written approval with no sig key at all
     item["status"] = "approved"
     item["approvals"] = [{"by": "me", "at": "x", "sha256": "h1", "meta_sha256": safety.meta_hash(item)}]
-    assert safety.approval_problems(item, "h1")
+    assert safety.approval_problems(item, "h1", now=NOW)
 
 
 def test_approval_key_file_fallback_is_0600(isolated_secrets, monkeypatch):
@@ -84,3 +87,12 @@ def test_approval_key_file_fallback_is_0600(isolated_secrets, monkeypatch):
     kf = safety._key_file()
     assert kf.exists() and (kf.stat().st_mode & 0o777) == 0o600
     assert safety.approval_key() == k
+
+
+def test_redactor_masks_generic_query_keys_and_cookie_headers(isolated_secrets):
+    out = safety.redact("GET https://api.example.com/v1/x?key=AIzaSyFAKE123456&api_key=abcd1234&apikey=zzzz9999&page=2 failed")
+    assert "AIzaSyFAKE123456" not in out and "abcd1234" not in out and "zzzz9999" not in out and "page=2" in out
+    out = safety.redact("Cookie: session=abc123; csrftoken=def456\nHost: x")
+    assert "abc123" not in out and "def456" not in out and "Host: x" in out
+    assert "s3cr3t" not in safety.redact("Set-Cookie: sid=s3cr3t; HttpOnly")
+    assert safety.redact_obj({"Cookie": "a=b", "note": "ok"}) == {"Cookie": safety.MASK, "note": "ok"}

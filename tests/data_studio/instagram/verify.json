@@ -1,0 +1,11 @@
+[
+  {
+    "method": "GET",
+    "url": "/17841400000000000",
+    "response": {
+      "id": "17841400000000000",
+      "username": "acmebakery"
+    },
+    "_source": "documentation-derived, UNVERIFIED live: https://developers.facebook.com/docs/instagram-platform/content-publishing"
+  }
+]

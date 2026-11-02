@@ -1,0 +1,21 @@
+id: announcement
+title: Announcement
+kind: image
+description: >
+  A plain announcement in the business's own words: a small label, a headline, one line beneath it, and optionally a call to action. For news, a new
+  product, a changed opening hour. The words are the agent's own (nothing here is a quotation), so say only what the human told you.
+formats: [1x1, 4x5, 9x16, 191x100, 2x3]
+styles: [ink, paper, clay]
+default_platforms: [instagram, facebook, x, linkedin]
+renderers:
+  motion-kit: {template: card}
+slots:
+  type: object
+  required: [title]
+  additionalProperties: false
+  properties:
+    kicker: {type: string, maxLength: 28, default: "", description: "A short label above the headline, for example Now open or New. Optional."}
+    title:  {type: string, minLength: 3, maxLength: 80, description: "The headline: what is happening, plainly."}
+    sub:    {type: string, maxLength: 90, default: "", x-byline: true, description: "One line beneath the headline."}
+    cta:    {type: string, maxLength: 40, default: "", x-byline: true, description: "What to do next, plainly (Order by Nov 15). Optional."}
+    show:   {type: string, maxLength: 40, default: "", description: "The business or show name, set small at the top. It prints once."}

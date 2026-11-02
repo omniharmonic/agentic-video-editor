@@ -1,0 +1,40 @@
+# `ave broll place`: how library B-roll is put into an EditDoc. Tunable numbers live here, not in code.
+# Override per episode in <episode>/policy/broll_place.yaml (deep-merged over this file).
+# Pacing rules (hold length, coverage, emotional beats) are NOT here: they are config/assets.critic.yaml `pacing`, checked by
+# `ave broll check` and `ave assets pacing`. Every look below (box size, credit position) is a default nobody has judged on real footage.
+
+cutaway:
+  layer: 0                    # under every motion graphic (motion layers start at 1), so a lower third still sits over a cutaway
+  fit: cover                  # cover crops the picture to fill the frame; contain letterboxes it
+overlay:                      # a picture-in-picture box (not a cutaway): the speaker stays visible around it
+  layer: 0
+  scale_landscape: 0.34       # box width as a fraction of the canvas width on a 16:9 canvas
+  scale_portrait: 0.72        # ... on a 9:16 canvas (a short)
+  margin: 0.04                # gap to the canvas edge, fraction of the canvas width
+  corner: br                  # tl | tr | bl | br | center
+  fit: cover
+insert:                       # ripple: the cut gets longer, the dialogue pauses (exact silence) while the B-roll plays
+  layer: 0
+  fit: cover
+audio:                        # only used when a placement says `audio: keep`; B-roll is silent otherwise
+  gain_db: -6.0
+  duck_db: -10.0              # extra reduction while the dialogue is speaking (0 = never duck)
+  fade_s: 0.04                # short fades so a hard cut in the B-roll's sound does not click
+ken_burns:                    # presets for stills (`--ken-burns NAME`); zoom is a scale >= 1, from/to are 0..1 positions in the free space
+  push_in:   {zoom_from: 1.00, zoom_to: 1.12, from: [0.5, 0.5], to: [0.5, 0.5]}
+  pull_out:  {zoom_from: 1.12, zoom_to: 1.00, from: [0.5, 0.5], to: [0.5, 0.5]}
+  pan_right: {zoom_from: 1.10, zoom_to: 1.10, from: [0.0, 0.5], to: [1.0, 0.5]}
+  pan_left:  {zoom_from: 1.10, zoom_to: 1.10, from: [1.0, 0.5], to: [0.0, 0.5]}
+  drift:     {zoom_from: 1.00, zoom_to: 1.08, from: [0.35, 0.55], to: [0.65, 0.45]}
+credit:                       # the on-screen attribution caption (a PNG rendered here, placed as an overlay of kind "credit")
+  mode: auto                  # auto = only when the license requires attribution | always | never (--credit overrides)
+  min_s: 2.5                  # on screen at least this long (never past the end of the cut)
+  layer: 1
+  font_px_landscape: 28
+  font_px_portrait: 40
+  position_landscape: {x: 0.04, y: 0.90}   # top-left of the text bar, fractions of the canvas
+  position_portrait: {x: 0.06, y: 0.12}    # high, clear of the caption line (65%) and the bottom 25% that platform UI covers
+  max_width: 0.88
+placement:
+  allow_hold: false           # refuse a placement that needs more video than the asset has (true = hold the last frame, with a warning)
+  warn_inside_word: true      # an insert point inside a spoken word is reported (the dialogue is cut there)

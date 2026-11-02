@@ -39,7 +39,7 @@ def test_render_doc_fills_outputs_and_critic_and_skips_what_is_current(cep):
     new, rep = RM.render_doc(cep, doc)
     assert [r["id"] for r in rep["rendered"]] == ["quote-c01-4x5"]
     o = new["items"][0]["outputs"]
-    assert {x["platform"] for x in o} == {"instagram", "facebook"} and len({x["file"] for x in o}) == 1
+    assert {x["platform"] for x in o} == {"instagram", "facebook"} and len({x["file"] for x in o}) == 2      # the PNG master (facebook) and the JPEG instagram takes
     assert new["items"][0]["review"]["critic"]["ok"] and new["items"][0]["provenance"]["template_rev"]
     M.save_new_version(cep, new)
     again, rep2 = RM.render_doc(cep, new)

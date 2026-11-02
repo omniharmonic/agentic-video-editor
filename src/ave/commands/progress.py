@@ -9,9 +9,7 @@ from ..episode import Episode
 
 
 def _ep(a) -> Episode:
-    ep = Episode(a.episode)
-    ep.require()
-    return ep
+    return progress.resolve_project(a.episode)
 
 
 def cmd_progress(a) -> int:

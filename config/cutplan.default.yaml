@@ -8,7 +8,7 @@ version: 1
 
 lead_s: 0.25                # cut to the new speaker this long BEFORE they start (reads as natural)
 min_shot_s: 1.5             # never leave a shot sooner than this; delays the cut instead
-hold_wide_over_s: 0.0       # unused: breaking long holds is the cleanup pacing pass (config/cleanup.default.yaml `pacing:`)
+# (long holds are broken by the cleanup pacing pass, config/cleanup.default.yaml `pacing:`; the old `hold_wide_over_s` key is gone)
 legacy_never_cut_to_listener: false   # true restores the old behaviour: an interjection NEVER cuts to the listener
 
 interjection:               # something the person who is NOT on screen says while the speaker talks

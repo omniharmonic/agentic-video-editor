@@ -196,4 +196,3 @@ its `exemplars` (plus the recent ledger decisions, capped) appear at the top of 
 - Few surfaced sections: relax `--min-s/--max-s` or lower `--floor`; short or plain episodes legitimately have few clips.
 - Build warning "no tracks.room_tone": the gaps between selects are skipped (clips butt-join) because gaps are filled from room tone. `ave cleanup` now fills `tracks.room_tone` automatically; re-run it (or add a range by hand) and rebuild with `--force`. Gaps are level-matched to the noise floor around them when rendered.
 - A clip is `complete_statement: false`: no complete start/end fit within `--max-s` (a speaker can chain "And ... And ..." for a minute). Offer the human a longer `--max-s`, a nudge, or the `alternates`; do not argue the score up.
-- Drafts skipped: `ave.compile` is not available yet; the review page works without video.

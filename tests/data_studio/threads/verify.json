@@ -1,0 +1,11 @@
+[
+  {
+    "method": "GET",
+    "url": "/me",
+    "response": {
+      "id": "17841400000000001",
+      "username": "acme"
+    },
+    "_source": "documentation-derived, UNVERIFIED live: https://developers.facebook.com/docs/threads/posts"
+  }
+]

@@ -1,0 +1,42 @@
+{
+  "method": "POST",
+  "path": "/api/studio/approve",
+  "status": 200,
+  "request": {
+    "items": [
+      {
+        "post": "p_20261102_k3f9",
+        "variant": "v_fb",
+        "sha": "1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f"
+      },
+      {
+        "post": "p_20261104_m2a1",
+        "variant": "v_ig2",
+        "sha": "abababababababababababababababababababababababababababababababab"
+      }
+    ],
+    "by": "maren",
+    "pin": "123456"
+  },
+  "response": {
+    "approved": [
+      {
+        "post": "p_20261102_k3f9",
+        "variant": "v_fb",
+        "queue_id": "20261019-101501-day-3-the-star-c3d4",
+        "sha": "1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f",
+        "by": "maren",
+        "at": "2026-10-19T18:32:00-0600",
+        "source": "studio-ui"
+      }
+    ],
+    "refused": [
+      {
+        "post": "p_20261104_m2a1",
+        "variant": "v_ig2",
+        "reason": "not viewed: open the exact media for at least 2 seconds first"
+      }
+    ]
+  },
+  "note": "items carry `post` as well as `variant` (variant ids are only unique within a post)"
+}

@@ -1,0 +1,52 @@
+{
+  "method": "POST",
+  "path": "/api/studio/broll/search",
+  "status": 201,
+  "request": {
+    "post": "p_20261102_k3f9",
+    "query": "bread crust",
+    "providers": [
+      "pexels"
+    ],
+    "kind": "photo"
+  },
+  "response": {
+    "search": {
+      "id": "s_20261019_a1b2",
+      "query": "bread crust",
+      "kind": "photo",
+      "providers": [
+        "pexels"
+      ],
+      "post": "p_20261102_k3f9",
+      "created": "2026-10-19T12:00:00Z",
+      "candidates": [
+        {
+          "provider": "pexels",
+          "asset_id": "2284",
+          "kind": "photo",
+          "page_url": "https://www.pexels.com/photo/2284/",
+          "preview_url": "https://images.pexels.com/photos/2284/pexels-photo-2284.jpeg?w=400",
+          "download_url": "https://images.pexels.com/photos/2284/pexels-photo-2284.jpeg",
+          "w": 4000,
+          "h": 6000,
+          "duration": null,
+          "author": "A. Baker",
+          "author_url": "https://www.pexels.com/@abaker",
+          "tags": [
+            "bread",
+            "crust"
+          ],
+          "title": "Bread crust",
+          "attribution_required": false,
+          "attribution_text": "Photo by A. Baker on Pexels",
+          "extra": {},
+          "critic": {
+            "verdict": "ok",
+            "problems": []
+          }
+        }
+      ]
+    }
+  }
+}

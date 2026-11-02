@@ -1,0 +1,12 @@
+{
+  "method": "POST",
+  "path": "/api/studio/pause",
+  "status": 200,
+  "request": {
+    "account": null
+  },
+  "response": {
+    "paused": true,
+    "scope": "studio"
+  }
+}

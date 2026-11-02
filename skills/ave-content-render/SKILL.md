@@ -33,7 +33,7 @@ the text, pick another style, or reject it.
 
 Change the pick and run `ave content propose` again (undecided drafts are replaced; human decisions survive), or apply a nudge through
 `ave content decide`. Fonts: Newsreader and Inter are bundled (`motion-kit/brand/fonts/`, SIL OFL), so renders look the same on any machine; if
-`ave motion tokens` lists `missing_brand_fonts`, the fallbacks (Georgia, Helvetica Neue) are in use and the fit checks no longer match the brand type.
+`ave motion list` lists `missing_brand_fonts`, the fallbacks (Georgia, Helvetica Neue) are in use and the fit checks no longer match the brand type.
 
 ## Names on the card
 

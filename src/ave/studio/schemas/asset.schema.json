@@ -1,0 +1,45 @@
+{
+  "$comment": "Ordinary imports: a_ + byte SHA prefix. Immutable derivative occurrences: a_ + derivation SHA prefix; shared byte storage.",
+  "type": "object",
+  "required": ["v", "id", "sha256", "kind", "ext", "file", "bytes", "source", "ai_generated", "added"],
+  "properties": {
+    "v": {"const": 1},
+    "id": {"type": "string", "pattern": "^a_[0-9a-f]{12}$"},
+    "derivation": {"type": "object", "additionalProperties": false, "required": ["schema", "sha256"], "properties": {"schema": {"const": "derivative_occurrence.v1"}, "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "kind": {"enum": ["image", "video", "audio", "document"]},
+    "ext": {"type": "string", "pattern": "^\\.[A-Za-z0-9]{1,6}$"},
+    "file": {"type": "string", "minLength": 1},
+    "bytes": {"type": "integer", "minimum": 0},
+    "w": {"type": ["integer", "null"]},
+    "h": {"type": ["integer", "null"]},
+    "duration": {"type": ["number", "null"]},
+    "fps": {"type": ["number", "null"]},
+    "source": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {"enum": ["own", "stock", "render", "generated", "import"]},
+        "provider": {"type": ["string", "null"]},
+        "asset_id": {"type": ["string", "null"]},
+        "url": {"type": ["string", "null"]}
+      }
+    },
+    "license": {
+      "type": ["object", "null"],
+      "properties": {
+        "entry": {"type": ["string", "null"]},
+        "summary": {"type": "string"},
+        "attribution": {"type": "object", "properties": {"required": {"type": "boolean"}, "text": {"type": ["string", "null"]}}}
+      }
+    },
+    "ai_generated": {"type": "boolean"},
+    "derived_from": {"type": "array", "items": {"type": "string", "pattern": "^a_[0-9a-f]{12}$"}},
+    "tags": {"type": "array", "items": {"type": "string"}},
+    "alt": {"type": ["string", "null"]},
+    "people": {"type": "object", "properties": {"faces": {"type": "integer", "minimum": 0}, "release": {"type": ["string", "null"]}}},
+    "origin": {"type": ["object", "null"]},
+    "added": {"type": "string"},
+    "added_by": {"type": "string"}
+  }
+}

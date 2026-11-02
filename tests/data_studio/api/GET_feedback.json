@@ -1,0 +1,39 @@
+{
+  "method": "GET",
+  "path": "/api/studio/feedback",
+  "status": 200,
+  "query": {
+    "status": "open"
+  },
+  "response": {
+    "feedback": [
+      {
+        "v": 1,
+        "op": "feedback",
+        "id": "fb_0002",
+        "ts": "2026-10-19T12:10:00Z",
+        "post": "p_20261104_m2a1",
+        "variant": "v_ig2",
+        "rev": 3,
+        "asset": null,
+        "kind": "rework_copy",
+        "note": "too salesy, say it plainly",
+        "structured": {
+          "copy": {
+            "field": "caption",
+            "before": "Day 5: bubbles everywhere. Buy our starter kit today for 20% off!",
+            "after": null,
+            "selection": [
+              29,
+              68
+            ]
+          }
+        },
+        "by": "maren",
+        "source": "ui",
+        "resolved": null,
+        "claim": null
+      }
+    ]
+  }
+}

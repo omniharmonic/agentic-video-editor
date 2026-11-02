@@ -181,6 +181,14 @@ def parse_schedule(s: str | None) -> datetime | None:
     return dt.astimezone(timezone.utc)
 
 
+def platform_schedule(item: dict) -> str | None:
+    """Legacy items request future scheduling on the platform. Studio items
+    carry a locally enforced due slot and must be delivered immediately after
+    the studio dispatch gates allow them. Never schedule them a second time.
+    """
+    return None if item.get("meta_v") in (2, 3) else item.get("schedule")
+
+
 class Publisher(ABC):
     """One platform. Adapters never read the queue or approval state; the queue decides whether to call them."""
 
@@ -215,7 +223,7 @@ class Publisher(ABC):
 
     def check_schedule(self, item: dict, lo_min: float | None = None, hi_days: float | None = None) -> list[str]:
         try:
-            dt = parse_schedule(item.get("schedule"))
+            dt = parse_schedule(platform_schedule(item))
         except ValueError as e:
             return [str(e)]
         if dt is None:
