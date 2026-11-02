@@ -542,7 +542,10 @@ def main(*, fixture=False):
             for label in ('Open Workspace','Create Studio','Cancel'):box.addButtonWithTitle_(label)
             result=box.runModal()
             if result==A.NSAlertThirdButtonReturn:return 0
-            path=choose(result==A.NSAlertSecondButtonReturn)
+            while True:
+                try:path=choose(result==A.NSAlertSecondButtonReturn);break
+                except (SystemExit,ValueError) as exc:      # `require` exits for a CLI; here the person just picked another folder
+                    alert('That folder is not a studio',f'{exc}\nChoose the folder that contains studio.json.')
             if path is None:return 0
             controller.start(path)
         app.activateIgnoringOtherApps_(True);app.run()

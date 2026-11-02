@@ -78,6 +78,7 @@ packages = ["src/ave"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = [".", "tests"]
 markers = [
   "real_motion: render the title overlay with Chromium instead of the fast stub",
   "apple: needs macOS / Apple frameworks (Vision, VideoToolbox, FluidAudio); skipped elsewhere",

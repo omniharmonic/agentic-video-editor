@@ -95,8 +95,10 @@ def ms_copy(ms_roots, tmp_path):
 
 
 @pytest.fixture(autouse=True)
-def _approval_age_follows_fake_time(monkeypatch):
+def _approval_age_follows_fake_time(request, monkeypatch):
     """Fixtures approve at FakeClock time and the 14-day check reads the real clock, so they would expire by calendar date."""
+    if "studio" not in request.path.parts:      # elsewhere the real clock is the point, and FakeClock.latest may be another test's
+        return
     import time
     from datetime import datetime
     from ave.publish import safety

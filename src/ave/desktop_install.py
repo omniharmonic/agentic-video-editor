@@ -27,8 +27,7 @@ def install_shim(home: Path, executable: Path) -> dict:
         return {"path": str(target), "status": "skipped: an ave command that is not ours is already there"}
     target.write_text(shim_text(executable))
     target.chmod(0o755)
-    on_path = str(target.parent) in os.environ.get("PATH", "").split(":")
-    return {"path": str(target), "status": "installed", "on_path": on_path}
+    return {"path": str(target), "status": "installed"}       # the app strips PATH, so it cannot tell what the shell sees
 
 
 def link_skills(home: Path, skills: Path) -> dict:
