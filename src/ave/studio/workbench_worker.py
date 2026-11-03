@@ -1,7 +1,8 @@
 """Narrow subprocess/frozen-app dispatch entrypoint for durable workbench jobs."""
 from __future__ import annotations
+import os
 import sys
-from .workbench import diagnostic, execute_operation, job_path, read, write
+from .workbench import LOCK_FD_ENV, diagnostic, release_lock, execute_operation, job_path, read, write
 from .service import open_studio
 
 
@@ -48,6 +49,8 @@ def main(argv=None):
     except (Exception, SystemExit) as exc:
         job.update(status='failed', diagnostics=diagnostic(exc))
     signal.alarm(0)
+    if (fd := os.environ.get(LOCK_FD_ENV, '')).isdigit():       # free worker.lock before the job reads as finished
+        release_lock(int(fd))
     if bridge.CLIENT:bridge.CLIENT.close();bridge.CLIENT=None
     write(studio.sp, path, job)
     return 0 if job['status'] == 'done' else 2

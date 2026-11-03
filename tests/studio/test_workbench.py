@@ -474,3 +474,25 @@ while True: signal.pause()
         if second:second.close()
         if recovered:recovered.close()
         if parent.stderr:parent.stderr.close()
+
+
+def test_old_thread_leaves_a_retry_alone_even_past_twenty_attempts(wb,monkeypatch):
+    import sys
+    upload(wb)
+    argv=lambda code:(lambda root,jid:[sys.executable,'-c',code])
+    monkeypatch.setattr('ave.studio.workbench.worker_argv',argv('pass'))              # exits without settling: the job ends failed
+    job=wb.start_render(render_args(wb));assert finish(wb,job)['status']=='failed'
+    seeded=wb.tail(job['id']);seeded['attempts']=[{'status':'failed','diagnostics':'','at':'t'}]*20      # attempts[] is at its cap of 20
+    write(wb.sp,job_path(wb.sp,job['id']),seeded)
+    monkeypatch.setattr('ave.studio.workbench.worker_argv',argv('import time;time.sleep(1.5)'))
+    before=wb._job_processes[job['id']]
+    retry=wb.retry({'job_id':job['id']});first=retry['attempt_id']                   # a len-based guard would record 20 here
+    end=time.monotonic()+10
+    while wb._job_processes[job['id']] is before and time.monotonic()<end:time.sleep(.01)   # the retry's worker is alive
+    assert wb._job_processes[job['id']] is not before
+    taken=wb.tail(job['id']);taken.update(status='running',attempt_id='newer-retry',attempts=[{'status':'failed','diagnostics':'','at':'t'}]*20)
+    write(wb.sp,job_path(wb.sp,job['id']),taken)                                     # still 20 attempts, but a different attempt
+    wb.close()                                                                       # joins the retry's thread as its worker exits
+    after=wb.tail(job['id'])
+    assert first!='newer-retry' and after['attempt_id']=='newer-retry'
+    assert after['status']=='running' and not after['diagnostics']

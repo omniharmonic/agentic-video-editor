@@ -329,7 +329,7 @@ def test_insert_ripples_the_cut_and_the_dialogue_holds_in_exact_silence(world):
     assert got.shape[0] == c
     assert np.array_equal(got[:a], ref[:a])                                       # before the insert: the dialogue as it was
     assert np.all(got[a:b] == 0)                                                  # exact silence while the B-roll plays
-    assert got[b:c].shape == ref[a:int(10 * SR)].shape and np.abs(got[b:c] - ref[a:int(10 * SR)]).max() < 1e-3   # after it: the same dialogue, 1.2 s later, sample for sample (to float rounding: ffmpeg's float filters differ in the last bits between macOS builds; a real offset or gain error is far larger)
+    assert got[b:c].shape == ref[a:int(10 * SR)].shape and np.abs(got[b:c] - ref[a:int(10 * SR)]).max() < 1e-5   # after it: the same dialogue, 1.2 s later. Measured max difference here is exactly 0.0 (peak 0.50); the exact check failed on the macOS CI build alone, so allow only float rounding, ~-100 dBFS, below 16-bit quantisation
     out, rep = render(w)
     assert ffutil.count_video_packets(out) == 336 and abs(rep["duration"] - 11.2) < 1 / 30
     cs = colors(out, 0, 336)

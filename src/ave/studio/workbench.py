@@ -257,6 +257,16 @@ def diagnostic(exc):
     return str(safety.redact_obj(f'{type(exc).__name__}: {exc}'))[-4000:]
 
 
+LOCK_FD_ENV = 'AVE_WORKBENCH_LOCK_FD'
+
+
+def release_lock(held):
+    """Drop worker.lock now. A job must not read as finished while its lock is still held, or an immediate retry reports Busy.
+    flock belongs to the open file description, so this also frees the copy the worker child inherited."""
+    try: fcntl.flock(held, fcntl.LOCK_UN)
+    except (OSError, ValueError): pass
+
+
 def worker_argv(root, jid):
     if getattr(sys, 'frozen', False):
         return [sys.executable, '--workbench-worker', str(root), jid]
@@ -289,15 +299,15 @@ class Workbench:
         p.parent.mkdir(parents=True, exist_ok=True)
         fd = os.open(p, os.O_CREAT | os.O_RDWR | getattr(os, 'O_NOFOLLOW', 0), 0o600)
         held = os.fdopen(fd, 'a')
-        for attempt in range(80):
+        for attempt in range(6):
             try:
                 fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)
                 break
             except BlockingIOError:
-                if attempt == 79:
+                if attempt == 5:
                     held.close()
                     raise Busy('Another production job is running. Wait for it to finish.') from None
-                time.sleep(.025)  # allow a terminal worker's exit/FD teardown (about 2 s; a busy CI runner needs far more than 100 ms)
+                time.sleep(.02)  # allow a terminal worker's short exit/FD teardown
 
         return held
 
@@ -471,7 +481,7 @@ class Workbench:
         if operation.startswith('episode-') or operation in ('import','transcribe','video-source','video-render','video-kept','video-cleanup','frame','manuscript','image-transform','design-render','image-split'): safe(self.sp,job_path(self.sp,jid).with_suffix('.cancel')).unlink(missing_ok=True)
         job = {'v': 1, 'id': jid, 'operation': operation,
                'args': args, 'status': 'queued', 'created': previous['created'] if previous else iso_utc(self.studio.now()),
-               'diagnostics': '', 'result': None, 'by': self.by}
+               'diagnostics': '', 'result': None, 'by': self.by, 'attempt_id': secrets.token_hex(8)}
         if previous:
             job['attempts'] = (previous.get('attempts', []) + [{'status': previous['status'],
                 'diagnostics': previous.get('diagnostics', ''), 'at': iso_utc(self.studio.now())}])[-20:]
@@ -506,6 +516,7 @@ class Workbench:
         try:
             thread.start()
         except Exception as exc:
+            release_lock(held)
             job.update(status='failed', diagnostics=diagnostic(exc))
             write(self.sp, job_path(self.sp, job['id']), job)
             raise
@@ -514,12 +525,13 @@ class Workbench:
 
     def _launch(self, jid, held):
         bridge=None
+        gen=None                                                  # attempt_id this thread owns (attempts[] is capped, so it cannot identify one); a retry may start once the worker has unlocked
         try:
             # Inherit the lock FD so a server crash does not allow a second worker
             # to declare the still-running child interrupted.
             argv=worker_argv(self.sp.root,jid);fds=(held.fileno(),)
             operation=self.tail(jid)['operation']
-            current=self.tail(jid)
+            current=self.tail(jid);gen=current.get('attempt_id')
             native_kept=operation=='video-kept' and str(current['args'].get('source_id','')).startswith('episode_')
             from .episode_release import is_native_render
             native_render=operation=='video-render' and is_native_render(self.studio,current['args'])
@@ -536,7 +548,7 @@ class Workbench:
                 write(self.sp,job_path(self.sp,jid),current)
                 bridge=Parent(self.studio,self.tail(jid));bridge.start()
                 argv+=['--episode-bridge',str(bridge.child.fileno())];fds+=(bridge.child.fileno(),)
-            proc = subprocess.Popen(argv, env=child_env(), pass_fds=fds, start_new_session=True,
+            proc = subprocess.Popen(argv, env={**child_env(), LOCK_FD_ENV: str(held.fileno())}, pass_fds=fds, start_new_session=True,
                                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             if not hasattr(self, '_processes'): self._processes = []
             self._processes.append(proc)
@@ -548,7 +560,9 @@ class Workbench:
             tail = b''
             while chunk := proc.stdout.read(4096): tail = (tail + chunk)[-8000:]
             rc = proc.wait()
+            release_lock(held)
             job = self.tail(jid)
+            if job.get('attempt_id')!=gen: return                  # a retry took over this job; its status is not ours to settle
             if safe(self.sp,job_path(self.sp,jid).with_suffix('.cancel')).exists() and job['status'] in ('queued','running'):
                 job.update(status='cancelled',diagnostics='Cancelled. Original and completed outputs are preserved; retry to resume.')
                 write(self.sp,job_path(self.sp,jid),job)
@@ -556,7 +570,10 @@ class Workbench:
                 job.update(status='failed', diagnostics=diagnostic(RuntimeError(f'Worker exited {rc}. ' + tail.decode(errors='replace'))))
                 write(self.sp, job_path(self.sp, jid), job)
         except (Exception, SystemExit) as exc:
-            job = self.tail(jid); job.update(status='failed', diagnostics=diagnostic(exc)); write(self.sp, job_path(self.sp, jid), job)
+            release_lock(held)
+            job = self.tail(jid)
+            if gen is not None and job.get('attempt_id')!=gen: return
+            job.update(status='failed', diagnostics=diagnostic(exc)); write(self.sp, job_path(self.sp, jid), job)
         finally:
             if bridge:bridge.close()
             held.close()

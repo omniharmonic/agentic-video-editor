@@ -48,6 +48,7 @@ def test_builds_quickly_with_the_promised_shape(built):
     # This is a runaway-build smoke check, including concurrent Chromium/FFmpeg
     # workers in the full suite; precise performance belongs in a serial benchmark. CI runners (2-4 shared cores, parallel
     # xdist workers) take 70+ s for what a laptop does in 20, so the limit is a runaway guard, not a speed target.
+    # 240 s is a smoke ceiling for slow runners, not a benchmark.
     assert res["_elapsed"] < 240, res["_elapsed"]
     assert res["accounts"] == 7 and res["posts"] >= 38
     assert (root / "studio.json").is_file() and (root / "DEMO.md").is_file()
