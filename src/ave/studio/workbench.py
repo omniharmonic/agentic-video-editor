@@ -289,15 +289,15 @@ class Workbench:
         p.parent.mkdir(parents=True, exist_ok=True)
         fd = os.open(p, os.O_CREAT | os.O_RDWR | getattr(os, 'O_NOFOLLOW', 0), 0o600)
         held = os.fdopen(fd, 'a')
-        for attempt in range(6):
+        for attempt in range(80):
             try:
                 fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)
                 break
             except BlockingIOError:
-                if attempt == 5:
+                if attempt == 79:
                     held.close()
                     raise Busy('Another production job is running. Wait for it to finish.') from None
-                time.sleep(.02)  # allow a terminal worker's short exit/FD teardown
+                time.sleep(.025)  # allow a terminal worker's exit/FD teardown (about 2 s; a busy CI runner needs far more than 100 ms)
 
         return held
 

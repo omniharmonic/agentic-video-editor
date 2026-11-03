@@ -46,7 +46,9 @@ audio = [
 ]
 desktop = [
     { name = "cryptography" },
+    { name = "keyring" },
     { name = "pywebview" },
+    { name = "requests" },
 ]
 motion = [
     { name = "playwright" },
@@ -76,6 +78,7 @@ requires-dist = [
     { name = "cryptography", marker = "extra == 'desktop'", specifier = "==50.0.2" },
     { name = "google-api-python-client", marker = "extra == 'publish'", specifier = ">=2.120" },
     { name = "google-auth-oauthlib", marker = "extra == 'publish'", specifier = ">=1.2" },
+    { name = "keyring", marker = "extra == 'desktop'", specifier = ">=25" },
     { name = "keyring", marker = "extra == 'publish'", specifier = ">=25" },
     { name = "librosa", marker = "extra == 'audio'", specifier = ">=0.10" },
     { name = "numpy", specifier = ">=1.26" },
@@ -88,6 +91,7 @@ requires-dist = [
     { name = "pywebview", marker = "extra == 'desktop'", specifier = ">=5,<7" },
     { name = "pyyaml", specifier = ">=6" },
     { name = "requests", marker = "extra == 'assets'", specifier = ">=2.31" },
+    { name = "requests", marker = "extra == 'desktop'", specifier = ">=2.31" },
     { name = "requests", marker = "extra == 'publish'", specifier = ">=2.31" },
     { name = "scipy", specifier = ">=1.11" },
     { name = "soundfile", specifier = ">=0.12" },

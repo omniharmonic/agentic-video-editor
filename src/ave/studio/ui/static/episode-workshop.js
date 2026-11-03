@@ -34,7 +34,7 @@ export async function openEpisode(ctx,{episodeId=null}={}){
     if(!list.episodes.length)playerSlot.append(h('h3',{},'Bring the conversation into the studio'),h('p',{},'Start from your recordings, or open an existing episode folder on this Mac. Originals stay intact.'));
     for(const row of list.episodes)playerSlot.append(button(row.label,async()=>{id=row.id;await refresh(true);}),h('p',{},row.status==='available'?(row.ownership==='external_reference'?'Linked episode folder':'Managed recording copies'):row.reason),row.status!=='available'&&window.aveNative?.reconnectEpisode?button('Reconnect '+row.label,async()=>{await window.aveNative.reconnectEpisode(row.id);id=row.id;await refresh(true);}):null);
     primary.append(button('Create from recordings',intake,true));
-    if(window.aveNative?.selectEpisode)primary.append(button('Open episode folder',async()=>{const row=await window.aveNative.selectEpisode();id=row.id;await refresh(true);}));
+    if(window.aveNative?.selectEpisode)primary.append(button('Open project folder',async()=>{const row=await window.aveNative.selectEpisode();id=row.id;await refresh(true);}));
     else inspector.append(h('p',{},'To link an existing folder, open this workspace in the native app.'));
   }
   async function intake(){
@@ -44,7 +44,8 @@ export async function openEpisode(ctx,{episodeId=null}={}){
     async function rows(){clear(choices);const library=await ctx.api.get('workbench');for(const s of library.sources.filter(s=>['audio','video'].includes(s.kind))){const check=h('input',{type:'checkbox','aria-label':s.label,onchange:e=>e.target.checked?selectedSources.add(s.source_id):selectedSources.delete(s.source_id)});check.checked=selectedSources.has(s.source_id);choices.append(h('label',{class:'ew-check'},check,h('span',{},s.label)));}}
     const upload=h('input',{type:'file',multiple:true,accept:'audio/*,video/*','aria-label':'Import episode recordings'});
     upload.addEventListener('change',async()=>{importing=true;try{for(const file of upload.files){state.textContent='Importing '+file.name;const response=await fetch('/api/studio/workbench/upload?name='+encodeURIComponent(file.name),{method:'PUT',body:file});const result=await response.json();if(!response.ok)throw Error(result.error);selectedSources.add(result.source_id);if(result.job)await waitFor(result.job.id);}await rows();state.textContent='Recordings imported. Choose the episode title and create.';}catch(e){fail(e);}finally{importing=false;}});
-    inspector.append(field('Add recordings',upload),h('p',{},'These files are copied into a managed episode. Copying does not establish ownership or usage rights.'));
+    const choose=window.aveNative?button('Choose recordings',async()=>{importing=true;try{await window.aveNative.importFiles();await rows();}finally{importing=false;}}):field('Add recordings',upload);
+    inspector.append(choose,h('p',{},'These files are copied into a managed episode. Copying does not establish ownership or usage rights.'));
     primary.append(button('Create episode',async()=>{if(importing)throw Error('Wait for all selected recordings to finish importing.');if(!name.value.trim()||!selectedSources.size)throw Error('Enter a title and choose at least one recording.');await run('episode-create',{title:name.value,sources:[...selectedSources]});},true),button('Back to episodes',catalog));await rows();
   }
   async function waitFor(jid){for(;;){if(closed)throw Error('Episode window closed');const j=await ctx.api.get('workbench/jobs/'+jid);state.textContent=j.phase||j.status;if(['done','failed','interrupted','cancelled'].includes(j.status)){if(j.status!=='done')throw Error(j.diagnostics||j.status);return j;}await new Promise(resolve=>setTimeout(resolve,500));}}

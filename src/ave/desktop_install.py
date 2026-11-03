@@ -10,6 +10,7 @@ import os
 import runpy
 import shlex
 import sys
+import time
 from pathlib import Path
 
 MARKER = "# ave-studio-shim"
@@ -50,7 +51,9 @@ def install_bridge(script: Path, home: Path | None = None, app: Path = Path("/Ap
     """Blackmagic's Scripts folder is where free Resolve finds the bridge; the upstream installer knows every variant."""
     if not app.exists():
         return {"status": "skipped: DaVinci Resolve is not installed yet; install it, then run this again"}
-    (home or Path.home()).joinpath(SCRIPTS).mkdir(parents=True, exist_ok=True)    # Resolve only makes this tree once a script exists
+    folder = (home or Path.home()) / SCRIPTS
+    folder.mkdir(parents=True, exist_ok=True)      # Resolve only makes this tree once a script exists
+    started = time.time() - 2
     argv = sys.argv
     sys.argv = [str(script)]
     try:
@@ -60,6 +63,9 @@ def install_bridge(script: Path, home: Path | None = None, app: Path = Path("/Ap
             return {"status": f"failed: installer exited {e.code}"}
     finally:
         sys.argv = argv
+    launcher = folder / "resolve_bridge.py"     # the upstream installer treats a failed folder as a skip, so check the menu entry itself
+    if not launcher.exists() or launcher.stat().st_mtime < started:
+        return {"status": "failed: the resolve_bridge script was not written"}
     return {"status": "installed", "next": "Restart Resolve, then choose Workspace > Scripts > resolve_bridge"}
 
 

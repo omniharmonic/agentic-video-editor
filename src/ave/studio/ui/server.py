@@ -229,9 +229,10 @@ class StudioHandler(Handler):
             if got != n:
                 self.close_connection = True
                 raise StudioError(400, f"the connection ended after {got} of {n} bytes", "bad_request")
-            self._json(201, (app.workbench.upload if workbench else app.upload)(Path(tmp), name, n, h.hexdigest()))
+            result = (app.workbench.upload if workbench else app.upload)(Path(tmp), name, n, h.hexdigest())
         finally:
             Path(tmp).unlink(missing_ok=True)
+        self._json(201, result)                                # after the cleanup: a client that sees the reply sees a clean uploads folder
 
     # ---- files
     def _studio_file(self, rel: str, *, episode_artifact: bool = False) -> None:

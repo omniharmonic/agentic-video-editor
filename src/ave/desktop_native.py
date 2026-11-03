@@ -15,7 +15,7 @@ from .humanpresence import agent_markers_set
 from .desktop_connections import ACTIONS as CONNECTION_ACTIONS
 COLLABORATION_ACTIONS = {'exchangeSendFile','exchangeEnable','exchangeStop','exchangeInvite','exchangeJoin','exchangeConfirm','exchangeCancelPair','exchangeRevoke'}
 
-ACTIONS = CONNECTION_ACTIONS | COLLABORATION_ACTIONS | {'agentConfig', 'openResolve', 'review', 'import', 'savePackage', 'sharePackage', 'revealPackage', 'recordManualPublication', 'diagnostics', 'selectEpisode', 'reconnectEpisode', 'revokeEpisode', 'confirmEpisode'}
+ACTIONS = CONNECTION_ACTIONS | COLLABORATION_ACTIONS | {'agentConfig', 'openResolve', 'review', 'import', 'importLibrary', 'savePackage', 'sharePackage', 'revealPackage', 'recordManualPublication', 'diagnostics', 'selectEpisode', 'reconnectEpisode', 'revokeEpisode', 'confirmEpisode'}
 REPORT_FIELDS = {'post_id', 'variant_id', 'package_id', 'reviewed_payload_hash', 'posted_url', 'posted_at',
                  'expected_rev', 'request_id', 'by', 'changed_in_native', 'url_mismatch_explanation'}
 
@@ -100,7 +100,7 @@ class NativeSession:
 BRIDGE_SCRIPT = r'''
 (()=>{const pending=new Map();let serial=0;
 function ask(action,args={}){return new Promise((resolve,reject)=>{const id=String(++serial);pending.set(id,{resolve,reject});window.webkit.messageHandlers.aveNative.postMessage({id,action,args});});}
-Object.defineProperty(window,'aveNative',{value:Object.freeze({connectionAction:(action,args)=>ask(action,args),agentConfig:()=>ask('agentConfig'),openResolve:()=>ask('openResolve'),recordManualPublication:r=>ask('recordManualPublication',r),requestReview:()=>ask('review'),importFiles:()=>ask('import'),selectEpisode:()=>ask('selectEpisode'),reconnectEpisode:id=>ask('reconnectEpisode',{episode:id}),revokeEpisode:id=>ask('revokeEpisode',{episode:id}),confirmEpisode:token=>ask('confirmEpisode',{token}),savePackage:id=>ask('savePackage',{package_id:id}),sharePackage:(id,filename=null)=>ask('sharePackage',{package_id:id,filename}),revealPackage:id=>ask('revealPackage',{package_id:id})}),writable:false});
+Object.defineProperty(window,'aveNative',{value:Object.freeze({connectionAction:(action,args)=>ask(action,args),agentConfig:()=>ask('agentConfig'),openResolve:()=>ask('openResolve'),recordManualPublication:r=>ask('recordManualPublication',r),requestReview:()=>ask('review'),importFiles:()=>ask('import'),importLibrary:()=>ask('importLibrary'),selectEpisode:()=>ask('selectEpisode'),reconnectEpisode:id=>ask('reconnectEpisode',{episode:id}),revokeEpisode:id=>ask('revokeEpisode',{episode:id}),confirmEpisode:token=>ask('confirmEpisode',{token}),savePackage:id=>ask('savePackage',{package_id:id}),sharePackage:(id,filename=null)=>ask('sharePackage',{package_id:id,filename}),revealPackage:id=>ask('revealPackage',{package_id:id})}),writable:false});
 Object.defineProperty(window,'__aveNativeReply',{value:(id,ok,data)=>{const p=pending.get(id);if(!p)return;pending.delete(id);ok?p.resolve(data):p.reject(new Error(data.error||'Native action cancelled'));}});
 addEventListener('DOMContentLoaded',()=>{const bar=document.createElement('aside');bar.setAttribute('aria-label','Native workspace actions');bar.style.cssText='position:fixed;bottom:12px;left:12px;z-index:90;display:flex;gap:6px';for(const [label,action] of [['Import files','import'],['Unlock review','review']]){const b=document.createElement('button');b.textContent=label;b.onclick=()=>ask(action).catch(e=>{b.textContent=e.message;setTimeout(()=>b.textContent=label,5000)});bar.append(b);}document.body.append(bar);});})();
 '''
@@ -114,7 +114,7 @@ def main(*, fixture=False):
     import Foundation as F
     import WebKit as W
     import objc
-    from .desktop_files import import_selected, package_file, save_verified, NativeFileWork
+    from .desktop_files import import_library, import_selected, package_file, save_verified, NativeFileWork
     from .desktop_runtime import diagnostics, frozen
     app = A.NSApplication.sharedApplication()
     app.setActivationPolicy_(A.NSApplicationActivationPolicyRegular)
@@ -149,6 +149,13 @@ def main(*, fixture=False):
         from .studio.project import StudioProject
         StudioProject(path).require()
         return path
+
+    def pick_project(folders):
+        """A folder of projects: ask which one, rather than making the person find it."""
+        box=A.NSAlert.alloc().init();box.setMessageText_('Choose a project');box.setInformativeText_(f'{len(folders)} projects are in this folder.')
+        box.addButtonWithTitle_('Open');box.addButtonWithTitle_('Cancel')
+        menu=A.NSPopUpButton.alloc().initWithFrame_pullsDown_(((0,0),(320,26)),False);menu.addItemsWithTitles_([f.name for f in folders]);box.setAccessoryView_(menu)
+        return folders[menu.indexOfSelectedItem()] if box.runModal()==A.NSAlertFirstButtonReturn else None
 
     class Controller(F.NSObject):
         def init(self):
@@ -224,6 +231,7 @@ def main(*, fixture=False):
                     A.NSWorkspace.sharedWorkspace().openURL_(F.NSURL.fileURLWithPath_('/Applications/DaVinci Resolve/DaVinci Resolve.app'));self.reply(rid,True,{})
                 elif action=='review':self.unlock(rid)
                 elif action=='import':self.import_files(rid)
+                elif action=='importLibrary':self.import_library(rid)
                 else:self.diagnostics_(None);self.reply(rid,True,{})
             except Exception as exc:self.reply(locals().get('rid'),False,{'error':str(exc)})
 
@@ -360,9 +368,10 @@ def main(*, fixture=False):
                 ER.revoke(session.server.app.studio,args['episode']);self.reply(rid,True,{'revoked':True});return
             if set(args)!=(set() if action=='selectEpisode' else {'episode'}):raise ValueError('Only a registered reconnect identity is accepted')
             panel=A.NSOpenPanel.openPanel();panel.setCanChooseDirectories_(True);panel.setCanChooseFiles_(False);panel.setCanCreateDirectories_(False);panel.setAllowsMultipleSelection_(False)
-            panel.setMessage_('Choose an existing episode folder containing episode.json. Its original recordings remain read-only.')
+            panel.setMessage_('Choose a project folder, or a folder of projects. Original recordings stay read-only; edits and exports are saved in the project.')
             if panel.runModal()!=A.NSModalResponseOK:self.reply(rid,False,{'error':'Episode selection cancelled'});return
-            root=Path(str(panel.URL().path()))
+            root=ER.project_root(panel.URL().path(),pick_project)
+            if root is None:self.reply(rid,False,{'error':'Episode selection cancelled'});return
             meta=ER.json_file(root/'episode.json')
             from .episode import resolve_layout
             layout=resolve_layout(meta.get('layout'));additional={}
@@ -472,6 +481,15 @@ def main(*, fixture=False):
             self.file_work.start(lambda cancel,report:package_file(session.server.app.ep,pid,filename,cancelled=cancel,progress=report),prepared,progress)
 
         @objc.python_method
+        def import_library(self,rid):
+            # WKWebView hands a file input nothing back, so the Library's files come through a native panel.
+            if self.busy or self.file_work.busy:raise ValueError('Wait for the current file operation to finish')
+            panel=A.NSOpenPanel.openPanel();panel.setCanChooseFiles_(True);panel.setCanChooseDirectories_(False);panel.setAllowsMultipleSelection_(True)
+            panel.setMessage_('Choose images, video, audio or PDFs. Your originals stay where they are.')
+            if panel.runModal()!=A.NSModalResponseOK:self.reply(rid,True,{'added':[]});return
+            chosen=[Path(str(u.path())) for u in panel.URLs()];session=self.session
+            self.file_work.start(lambda cancel,report:{'added':import_library(session.server.app.studio,chosen)},lambda result,error:self.reply(rid,not bool(error),{'error':error} if error else result))
+
         def import_files(self,rid=None):
             if self.file_work.busy:raise ValueError('A package operation is running; wait or cancel it first')
             if self.busy:raise ValueError('An import is already running; use Cancel Import to stop it')

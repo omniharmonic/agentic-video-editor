@@ -72,7 +72,7 @@ def main():
     helpdir=stage/'help';helpdir.mkdir();copy(repo/'packaging/macos/Help.html',helpdir/'index.html')
     copy(repo/'scripts/desktop_entry.py',stage/'desktop_entry.py')
     bridge=stage/'resolve-mcp';copy(repo/'scripts/resolve_handoff.py',bridge/'resolve_handoff.py')
-    for name in ('install_resolve_bridge.py','resolve_bridge_probe.py','resolve_capability_probe.py'):copy(a.resolve_mcp/'scripts'/name,bridge/'scripts'/name)
+    for name in ('install_resolve_bridge.py','resolve_bridge_launcher.py','resolve_bridge_probe.py','resolve_capability_probe.py'):copy(a.resolve_mcp/'scripts'/name,bridge/'scripts'/name)
     shutil.copytree(a.resolve_mcp/'src',bridge/'src',ignore=shutil.ignore_patterns('__pycache__'))
     copy(a.resolve_mcp/'LICENSE',notes/'davinci-resolve-mcp/LICENSE')
     # Never analyze the editable checkout: install freshly built wheel first.

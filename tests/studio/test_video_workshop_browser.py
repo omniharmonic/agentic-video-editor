@@ -77,7 +77,7 @@ def test_hour_source_bounded_gui_and_near_end_render(browser):
     page=browser.new_page(viewport={'width':1440,'height':960});responses=[]
     page.on('response',lambda r:responses.append(r) if '/words?' in r.url else None)
     try:
-        page.goto(server.url()+'#/workbench');page.get_by_role('button',name='Media projects').click();page.get_by_label('Saved programme').select_option(data['projects'][1]);page.get_by_label('Source in (seconds)').wait_for()
+        page.goto(server.url()+'#/workbench');page.get_by_role('button',name='Edit a video').click();page.get_by_label('Saved programme').select_option(data['projects'][1]);page.get_by_label('Source in (seconds)').wait_for()
         initial_clips=page.locator('.vw-clip').count();initial_duration=float(page.locator('.vw-duration').inner_text().split()[1]);page.get_by_label('Source in (seconds)').fill('3590');page.get_by_label('Source out (seconds)').fill('3598')
         player=page.get_by_label('Source playback');player.evaluate('(el)=>{el.muted=true;el.currentTime=3590;return el.play();}');wait_for(lambda:player.evaluate('(el)=>el.currentTime>3590&&el.videoWidth>0'),page)
         jump=page.get_by_label('Transcript page');pages=int(jump.get_attribute('max'));jump.fill(str(pages));page.get_by_role('button',name='Go to words').click();wait_for(lambda:page.locator('.vw-transcript').inner_text().startswith('35'),page)
@@ -100,7 +100,7 @@ def test_independent_sources_trim_split_join_reorder_gui(browser):
     evidence=Path(os.environ['AVE_VIDEO_LONG_ACCEPTANCE'])
     data=json.loads(evidence.read_text());studio=open_studio(data['studio']);server=StudioServer(studio,pin='424242',by='synthetic-user');thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start();page=browser.new_page(viewport={'width':1440,'height':960})
     try:
-        page.goto(server.url()+'#/workbench');page.get_by_role('button',name='Media projects').click();page.get_by_label('Saved programme').select_option(data['projects'][0]);page.locator('.vw-clip').first.wait_for()
+        page.goto(server.url()+'#/workbench');page.get_by_role('button',name='Edit a video').click();page.get_by_label('Saved programme').select_option(data['projects'][0]);page.locator('.vw-clip').first.wait_for()
         initial=page.locator('.vw-clip').count();page.locator('.vw-clip').last.click();page.get_by_role('button',name='Remove range',exact=True).click();expect(page.locator('.vw-clip')).to_have_count(initial-1)
         page.locator('.vw-clip').first.click();page.get_by_label('Source in (seconds)').fill('1.5');page.get_by_label('Source out (seconds)').fill('4.5');page.get_by_role('button',name='Save range trim').click()
         player=page.get_by_label('Source playback');player.evaluate('(el)=>el.currentTime=3');page.get_by_role('button',name='Split at playhead').click();expect(page.locator('.vw-clip')).to_have_count(initial)
@@ -110,7 +110,7 @@ def test_independent_sources_trim_split_join_reorder_gui(browser):
         out=page.get_by_label('Rendered programme playback');out.evaluate('(el)=>el.play()');wait_for(lambda:out.evaluate('(el)=>el.currentTime>.1'),page)
         page.screenshot(path=str(EVIDENCE/'independent-reordered-playback.png'))
         newest=page.get_by_label('Programme revision').input_value();page.get_by_label('Programme revision').select_option('1');page.get_by_role('button',name='Restore revision').wait_for();page.get_by_label('Programme revision').select_option(newest)
-        page.get_by_role('button',name='Close editor',exact=True).click();page.get_by_role('button',name='Media projects').click();page.get_by_label('Saved programme').select_option(data['projects'][0]);page.get_by_role('link',name='Download finished audio').wait_for()
+        page.get_by_role('button',name='Close editor',exact=True).click();page.get_by_role('button',name='Edit a video').click();page.get_by_label('Saved programme').select_option(data['projects'][0]);page.get_by_role('link',name='Download finished audio').wait_for()
     finally:page.close();server.shutdown();thread.join(5);server.server_close()
 
 
@@ -128,7 +128,7 @@ def test_portable_kept_source_click_captions_and_playback(rig,browser,width,tmp_
     page=browser.new_page(viewport={'width':width,'height':960 if width==1440 else 844})
     page.on('pageerror',lambda e:print('portable GUI page error:',e))
     try:
-        page.goto(server.url()+'#/workbench');page.get_by_role('button',name='Media projects').click()
+        page.goto(server.url()+'#/workbench');page.get_by_role('button',name='Edit a video').click()
         page.get_by_label('Saved programme').select_option(programme['id'])
         word=page.locator('.vw-transcript button').filter(has_text='local');word.wait_for();word.click()
         expected=editdoc.src_time(doc['sources']['mic'],2.6)
@@ -162,7 +162,7 @@ def test_occurrence_cleanup_worker_and_restore_gui(rig,browser,width,tmp_path):
     ep,meta=V.project(studio.sp,p['id']);tp=ep.work/'words.json';write_json(tp,{'words':[{'w':'hello','start':.1,'end':.4,'speaker':'S1'},{'w':'again','start':2.1,'end':2.4,'speaker':'S1'}]});meta['project_sources'][rec['id']]['transcript']={'file':ep.rel(tp),'sha256':hashlib.sha256(tp.read_bytes()).hexdigest(),'clock':'source'};write_json(ep.meta_path,meta)
     p=mutate(studio,p,{'kind':'insert','source':rec['id'],'in':0,'out':3});page=browser.new_page(viewport={'width':width,'height':960 if width==1440 else 844});errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
     try:
-        page.goto(server.url()+'#/workbench');page.get_by_role('button',name='Media projects').click();page.get_by_label('Saved programme').select_option(p['id']);page.get_by_role('button',name='Cleanup',exact=True).click();page.get_by_role('button',name='Analyze cleanup').click()
+        page.goto(server.url()+'#/workbench');page.get_by_role('button',name='Edit a video').click();page.get_by_label('Saved programme').select_option(p['id']);page.get_by_role('button',name='Cleanup',exact=True).click();page.get_by_role('button',name='Analyze cleanup').click()
         expect(page.locator('.mw-status')).to_contain_text('Cleanup revision',timeout=60000);expect(page.get_by_text('Compared with',exact=False)).to_be_visible();page.get_by_role('button',name='Render programme').click();expect(page.locator('.mw-status')).to_contain_text('Finished programme',timeout=60000)
         player=page.get_by_label('Rendered programme playback');player.evaluate('(el)=>el.play()');wait_for(lambda:player.evaluate('(el)=>el.currentTime>.1&&el.readyState>=2'),page)
         page.get_by_role('button',name='Cleanup',exact=True).click();checks=page.locator('input[aria-label^="Restore cut "]');assert checks.count()>0

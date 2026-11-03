@@ -3,6 +3,7 @@ from __future__ import annotations
 from .atomic import publish as publish_atomic
 import hashlib
 import os
+import uuid
 from pathlib import Path
 import shutil
 import stat
@@ -10,6 +11,29 @@ import tempfile
 import threading
 import time
 from .desktop_runtime import digest
+
+
+LIBRARY_LIMIT = 2 * 1024 ** 3      # the library hook reads the whole file into memory
+
+
+def import_library(studio, selected):
+    """Copy chosen files into the Library. The hook takes ownership of what it is given, so it only ever sees a staging copy."""
+    from .library import hook_upload
+    staging = studio.sp.work / 'native-intake'
+    staging.mkdir(parents=True, exist_ok=True)
+    added = []
+    for path in selected:
+        path = Path(path)
+        if path.is_symlink() or not path.is_file(): raise ValueError('Select regular files, not links: ' + path.name)
+        if path.stat().st_size > LIBRARY_LIMIT: raise ValueError(path.name + ' is too large for the Library. Open its project folder from Sources instead.')
+        copy = staging / (uuid.uuid4().hex + path.suffix)
+        try:
+            shutil.copyfile(path, copy)
+            result = hook_upload(studio, path.name, copy)
+            added.append({'name': path.name, 'asset': result['asset'], 'duplicate': bool(result.get('duplicate'))})
+        finally:
+            copy.unlink(missing_ok=True)
+    return added
 
 
 def import_selected(workbench, selected, *, cancelled=lambda: False, progress=lambda n, total: None):

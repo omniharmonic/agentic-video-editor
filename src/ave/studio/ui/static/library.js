@@ -79,6 +79,20 @@ function uploader(ctx, after) {
   const status = h("span.st-hint", { role: "status" });
   const input = h("input.st-sr", { type: "file", multiple: true, id: "lib-file", "aria-label": "Add files to the library", accept: "image/*,video/*,audio/*,application/pdf" });
   input.addEventListener("change", () => { if (input.files.length) uploadFiles(ctx, Array.from(input.files), status, after).then(() => { input.value = ""; }); });
+  if (window.aveNative?.importLibrary) {       // the app's web view cannot show a file picker
+    const add = h("button.st-btn.primary", { type: "button", onclick: async () => {
+      try {
+        status.textContent = "Adding files…";
+        const res = await window.aveNative.importLibrary();
+        for (const row of res.added) {
+          say(ctx, row.duplicate ? `${row.name} is already in the library as ${row.asset.id}.` : `Added ${row.name} (${row.asset.id}). Add alt text and a licence note before using it.`);
+          if (after) after(row.asset, row);
+        }
+      } catch (ex) { say(ctx, `Could not add files: ${ex.message}`, { error: true }); }
+      status.textContent = "";
+    } }, "Add files");
+    return { el: h("span.lib-upload", add, status), input, status };
+  }
   const btn = h("label.st-btn.primary", { for: "lib-file", tabindex: "0", role: "button", onkeydown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); input.click(); } } }, "Add files");
   return { el: h("span.lib-upload", btn, input, status), input, status };
 }

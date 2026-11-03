@@ -50,6 +50,14 @@ def dispatch(argv=None):
     if args[:1] == ['--cli']:
         from .cli import main
         return main(args[1:])
+    if args == ['--keychain-check']:
+        from .collab_tls import Keychain
+        store, key = Keychain(), 'diagnostic-' + uuid.uuid4().hex
+        store.put(key, 'ok')
+        good = store.get(key) == 'ok'
+        store.delete(key)
+        print('keychain ok' if good and store.get(key) is None else 'keychain failed')
+        return 0 if good else 1
     if args == ['--install-cli']:
         from .desktop_install import run
         return run()

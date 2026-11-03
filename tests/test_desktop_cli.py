@@ -1,4 +1,5 @@
 """The standalone app's agent surface: `--cli`, `--install-cli`, and the human gate staying in place."""
+import json
 import stat
 import sys
 from pathlib import Path
@@ -73,9 +74,15 @@ def test_a_failed_bridge_install_is_reported_not_hidden(tmp_path):
 
 def test_bridge_waits_for_resolve_and_makes_the_folder_resolve_has_not_made_yet(tmp_path):
     script = tmp_path / "i.py"
-    script.write_text("")
+    script.write_text(f"from pathlib import Path\nPath({str(tmp_path / I.SCRIPTS / 'resolve_bridge.py')!r}).write_text('')\n")
     assert I.install_bridge(script, tmp_path, tmp_path / "nope")["status"].startswith("skipped")
     assert I.install_bridge(script, tmp_path, tmp_path)["status"] == "installed" and (tmp_path / I.SCRIPTS).is_dir()
+
+
+def test_a_bridge_install_that_never_wrote_the_menu_entry_is_a_failure(tmp_path):
+    script = tmp_path / "i.py"
+    script.write_text("")           # the upstream installer exits 0 after skipping a folder
+    assert I.install_bridge(script, tmp_path, tmp_path)["status"].startswith("failed")
 
 
 def test_a_developers_own_skill_link_is_left_alone(tmp_path):
@@ -85,3 +92,52 @@ def test_a_developers_own_skill_link_is_left_alone(tmp_path):
     (links / "ave-one").symlink_to(tmp_path / "my-checkout")
     assert I.link_skills(tmp_path / "home", skills)["skipped"] == ["ave-one"]
     assert (links / "ave-one").readlink() == tmp_path / "my-checkout"
+
+
+def test_a_project_folder_is_found_inside_the_folder_the_person_chose(tmp_path):
+    from ave.studio import episode_registry as ER
+    for name in ("00", "01"):
+        (tmp_path / "episodes" / name).mkdir(parents=True)
+        (tmp_path / "episodes" / name / "episode.json").write_text("{}")
+    (tmp_path / "episodes" / "notes").mkdir()
+    real = (tmp_path / "episodes").resolve()
+    assert ER.project_root(real / "00", None) == real / "00"
+    assert ER.project_root(real, lambda rows: rows[1]) == real / "01"
+    assert ER.project_root(real, lambda rows: None) is None
+    (real / "01" / "episode.json").unlink()
+    assert ER.project_root(real, None) == real / "00"      # only one project: no question needed
+    with pytest.raises(ValueError, match="No project found"):
+        ER.project_root(real / "notes", None)
+
+
+def test_a_symlink_above_the_project_is_resolved_not_refused(tmp_path):
+    from ave.studio import episode_registry as ER
+    (tmp_path / "drive/show").mkdir(parents=True)
+    (tmp_path / "drive/show/episode.json").write_text("{}")
+    (tmp_path / "link").symlink_to(tmp_path / "drive")
+    root = ER.project_root(tmp_path / "link/show", None)
+    assert root == (tmp_path / "drive/show").resolve() and ER.regular(root, directory=True) == root
+
+
+def test_native_library_import_copies_and_leaves_the_original(tmp_path):
+    from PIL import Image
+    from ave.desktop_files import import_library
+    from studio_helpers import build_studio
+    built = build_studio(tmp_path / "s")
+    original = tmp_path / "photo.png"
+    Image.new("RGB", (20, 20), "red").save(original)
+    before = original.read_bytes()
+    first = import_library(built.studio, [original])
+    assert original.read_bytes() == before and first[0]["name"] == "photo.png" and not first[0]["duplicate"]
+    assert json.dumps(first) and import_library(built.studio, [original])[0]["duplicate"]
+    assert not list((built.studio.sp.work / "native-intake").iterdir())
+
+
+def test_native_library_import_refuses_links(tmp_path):
+    from ave.desktop_files import import_library
+    from studio_helpers import build_studio
+    built = build_studio(tmp_path / "s")
+    (tmp_path / "real.png").write_bytes(b"x")
+    (tmp_path / "link.png").symlink_to(tmp_path / "real.png")
+    with pytest.raises(ValueError, match="not links"):
+        import_library(built.studio, [tmp_path / "link.png"])

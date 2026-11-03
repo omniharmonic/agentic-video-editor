@@ -41,6 +41,19 @@ def regular(path, *, directory=False):
     return path
 
 
+def project_root(chosen, pick):
+    """The episode a person meant by the folder they chose: the folder itself, or one of the projects directly inside it.
+
+    Symlinks above the chosen folder are the system's (macOS has several), so the real path is what gets checked and stored."""
+    root = Path(os.path.realpath(chosen))
+    if (root / 'episode.json').is_file():
+        return root
+    folders = sorted(p for p in root.iterdir() if p.is_dir() and not p.is_symlink() and (p / 'episode.json').is_file())
+    if not folders:
+        raise ValueError('No project found here. Choose a folder containing episode.json, or a folder of projects.')
+    return folders[0] if len(folders) == 1 else pick(folders)
+
+
 def json_file(path):
     path=regular(path)
     if path.stat().st_size > 32*1024*1024: raise ValueError('Episode metadata exceeds 32 MB')

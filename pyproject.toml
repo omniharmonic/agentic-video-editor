@@ -35,7 +35,7 @@ audio = ["librosa>=0.10"]
 motion = ["playwright>=1.45"]
 publish = ["google-api-python-client>=2.120", "google-auth-oauthlib>=1.2", "requests>=2.31", "keyring>=25", "pypdf>=6,<7"]
 assets = ["requests>=2.31"]
-desktop = ["pywebview>=5,<7", "cryptography==50.0.2"]
+desktop = ["pywebview>=5,<7", "cryptography==50.0.2", "keyring>=25", "requests>=2.31"]
 all = ["agentic-video-editor[vision,audio,motion,publish,assets,desktop]"]
 
 # TODO(publish): replace OWNER with the real GitHub owner once the repository URL is known (also in README.md and docs/getting-started.md).

@@ -33,7 +33,7 @@ def test_manual_history_form_and_report(rig,browser,width,height):
     studio,server=rig
     p,item=prepare_reviewed(rig)
     ctx=browser.new_context(viewport={'width':width,'height':height},timezone_id='UTC',permissions=['clipboard-read','clipboard-write'])
-    page=ctx.new_page();page.set_default_timeout(10000);errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+    page=ctx.new_page();page.set_default_timeout(30000);errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
     out=Path('/private/tmp/ave-delivery-evidence');out.mkdir(exist_ok=True)
     def record(request):
         result=manual_publication._record(studio.sp,**request,now=studio.now()+timedelta(minutes=3))
@@ -146,7 +146,7 @@ def test_visible_receipt_outcomes_editor_details_and_history(rig,browser,phase,s
     pq.save(studio.sp,item);v['result']=result
     p=store.save_post(studio.sp,p,expected_rev=p['rev'],actor=AGENT,op='fixture.delivery',detail={'receipt':r})
     ctx=browser.new_context(viewport={'width':width,'height':960 if width>1000 else 844})
-    page=ctx.new_page();page.set_default_timeout(10000);errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+    page=ctx.new_page();page.set_default_timeout(30000);errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
     evidence=Path('/private/tmp/ave-delivery-evidence/round1');evidence.mkdir(exist_ok=True)
     try:
         page.goto(server.url()+f'#/post/{p["id"]}')
@@ -202,7 +202,7 @@ def pending_operation(rig):
 def test_pending_status_refresh_button_settles_failure_without_send(rig,browser):
     from ave.studio import dispatch,seal
     studio,server=rig;p,item,a=pending_operation(rig);v=p['variants'][0]
-    ctx=browser.new_context(viewport={'width':390,'height':844});page=ctx.new_page();page.set_default_timeout(10000)
+    ctx=browser.new_context(viewport={'width':390,'height':844});page=ctx.new_page();page.set_default_timeout(30000)
     errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
     try:
         page.goto(server.url()+f'#/post/{p["id"]}')

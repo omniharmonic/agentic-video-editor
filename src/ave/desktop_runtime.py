@@ -1,12 +1,17 @@
 """Frozen component discovery and integrity: no PATH or developer-cache fallback."""
 from __future__ import annotations
 import hashlib
+import importlib
 import json
 import os
 from pathlib import Path
 import shutil
 import sys
 import tempfile
+
+
+REQUIRED_MODULES = ('keyring.backends.macOS', 'requests', 'urllib3', 'cryptography.x509', 'yaml', 'numpy', 'scipy.signal', 'soundfile',
+                    'PIL', 'pypdf', 'playwright', 'webview', 'mcp.server.fastmcp', 'Vision', 'LocalAuthentication', 'WebKit')
 
 
 def frozen(): return bool(getattr(sys, 'frozen', False))
@@ -85,7 +90,12 @@ def diagnostics():
     for name in manifest['components']:
         try: path = component(name); out['components'][name] = {'ready': True, 'path': str(path)}
         except ValueError as exc: out['components'][name] = {'ready': False, 'problem': str(exc)}
-    out['ok'] = all(c['ready'] for c in out['components'].values())
+    # Lazy imports are invisible to PyInstaller: a missing one otherwise surfaces only when someone reaches that feature.
+    out['modules'] = {}
+    for name in REQUIRED_MODULES:
+        try: importlib.import_module(name); out['modules'][name] = True
+        except Exception as exc: out['modules'][name] = False; out.setdefault('problems', []).append(f'{name}: {exc}')
+    out['ok'] = all(c['ready'] for c in out['components'].values()) and all(out['modules'].values())
     return out
 
 

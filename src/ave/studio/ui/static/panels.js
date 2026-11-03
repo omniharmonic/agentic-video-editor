@@ -145,10 +145,11 @@ export function fmtBytes(n) {
 }
 export function fmtWhen(iso, tz) {
   if (!iso) return "";
-  const d = new Date(iso.length === 16 ? iso + ":00" : isoFix(iso));
+  const naive = !/(Z|[+-]\d{2}:?\d{2})$/.test(String(iso));                           // a wall-clock time in `tz`: already local there, so do not shift it by the browser's zone
+  const d = new Date(naive ? (iso.length === 16 ? iso + ":00" : iso) + "Z" : isoFix(iso));
   if (isNaN(d)) return String(iso);
   try {
-    return new Intl.DateTimeFormat(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: tz || undefined }).format(d);
+    return new Intl.DateTimeFormat(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: naive ? "UTC" : (tz || undefined) }).format(d);
   } catch { return d.toLocaleString(); }
 }
 const isoFix = (s) => String(s).replace(/([+-]\d{2})(\d{2})$/, "$1:$2");          // the studio writes -0600; Safari wants -06:00
