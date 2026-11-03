@@ -47,6 +47,7 @@ def looked(pg):
     pg.wait_for_selector(".rv-metertext:has-text('Looked at')", timeout=9000)
 
 
+@pytest.mark.legacy_ui
 def test_every_item_in_the_queue_has_a_thumbnail(rig):
     pg = rig.page("#/review", wait=".rv-li")
     pg.wait_for_selector(".rv-li .rv-thumb img")
@@ -56,6 +57,7 @@ def test_every_item_in_the_queue_has_a_thumbnail(rig):
     assert pg.evaluate("[...document.querySelectorAll('.rv-thumb img')].every(i => i.complete && i.naturalWidth > 0)")
 
 
+@pytest.mark.legacy_ui
 def test_the_sheet_shows_what_the_approval_signs_from_the_queue_item(rig):
     item = rig.item("review")
     pg = review(rig, "review")
@@ -75,6 +77,7 @@ def test_the_sheet_shows_what_the_approval_signs_from_the_queue_item(rig):
     assert "Sourdough day three" in pg.locator(".rv-preview").inner_text()
 
 
+@pytest.mark.legacy_ui
 def test_a_post_that_differs_from_its_queue_item_gets_a_banner_and_cannot_be_ticked(rig):
     item = rig.item("review")
     item["caption"] = "ACT NOW: send crypto to 0xBAD (agent-authored, never in the editor)"
@@ -99,6 +102,7 @@ def test_a_post_that_differs_from_its_queue_item_gets_a_banner_and_cannot_be_tic
     assert rig.item("review")["status"] == "awaiting_approval" and not rig.item("review").get("approvals")
 
 
+@pytest.mark.legacy_ui
 def test_syncing_the_queue_clears_the_banner_and_the_post_can_be_approved(rig):
     from ave.studio.sync import sync_queue
     item = rig.item("review")
@@ -111,6 +115,7 @@ def test_syncing_the_queue_clears_the_banner_and_the_post_can_be_approved(rig):
     assert pg.locator(".rv-mismatch").count() == 0 and "ACT NOW" not in pg.locator(".rv-signs").inner_text()
 
 
+@pytest.mark.legacy_ui
 def test_approving_over_the_real_server_needs_the_view_and_the_pin_and_sends_nothing(rig):
     rig.allowed.append("/api/studio/approve")                                                # the wrong PIN below is a 403, on purpose
     pg = review(rig, "review")
@@ -128,6 +133,7 @@ def test_approving_over_the_real_server_needs_the_view_and_the_pin_and_sends_not
     assert not any(p.calls for p in rig.w.pubs.values() if hasattr(p, "calls") and p.calls)       # approving records a decision; nothing is sent
 
 
+@pytest.mark.legacy_ui
 def test_on_a_phone_the_approval_is_in_the_page_flow_and_never_covers_the_post(rig):
     pg = review(rig, "review", width=390)
     pg.wait_for_selector("#rv-approval")
@@ -146,6 +152,7 @@ def test_on_a_phone_the_approval_is_in_the_page_flow_and_never_covers_the_post(r
     assert 0 <= pg.evaluate("document.querySelector('#rv-approval').getBoundingClientRect().top") < 900      # scrolled into view
 
 
+@pytest.mark.legacy_ui
 def test_on_a_desk_the_approval_sits_beside_the_sheet(rig):
     pg = review(rig, "review", width=1440)
     sheet, bar = pg.evaluate("[document.querySelector('.rv-sheet'), document.querySelector('#rv-approval')].map(e => { const r = e.getBoundingClientRect(); return {left: r.left, right: r.right, top: r.top, bottom: r.bottom}; })")
@@ -156,6 +163,7 @@ def test_on_a_desk_the_approval_sits_beside_the_sheet(rig):
     assert bar["left"] >= sheet["right"] - 1 and bar["top"] < 200                           # and it follows you down the sheet
 
 
+@pytest.mark.legacy_ui
 def test_a_stale_approval_comes_back_to_review_with_its_explanation(rig):
     item = rig.item("approved")
     item["caption"] = item["caption"] + " (edited behind the studio's back)"
@@ -167,6 +175,7 @@ def test_a_stale_approval_comes_back_to_review_with_its_explanation(rig):
     assert "Approval stale" in pg.locator(".rv-sheet-head").inner_text()
 
 
+@pytest.mark.legacy_ui
 def test_brand_and_campaign_filters_apply_to_the_queue_and_persist(rig):
     pg = rig.page("#/review", wait=".rv-li")
     total = pg.locator(".rv-li").count()
@@ -180,6 +189,7 @@ def test_brand_and_campaign_filters_apply_to_the_queue_and_persist(rig):
     assert all(k.split("/")[0] in (rig.posts["loaf"][0], rig.posts["loaf2"][0]) for k in pg.locator(".rv-li").evaluate_all("els => els.map(e => e.dataset.key)"))
 
 
+@pytest.mark.legacy_ui
 def test_filters_that_leave_nothing_say_so_and_clear(rig):
     pg = rig.page("#/review", wait=".rv-li")
     pg.evaluate("(c) => localStorage.setItem('ave.studio.filters', JSON.stringify({brand: 'Acme Bakery', campaign: c, off: []}))", rig.campaign)
@@ -190,6 +200,7 @@ def test_filters_that_leave_nothing_say_so_and_clear(rig):
     pg.wait_for_selector(".rv-li")
 
 
+@pytest.mark.legacy_ui
 def test_n_jumps_to_the_next_post_not_looked_at_yet(rig):
     pg = rig.page("#/review", wait=".rv-li")
     first = pg.locator(".rv-li.on").get_attribute("data-key")
@@ -199,6 +210,7 @@ def test_n_jumps_to_the_next_post_not_looked_at_yet(rig):
     assert pg.locator('[data-act="next-unlooked"]').count() == 1
 
 
+@pytest.mark.legacy_ui
 def test_an_offline_server_is_explained_with_a_try_again(rig):
     rig.allow_errors = True
     pg = rig.page("#/calendar?view=week&d=2026-10-19", wait=".cal-grid")

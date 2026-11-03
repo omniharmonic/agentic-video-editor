@@ -54,6 +54,7 @@ def upload(page,name,payload):
     page.get_by_role('button',name='Import source',exact=True).click()
 
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize('width',[1440,1024,390])
 def test_real_quote_journey(rig,browser,width):
     studio,server=rig;page=browser.new_page(viewport={'width':width,'height':960 if width==1440 else 768 if width==1024 else 844});errors=[]
@@ -85,6 +86,7 @@ def test_real_quote_journey(rig,browser,width):
     finally:page.close()
 
 
+@pytest.mark.legacy_ui
 def test_failure_input_retry_and_poll_stop(rig,browser,monkeypatch):
     studio,server=rig;page=browser.new_page(viewport={'width':1440,'height':960});requests=[]
     page.on('request',lambda req:requests.append(req.url))
@@ -112,6 +114,7 @@ def test_failure_input_retry_and_poll_stop(rig,browser,monkeypatch):
     finally:page.close()
 
 
+@pytest.mark.legacy_ui
 def test_recording_import_and_multiple_sources_with_locator(rig,browser,tmp_path):
     import numpy as np
     studio,server=rig;page=browser.new_page(viewport={'width':1440,'height':960})
@@ -145,6 +148,7 @@ def test_recording_import_and_multiple_sources_with_locator(rig,browser,tmp_path
     finally:page.close()
 
 
+@pytest.mark.legacy_ui
 @pytest.mark.skipif(not SPEECH_FIXTURE,reason='Explicit original synthetic speech fixture required for local ASR acceptance')
 def test_real_spoken_fixture_gui(rig,browser):
     studio,server=rig;source=Path(SPEECH_FIXTURE);payload=source.read_bytes()
@@ -173,6 +177,7 @@ def test_real_spoken_fixture_gui(rig,browser):
     finally:page.close()
 
 
+@pytest.mark.legacy_ui
 def test_video_upload_has_playable_registered_preview(rig,browser,tmp_path):
     import subprocess
     from ave import config

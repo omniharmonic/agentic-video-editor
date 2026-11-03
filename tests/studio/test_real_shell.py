@@ -141,6 +141,7 @@ def finish(w: Walk):
     assert not w.errors, w.errors
 
 
+@pytest.mark.legacy_ui
 def test_the_real_shell_mounts_every_page_in_fixtures_mode(browser):
     srv = serve(FixtureStudio())
     w = Walk(browser, srv)
@@ -155,6 +156,7 @@ def test_the_real_shell_mounts_every_page_in_fixtures_mode(browser):
         srv.server_close()
 
 
+@pytest.mark.legacy_ui
 def test_the_real_shell_mounts_every_page_over_a_real_wired_studio(browser, tmp_path):
     b = build_studio(tmp_path)
     st = open_studio(b.sp.root, clock=b.clock, publishers=b.publishers)

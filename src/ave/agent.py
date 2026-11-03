@@ -15,6 +15,8 @@ import sys
 from typing import Any
 
 from . import __version__, resources
+from .room.client import RoomClient
+from .room.state import VIEWS
 from .studio import model, store, production
 from .studio.events import Actor
 
@@ -48,6 +50,8 @@ _COPY_SCHEMA = _object({k: ({'type':'array','items':{'type':'string','maxLength'
                            {'type':['string','null'],'maxLength':20000} if k!='base' else _TEXT) for k in COPY_FIELDS})
 _EDIT_SCHEMA = _object({**_COPY_SCHEMA['properties'], 'idea_text':_TEXT})
 _PRODUCTION_SCHEMA = _object({k: {} for k in production.FIELDS})
+_NAME_OR_NULL = {'type':['string','null'],'maxLength':200}
+_HIGHLIGHT = _object({'start':{'type':'number','minimum':0},'end':{'type':'number','minimum':0},'clip':_SHORT,'note':{'type':'string','maxLength':500}})
 TOOLS = [
     _tool('production_context', 'Read local people, workflows and indexed sources. Role labels grant no authority.', _object()),
     _tool('update_production', 'Update validated editorial work only: assignments, dates, tasks, dependencies and links to Resolve timelines or Canva designs. Never changes release approval or delivery.',
@@ -69,9 +73,18 @@ TOOLS = [
     _tool('list_recipes', 'List shipped creative workflows and their human checkpoints; studio overrides are not executed.', _object()),
     _tool('recipe_status', 'Read shipped recipe artifact signals and its next pending step. Signals are studio-wide, not proof of creative completion.',
           _object({'name':_SHORT,'episode_id':_SHORT},['name'])),
+    _tool('room_show', 'Put an artifact, view, version and position on the stage of the open Room. When the app is not open it returns {"room": "closed", "queued": true}: the call is kept and applied when the app next starts. That is not an error.',
+          _object({'artifact':_SHORT,'view':{'enum':list(VIEWS)},'version':_NAME_OR_NULL,'position_s':{'type':'number','minimum':0},'compare_to':_NAME_OR_NULL},['artifact','view']),write=True),
+    _tool('room_highlight', 'Mark transcript ranges or clips on the current stage, replacing earlier highlights ([] clears). Needs room_show first.',
+          _object({'highlights':{'type':'array','items':_HIGHLIGHT,'maxItems':100}},['highlights']),write=True),
+    _tool('room_offer_version', 'Show a new version of an artifact on stage, next to the one it replaces, with Keep and Go back for the director. If another artifact is on stage, the stage moves to this one (view cut, no highlights); for the artifact on stage its view and position stay.',
+          _object({'artifact':_SHORT,'version':_SHORT,'compare_to':_NAME_OR_NULL},['artifact','version']),write=True),
+    _tool('room_read', 'Read the stage, the director flags not yet read (each is returned once) and the recent clicks. Call at the start of every turn. Flags repeat until your next room_read confirms them, so a lost reply loses none. Returns {"room": "closed"} when the app is not open.',
+          _object(),write=True),
 ]
 TOOL_MAP = {t['name']:t for t in TOOLS}
 TOOL_MAP['add_comment']['annotations']['idempotentHint'] = False
+TOOL_MAP['room_read']['annotations']['idempotentHint'] = False
 
 
 def _pairs(pairs):
@@ -174,6 +187,7 @@ class AgentApp:
     def call(self,name: str,args: dict) -> dict:
         if name not in TOOL_MAP: raise ValueError('unknown tool')
         _arguments(name,args)
+        if name.startswith('room_'): return self._room(name,args)
         if name=='get_context': return self.context()
         if name=='list_posts':
             posts=self._posts(stage=args.get('stage'))
@@ -204,6 +218,14 @@ class AgentApp:
             return {'recipes':[{'name':r['name'],'title':r['title'],'summary':r.get('summary'),
                                 'human_steps':[s['id'] for s in r['steps'] if s['kind']=='human']} for r in self._recipes().values()]}
         return self._recipe_status(args)
+
+    def _room(self,name,args):
+        """Drive the open Room over loopback; with no app running this is `{"room": "closed"}`, never a failure."""
+        room=self._room_client=getattr(self,'_room_client',None) or RoomClient(self.root)     # one per process: it holds the read acknowledgement
+        if name=='room_show': return room.show(**args)
+        if name=='room_highlight': return room.highlight(args['highlights'])
+        if name=='room_offer_version': return room.offer_version(args['artifact'],args['version'],args.get('compare_to'))
+        return room.read()
 
     def _posts(self,stage=None):
         paths=sorted(self.studio.sp.posts_dir.glob('*.json'))

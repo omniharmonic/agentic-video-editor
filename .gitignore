@@ -38,3 +38,6 @@ node_modules/
 *-E
 *.bak
 ave-demo/
+
+# the Room's loopback token file
+.ave/local/

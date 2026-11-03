@@ -9,7 +9,9 @@ and Origin checks, the CSP headers and the ranged `/files/` serving are inherite
   * the Origin check also covers PUT, and `/files/` only serves what the UI needs (library assets, exports, work);
   * the approval PIN, printed ONLY on the human's terminal by `run_cli` (never in a response, a file or a log).
 
-The change feed is polled (`GET /api/studio/changes?cursor=`, about every 3 s); there is no SSE.
+The change feed is polled (`GET /api/studio/changes?cursor=`, about every 3 s). The live Room is separate: `/api/room/*` (stage, flags, the
+SSE stream `GET /api/room/stream`, resumable with Last-Event-ID), and `<root>/.ave/local/room.json` ({port, token}, 0600) tells the MCP
+tools where it is for as long as the server runs.
 """
 
 from __future__ import annotations
@@ -19,8 +21,13 @@ import json
 import mimetypes
 import os
 import secrets
+import select
+import socket
 import sys
 import tempfile
+import threading
+import time
+from dataclasses import asdict
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlsplit
@@ -29,11 +36,16 @@ from ... import humanpresence
 from ...ui import server as ui_server
 from ...ui.api import ApiError
 from ...ui.server import MAX_BODY, Handler
+from ...room.client import remove_room_file, take_queue, write_room_file
+from ...room.state import Room
 from ..service import FixtureStudio, Studio, open_studio
 from .api import MAX_UPLOAD, StudioApp, StudioError, map_error
 
 STATIC = Path(__file__).parent / "static"
 API = "/api/studio/"
+ROOM = "/api/room/"
+HEARTBEAT_S = 30.0
+MAX_STREAMS = 8
 UPLOAD_ROUTE = "library/upload"
 SERVED_PREFIXES = ("library/assets/", "exports/", "work/")          # the only parts of the studio folder /files/ will serve
 STATIC_EXT = {".html", ".js", ".mjs", ".css", ".svg", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".json", ".woff", ".woff2", ".txt"}
@@ -51,11 +63,43 @@ class StudioServer(ThreadingHTTPServer):
         self.app = StudioApp(studio, by=by, pin=pin, fixtures=fixtures, max_upload=max_upload, native_authority=native_authority)
         super().__init__(("127.0.0.1", port), StudioHandler)         # never anything but loopback
         self.port = self.server_address[1]
+        self.room = Room()
+        self.room_root = self.app.studio.sp.root if getattr(self.app.studio, "sp", None) is not None and not self.app.fixtures else None
+        self.streams = threading.BoundedSemaphore(MAX_STREAMS)
+        if self.room_root is not None:
+            try:
+                self._replay(take_queue(self.room_root))      # what Claude did while the app was closed, before anyone can queue more
+                write_room_file(self.room_root, self.port, self.token)
+            except OSError:                                  # a read-only folder costs the MCP tools their way in, not the UI its server
+                self.room_root = None
+
+    def _replay(self, calls: list[dict]) -> None:
+        """Apply the room tool calls queued while the app was closed, oldest first, so the latest stage, highlights and offer stand."""
+        for c in calls:
+            args = c.get("args")
+            try:
+                if c.get("tool") == "room_show":
+                    self.room.show(**args)
+                elif c.get("tool") == "room_highlight":
+                    self.room.highlight(args["highlights"])
+                elif c.get("tool") == "room_offer_version":
+                    self.room.offer_version(args["artifact"], args["version"], args.get("compare_to"))
+            except (TypeError, ValueError, LookupError, KeyError, AttributeError):
+                continue                                     # a stale or hand-edited line is dropped, not fatal
+
+    bus = property(lambda self: self.room.bus)
+    stage = property(lambda self: self.room.stage)
+
+    def flag(self, flag: dict) -> int:
+        return self.room.flag(flag)
 
     def url(self) -> str:
         return f"http://127.0.0.1:{self.port}/?t={self.token}"
 
     def server_close(self) -> None:
+        self.room.bus.close()                                # ends any open stream
+        if self.room_root is not None:
+            remove_room_file(self.room_root, self.token)
         super().server_close()
         self.app.close()
 
@@ -115,6 +159,8 @@ class StudioHandler(Handler):
             return
         path = urlsplit(self.path).path
         try:
+            if path == ROOM + "stream":
+                return self._room_stream()
             if in_query and not path.startswith("/api/"):
                 return self._redirect(path)
             f = self.static_resolver(path)
@@ -153,6 +199,8 @@ class StudioHandler(Handler):
             return
         path = urlsplit(self.path).path
         try:
+            if path.startswith(ROOM):
+                return self._room_post(path[len(ROOM):].strip("/"), self._json_body())
             if not path.startswith(API):
                 raise StudioError(404, "not found", "not_found")
             body = self._json_body()
@@ -173,6 +221,88 @@ class StudioHandler(Handler):
             self._upload(parse_qs(sp.query).get("name", [""])[0], workbench=route.endswith("workbench/upload"))
         except (Exception, SystemExit) as e:
             self._studio_err(e)
+
+    # ---- the live Room
+    def _room_post(self, route: str, body: dict) -> None:
+        room = self.server.room
+        try:
+            if route == "show":
+                out = room.show(**body)
+            elif route == "highlight":
+                out = room.highlight(body.get("highlights"))
+            elif route == "offer":
+                out = room.offer_version(body.get("artifact"), body.get("version"), body.get("compare_to"))
+            elif route == "flag":
+                return self._json(200, {"seq": room.flag(body)})
+            elif route == "read":
+                return self._json(200, room.read(body.get("ack") if isinstance(body.get("ack"), str) else None))
+            else:
+                raise StudioError(404, "not found", "not_found")
+        except LookupError as e:
+            raise StudioError(409, str(e), "conflict") from None
+        except OverflowError as e:
+            raise StudioError(429, str(e), "full") from None
+        except (TypeError, ValueError) as e:                 # TypeError: an unknown or missing stage field
+            raise StudioError(400, str(e), "bad_request") from None
+        self._json(200, {"stage": asdict(out)})
+
+    def _room_stream(self) -> None:
+        """Server-sent events `{seq, type, data}`: the backlog after Last-Event-ID, then live, with a heartbeat comment every 30 s.
+        A Last-Event-ID from the future (the app restarted) or from before the 500 events kept gets a `resync` event first, carrying the
+        stage; a future one then replays from the start. At most MAX_STREAMS at once."""
+        if not self.server.streams.acquire(blocking=False):
+            self.close_connection = True
+            return self._err(503, f"at most {MAX_STREAMS} streams are open")
+        try:
+            raw = self.headers.get("Last-Event-ID") or parse_qs(urlsplit(self.path).query).get("last_event_id", ["0"])[0]
+            last = int(raw) if raw.isascii() and raw.isdigit() and len(raw) < 16 else 0
+            room = self.server.room
+            bus = room.bus
+            hello = []
+            if last > bus.latest:
+                last, hello = 0, [("future", bus.latest)]
+            elif last and bus.oldest > last + 1:
+                hello = [("window", bus.oldest)]
+            self.close_connection = True
+            self.send_response(200)
+            for k, v in (("Content-Type", "text/event-stream; charset=utf-8"), ("Cache-Control", "no-store"), ("Connection", "close"),
+                         ("X-Content-Type-Options", "nosniff")):
+                self.send_header(k, v)
+            self.end_headers()
+            self.wfile.write(b": open\n\n")
+            for why, seq in hello:                           # no `id:` line: a resync must not move the follower's cursor
+                st = room.stage
+                data = {"seq": 0, "type": "resync", "data": {"reason": why, "latest": seq, "stage": asdict(st) if st else None}}
+                self.wfile.write(f"data: {json.dumps(data)}\n\n".encode())
+            self.wfile.flush()
+            sent = time.monotonic()
+            while not bus.closed:
+                events = bus.since(last) or bus.wait(last, min(HEARTBEAT_S, 1.0))
+                for e in events:
+                    self.wfile.write(f"id: {e['seq']}\ndata: {json.dumps(e, ensure_ascii=False, default=str)}\n\n".encode())
+                    last = e["seq"]
+                if not events:
+                    if self._peer_gone():
+                        break
+                    if time.monotonic() - sent >= HEARTBEAT_S:
+                        self.wfile.write(b": heartbeat\n\n")
+                    else:
+                        continue
+                self.wfile.flush()
+                sent = time.monotonic()
+        except OSError:                                      # the follower went away
+            pass
+        finally:
+            self.server.streams.release()
+
+    def _peer_gone(self) -> bool:
+        """True once the follower closed its end (a quiet stream would otherwise hold its slot until the next heartbeat)."""
+        try:
+            if not select.select([self.connection], [], [], 0)[0]:
+                return False
+            return self.connection.recv(1, socket.MSG_PEEK) == b""
+        except OSError:
+            return True
 
     # ---- bodies
     def _content_length(self, limit: int, what: str) -> int | None:

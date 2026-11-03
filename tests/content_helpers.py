@@ -18,12 +18,12 @@ CLIP2_TEXT = ("People keep asking me for the one big idea. There is not one. The
               "again and again, by people who stay.")
 SPEAKERS = {"S1": {"name": "Maren Okafor", "channel": "left"}, "S2": {"name": "Tomas", "channel": "right"}}
 
+from browser_cache import playwright_cache_dir  # noqa: E402
+
 
 def _browser_cache() -> str | None:
     """Where Playwright's Chromium lives under the REAL home (publish_helpers repoints HOME for every test)."""
-    if os.environ.get("PLAYWRIGHT_BROWSERS_PATH"):
-        return os.environ["PLAYWRIGHT_BROWSERS_PATH"]
-    p = Path.home() / ("Library/Caches/ms-playwright" if sys.platform == "darwin" else ".cache/ms-playwright")
+    p = playwright_cache_dir()
     return str(p) if p.is_dir() else None
 
 

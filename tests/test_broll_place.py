@@ -304,6 +304,14 @@ def test_audio_keep_mixes_the_brolls_sound_only_inside_its_frames_and_ducks_unde
     assert place.placements(place_doc)[0]["audio"] == "keep"
 
 
+def test_a_source_reads_the_same_samples_whether_or_not_the_read_starts_in_the_first_second(world):
+    src = world.ep.root / editdoc.load_latest(world.ep, "rough")["sources"]["A"]["file"]
+    r = comp._Reader(src, [], "A")
+    whole = r.read(0, 3 * SR)
+    for start in (SR // 2, SR, SR + 7, 2 * SR + 1234):
+        assert np.array_equal(r.read(start, SR // 2), whole[start:start + SR // 2])
+
+
 def test_keep_needs_an_asset_with_sound(world):
     w = world
     with pytest.raises(SystemExit, match="no sound"):
@@ -329,7 +337,7 @@ def test_insert_ripples_the_cut_and_the_dialogue_holds_in_exact_silence(world):
     assert got.shape[0] == c
     assert np.array_equal(got[:a], ref[:a])                                       # before the insert: the dialogue as it was
     assert np.all(got[a:b] == 0)                                                  # exact silence while the B-roll plays
-    assert got[b:c].shape == ref[a:int(10 * SR)].shape and np.abs(got[b:c] - ref[a:int(10 * SR)]).max() < 1e-5   # after it: the same dialogue, 1.2 s later. Measured max difference here is exactly 0.0 (peak 0.50); the exact check failed on the macOS CI build alone, so allow only float rounding, ~-100 dBFS, below 16-bit quantisation
+    assert got[b:c].shape == ref[a:int(10 * SR)].shape and np.array_equal(got[b:c], ref[a:int(10 * SR)])   # after it: the same dialogue, 1.2 s later, sample for sample (FFmpeg 9 once put reads after a seek one AAC frame off those from the start of the file)
     out, rep = render(w)
     assert ffutil.count_video_packets(out) == 336 and abs(rep["duration"] - 11.2) < 1 / 30
     cs = colors(out, 0, 336)

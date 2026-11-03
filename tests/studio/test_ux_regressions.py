@@ -72,6 +72,7 @@ def api(rig, path):
 
 # ---------------------------------------------------------------------------------------------------- the panel pages are styled
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize("scheme,blue", [("light", "#335cde"), ("dark", "#b7aaff")])
 def test_the_panel_stylesheet_is_linked_and_takes_the_shells_accent(rig, scheme, blue):
     ctx, pg = page_at(rig, scheme=scheme, route="#/alerts")
@@ -100,6 +101,7 @@ PHONE_ROUTES = ["#/calendar?view=month", "#/calendar?view=week", "#/calendar?vie
                 "#/library", "#/feedback", "#/alerts", "#/accounts", "#/campaigns"]
 
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize("route", PHONE_ROUTES)
 def test_no_page_scrolls_sideways_on_a_phone(rig, route):
     ctx, pg = page_at(rig, width=390, route=route)
@@ -110,6 +112,7 @@ def test_no_page_scrolls_sideways_on_a_phone(rig, route):
         ctx.close()
 
 
+@pytest.mark.legacy_ui
 def test_the_top_bar_does_not_pin_three_rows_to_a_phone(rig):
     ctx, pg = page_at(rig, width=390)
     try:
@@ -130,6 +133,7 @@ def test_the_top_bar_does_not_pin_three_rows_to_a_phone(rig):
         ctx.close()
 
 
+@pytest.mark.legacy_ui
 def test_a_status_word_in_the_phone_agenda_is_not_covered_by_the_lock(rig):
     # Three days back so the week always holds published posts: this module-scoped server cannot verify "scheduled" once the per-test fixtures clear AVE_*.
     day = (rig[2].now() - timedelta(days=3)).strftime("%Y-%m-%d")
@@ -149,6 +153,7 @@ def test_a_status_word_in_the_phone_agenda_is_not_covered_by_the_lock(rig):
 
 # ---------------------------------------------------------------------------------------------------- the day view
 
+@pytest.mark.legacy_ui
 def test_day_view_lane_labels_take_a_row_of_their_own(rig):
     # The live-clock demo does not promise two accounts on *today*. Select a
     # seeded multi-account day, preserving the actual full-width-lane assertion.
@@ -174,6 +179,7 @@ def test_day_view_lane_labels_take_a_row_of_their_own(rig):
 
 # ---------------------------------------------------------------------------------------------------- library
 
+@pytest.mark.legacy_ui
 def test_library_api_reports_the_true_total_and_takes_a_limit(rig):
     st, res = api(rig, "library?limit=7")
     assert st == 200 and len(res["assets"]) == 7 and res["total"] > 50
@@ -182,6 +188,7 @@ def test_library_api_reports_the_true_total_and_takes_a_limit(rig):
     assert api(rig, "library?limit=lots")[0] == 400
 
 
+@pytest.mark.legacy_ui
 def test_library_page_lists_everything_and_says_when_it_is_cut(rig):
     srv, browser, st = rig
     total = api(rig, "library")[1]["total"]
@@ -212,6 +219,7 @@ def test_library_page_lists_everything_and_says_when_it_is_cut(rig):
 
 # ---------------------------------------------------------------------------------------------------- names, not ids
 
+@pytest.mark.legacy_ui
 def test_review_and_editor_name_posts_by_their_words(rig):
     ctx, pg = page_at(rig, route="#/review")
     try:
@@ -229,6 +237,7 @@ def test_review_and_editor_name_posts_by_their_words(rig):
 
 # ---------------------------------------------------------------------------------------------------- campaigns
 
+@pytest.mark.legacy_ui
 def test_the_campaigns_page_is_real(rig):
     st, res = api(rig, "campaigns")
     assert st == 200 and res["total"] == 2 and {r["campaign"]["name"] for r in res["campaigns"]} == {"Season 4 launch", "Thanksgiving loaf box"}
@@ -266,6 +275,7 @@ def bare_rig(rig, tmp_path_factory):
     srv.server_close()
 
 
+@pytest.mark.legacy_ui
 def test_a_new_studio_calendar_says_what_to_do(bare_rig):
     ctx, pg = page_at(bare_rig, route="#/calendar?view=week")
     try:
@@ -275,6 +285,7 @@ def test_a_new_studio_calendar_says_what_to_do(bare_rig):
         ctx.close()
 
 
+@pytest.mark.legacy_ui
 def test_a_stale_post_link_is_a_plain_not_found_without_a_server_path(bare_rig):
     ctx, pg = page_at(bare_rig, route="#/post/p_nope")
     try:
@@ -286,6 +297,7 @@ def test_a_stale_post_link_is_a_plain_not_found_without_a_server_path(bare_rig):
         ctx.close()
 
 
+@pytest.mark.legacy_ui
 def test_feedback_cards_read_as_words_not_field_names(rig):
     ctx, pg = page_at(rig, route="#/feedback")
     try:

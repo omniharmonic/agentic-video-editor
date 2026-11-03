@@ -10,6 +10,7 @@ from .test_episode_workshop import managed,run,seed_transcript,FakeAuthority
 
 EVIDENCE=Path(tempfile.gettempdir())/'ave-episode-intake-evidence';EVIDENCE.mkdir(exist_ok=True)
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize('width',[1440,390])
 def test_audio_episode_gui(rig,browser,width,tmp_path):
     studio,server=rig;eid,source=managed(studio,tmp_path)
@@ -59,6 +60,7 @@ def test_audio_episode_gui(rig,browser,width,tmp_path):
 # path or unavailable model is a prerequisite of the portable tests above.
 ACCEPTANCE=__import__('os').getenv('AVE_EPISODE_ACCEPTANCE')
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize('mode,width',[('audio',390),('audiovisual',1440),('audiovisual',390)])
 def test_provisioned_conversation_gui(rig,browser,monkeypatch,mode,width):
     if not ACCEPTANCE:pytest.skip('Opt-in actual ASR/camera acceptance: set AVE_EPISODE_ACCEPTANCE to a fixture manifest')
@@ -114,6 +116,7 @@ def decoded_frame(player):
     }''')
 
 
+@pytest.mark.legacy_ui
 def test_camera_mapping_choices_survive_source_and_stage_navigation(rig,browser,tmp_path):
     import uuid
     from ave import library
@@ -144,6 +147,7 @@ def test_camera_mapping_choices_survive_source_and_stage_navigation(rig,browser,
 
 
 REPLAY=__import__('os').getenv('AVE_EPISODE_REPLAY')
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize('width',[1440,390])
 def test_retained_conversation_presentation(rig,browser,tmp_path,monkeypatch,width):
     if not REPLAY:pytest.skip('Opt-in exact retained transcript/sync presentation replay')
@@ -186,6 +190,7 @@ def test_retained_conversation_presentation(rig,browser,tmp_path,monkeypatch,wid
     finally:page.close()
 
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize('width',[1440,390])
 def test_camera_gap_review_and_same_dialog_return(rig,browser,tmp_path,width):
     from .test_episode_workshop import gap_episode
@@ -217,6 +222,7 @@ def test_camera_gap_review_and_same_dialog_return(rig,browser,tmp_path,width):
     finally:page.close()
 
 
+@pytest.mark.legacy_ui
 def test_reconnected_episode_prepares_current_grant_preview(rig,browser,tmp_path,monkeypatch):
     from .test_episode_workshop import FakeBooks,recording
     from ave.episode import Episode
@@ -235,6 +241,7 @@ def test_reconnected_episode_prepares_current_grant_preview(rig,browser,tmp_path
     finally:page.close()
 
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize('width',[1440,390])
 def test_audio_rough_compare_restore_and_exact_review(rig,browser,width,tmp_path,synthetic_final_asr):
     from .test_episode_workshop import ready,confirm
@@ -315,6 +322,7 @@ def test_audio_rough_compare_restore_and_exact_review(rig,browser,width,tmp_path
         page.close();app.close()
 
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize('width',[1440,390])
 def test_av_sequence_review_shows_real_frames(rig,browser,width,tmp_path,synthetic_final_asr):
     from .test_episode_workshop import gap_episode,confirm
@@ -373,6 +381,7 @@ def test_av_sequence_review_shows_real_frames(rig,browser,width,tmp_path,synthet
     finally:page.close();app.close()
 
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize('width',[1440,390])
 def test_combined_session_order_and_render_gui(rig,browser,tmp_path,width):
     import uuid

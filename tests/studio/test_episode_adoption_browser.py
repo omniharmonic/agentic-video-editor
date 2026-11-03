@@ -20,6 +20,7 @@ from .test_episode_workshop import recording,FakeAuthority
 EVIDENCE=Path('/private/tmp/ave-release-adoption-gui');EVIDENCE.mkdir(exist_ok=True)
 
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize('width',[1440,390])
 def test_independent_reordered_repeated_programme_adopts_and_packages_in_gui(rig,browser,tmp_path,synthetic_final_asr,width,isolated_secrets,monkeypatch):
     studio,server=rig;p=V.create(studio,{'title':'Independent programme adoption','mode':'audio','request_id':'gui-adopt-fixture'});sources=[];originals={}

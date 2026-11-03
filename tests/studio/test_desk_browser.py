@@ -19,6 +19,7 @@ def browser():
         b.close()
 
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize('width', [1440, 390])
 def test_desk_intake_and_navigation(tmp_path, width, browser):
     sp = StudioProject(tmp_path / 'studio')
@@ -53,6 +54,7 @@ def test_desk_intake_and_navigation(tmp_path, width, browser):
         server.server_close()
 
 
+@pytest.mark.legacy_ui
 def test_disconnected_desk_preserves_unsaved_text(tmp_path, browser):
     sp = StudioProject(tmp_path / 'studio')
     sp.create(title='Offline work')

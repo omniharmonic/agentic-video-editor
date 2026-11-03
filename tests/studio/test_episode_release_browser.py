@@ -9,6 +9,7 @@ from .test_episode_workshop import FakeAuthority
 
 EVIDENCE=Path('/private/tmp/ave-episode-release-ui');EVIDENCE.mkdir(exist_ok=True)
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize('width',[1440,390])
 def test_audio_select_keep_package_gui(rig,browser,width,tmp_path,synthetic_final_asr):
     studio,server=rig;eid,original,fixture_app,final=finished(studio,tmp_path)
@@ -64,6 +65,7 @@ def test_audio_select_keep_package_gui(rig,browser,width,tmp_path,synthetic_fina
     finally:context.close();fixture_app.close()
 
 
+@pytest.mark.legacy_ui
 @pytest.mark.real_motion
 @pytest.mark.parametrize('width',[1440,390])
 def test_video_kept_portrait_and_package_controls(rig,browser,width,tmp_path,synthetic_final_asr):
@@ -109,6 +111,7 @@ def test_video_kept_portrait_and_package_controls(rig,browser,width,tmp_path,syn
     finally:context.close();fixture_app.close()
 
 
+@pytest.mark.legacy_ui
 def test_delayed_submission_is_single_bound_retry_and_close_safe(rig,browser,tmp_path,synthetic_final_asr):
     studio,server=rig;eid,original,fixture_app,final=finished(studio,tmp_path)
     context=browser.new_context();page=context.new_page();pending=[];bodies=[];polled=[]
@@ -142,6 +145,7 @@ def test_delayed_submission_is_single_bound_retry_and_close_safe(rig,browser,tmp
     finally:context.close();fixture_app.close()
 
 
+@pytest.mark.legacy_ui
 def test_review_preflight_and_confirmation_bind_one_context(rig,browser,tmp_path):
     import json
     from .test_episode_workshop import ready,run
@@ -181,6 +185,7 @@ def test_review_preflight_and_confirmation_bind_one_context(rig,browser,tmp_path
     finally:context.close();fixture_app.close()
 
 
+@pytest.mark.legacy_ui
 def test_selected_assembly_warnings_are_visible_and_replaced(rig,browser,tmp_path):
     import copy,json
     from .test_episode_workshop import ready,run
@@ -202,6 +207,7 @@ def test_selected_assembly_warnings_are_visible_and_replaced(rig,browser,tmp_pat
     finally:context.close();fixture_app.close()
 
 
+@pytest.mark.legacy_ui
 def test_coverage_rounding_and_short_omission_presentation(rig,browser,tmp_path):
     import copy,json
     from .test_episode_workshop import ready,run
@@ -225,6 +231,7 @@ def test_coverage_rounding_and_short_omission_presentation(rig,browser,tmp_path)
     finally:context.close();fixture_app.close()
 
 
+@pytest.mark.legacy_ui
 def test_cancel_projects_stopping_until_terminal_job_and_bound_retry(rig,browser,tmp_path,synthetic_final_asr):
     studio,server=rig;eid,_,fixture_app,final=finished(studio,tmp_path)
     page=browser.new_page();cancels=[];terminal=False;retried=[]
@@ -244,6 +251,7 @@ def test_cancel_projects_stopping_until_terminal_job_and_bound_retry(rig,browser
     finally:page.close();fixture_app.close()
 
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize('after_reload',['stay','catalog','close'])
 def test_committed_render_projection_failure_recovers_without_replaying_job(rig,browser,tmp_path,synthetic_final_asr,after_reload):
     studio,server=rig;eid,_,app,_=finished(studio,tmp_path);context=browser.new_context();page=context.new_page()

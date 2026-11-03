@@ -177,6 +177,7 @@ def day(page, d):
 
 
 # ------------------------------------------------------------------ calendar
+@pytest.mark.legacy_ui
 def test_calendar_renders_fixture_posts_slots_ghosts_and_tray(ui):
     page = ui.open()
     assert page.locator("#cal-title").inner_text() == "November 2026"
@@ -211,6 +212,7 @@ def test_calendar_renders_fixture_posts_slots_ghosts_and_tray(ui):
     assert page.locator('.day[tabindex="0"]').count() == 1
 
 
+@pytest.mark.legacy_ui
 def test_calendar_week_day_and_account_lanes(ui):
     page = ui.open("/?poll=250#/calendar?view=week&d=2026-11-02")
     assert "2 Nov" in page.locator("#cal-title").inner_text()
@@ -224,6 +226,7 @@ def test_calendar_week_day_and_account_lanes(ui):
     assert page.locator('.acct-chip[aria-pressed="false"]').count() == 1
 
 
+@pytest.mark.legacy_ui
 def test_pointer_drag_card_to_another_day(ui):
     page = ui.open()
     ui.drag(card(page, "v_ig"), day(page, "2026-11-03"), where="bottom")
@@ -234,6 +237,7 @@ def test_pointer_drag_card_to_another_day(ui):
     assert page.locator("#note.on").is_visible()                       # the visible mirror of the live region
 
 
+@pytest.mark.legacy_ui
 def test_pointer_drop_onto_a_free_slot_is_exact(ui):
     page = ui.open()
     ui.drag(card(page, "v_ig"), day(page, "2026-11-18").locator(".slot"))
@@ -242,6 +246,7 @@ def test_pointer_drop_onto_a_free_slot_is_exact(ui):
     assert card(page, "v_ig", '.day[data-date="2026-11-18"]').is_visible()
 
 
+@pytest.mark.legacy_ui
 def test_drop_on_a_taken_slot_snaps_back_and_says_why(ui):
     page = ui.open()
     ui.drag(card(page, "v_ig"), day(page, "2026-11-04"), where="bottom")
@@ -252,6 +257,7 @@ def test_drop_on_a_taken_slot_snaps_back_and_says_why(ui):
     assert card(page, "v_ig", '.day[data-date="2026-11-02"]').is_visible()
 
 
+@pytest.mark.legacy_ui
 def test_drag_to_tray_unschedules_and_back_out_to_a_slot(ui):
     page = ui.open()
     ui.drag(card(page, "v_ig"), page.locator(".tray"))
@@ -264,6 +270,7 @@ def test_drag_to_tray_unschedules_and_back_out_to_a_slot(ui):
     assert ui.srv.moves[-1]["to"] == "2026-11-20T09:00"
 
 
+@pytest.mark.legacy_ui
 def test_post_without_an_account_cannot_be_scheduled_and_says_so(ui):
     page = ui.open()
     ui.drag(page.locator('.tray .card:has-text("Why we weigh flour")'), day(page, "2026-11-12"), where="bottom")
@@ -271,6 +278,7 @@ def test_post_without_an_account_cannot_be_scheduled_and_says_so(ui):
     assert ui.srv.moves == []
 
 
+@pytest.mark.legacy_ui
 def test_published_posts_are_locked_with_a_reason_and_no_handle(ui):
     page = ui.open()
     pub = card(page, "v_pub1")
@@ -284,6 +292,7 @@ def test_published_posts_are_locked_with_a_reason_and_no_handle(ui):
     ui.wait_js("document.querySelector('#live').textContent.includes('cannot be moved')")
 
 
+@pytest.mark.legacy_ui
 def test_accept_a_ghost_proposal(ui):
     page = ui.open()
     day(page, "2026-11-06").locator(".ghost-accept").click()
@@ -293,6 +302,7 @@ def test_accept_a_ghost_proposal(ui):
     assert page.locator(".suggest").count() == 0 and page.locator(".card.mode-ghost").count() == 0
 
 
+@pytest.mark.legacy_ui
 def test_keyboard_move_by_slot_then_drop(ui):
     page = ui.open()
     page.focus('.card[data-variant="v_ig"] .card-link')
@@ -309,6 +319,7 @@ def test_keyboard_move_by_slot_then_drop(ui):
     assert page.evaluate("document.activeElement.closest('.card')?.dataset.variant") == "v_ig"      # focus follows the card
 
 
+@pytest.mark.legacy_ui
 def test_keyboard_shift_arrow_moves_a_whole_day_and_escape_cancels(ui):
     page = ui.open()
     page.focus('.card[data-variant="v_ig"] .card-link')
@@ -325,6 +336,7 @@ def test_keyboard_shift_arrow_moves_a_whole_day_and_escape_cancels(ui):
     assert ui.srv.moves[-1]["to"] == "2026-11-03T09:00"
 
 
+@pytest.mark.legacy_ui
 def test_keyboard_unschedule_and_conflict_announcement(ui):
     page = ui.open()
     page.focus('.card[data-variant="v_ig"] .card-link')
@@ -340,6 +352,7 @@ def test_keyboard_unschedule_and_conflict_announcement(ui):
     assert ui.srv.unscheduled_calls[-1]["variant"] == "v_ig"
 
 
+@pytest.mark.legacy_ui
 def test_calendar_grid_keyboard_navigation_and_enter_previews_the_post_and_o_opens_it(ui):
     page = ui.open()
     page.focus('.day[data-date="2026-11-02"]')
@@ -365,6 +378,7 @@ def test_calendar_grid_keyboard_navigation_and_enter_previews_the_post_and_o_ope
     page.wait_for_selector("main[data-page=post] p")
 
 
+@pytest.mark.legacy_ui
 def test_keyboard_walks_off_the_month_into_the_next(ui):
     page = ui.open()
     page.focus('.day[data-date="2026-11-30"]')
@@ -372,6 +386,7 @@ def test_keyboard_walks_off_the_month_into_the_next(ui):
     ui.wait_js("document.querySelector('#cal-title').textContent === 'December 2026'")
 
 
+@pytest.mark.legacy_ui
 def test_live_changes_from_an_agent_appear_without_reload(ui):
     page = ui.open()
     assert card(page, "v_d3", '.day[data-date="2026-11-13"]').is_visible()
@@ -381,6 +396,7 @@ def test_live_changes_from_an_agent_appear_without_reload(ui):
     ui.wait_live("Updated: an agent changed a post")
 
 
+@pytest.mark.legacy_ui
 def test_a_change_feed_refresh_waits_for_a_drag_in_progress(ui):
     page = ui.open()
     c = card(page, "v_ig")
@@ -398,6 +414,7 @@ def test_a_change_feed_refresh_waits_for_a_drag_in_progress(ui):
 
 
 # ------------------------------------------------------------------ grid
+@pytest.mark.legacy_ui
 def test_grid_full_images_and_crop_geometry(ui):
     page = ui.open("/?poll=250#/grid/ig-main", height=1300)
     geo = page.evaluate("import('/static/grid.js').then(m => [m.cropGeometry(1080, 1350, 0.75), m.cropGeometry(1080, 1080, 0.75), m.cropGeometry(1080, 1920, 0.75)])")
@@ -408,6 +425,7 @@ def test_grid_full_images_and_crop_geometry(ui):
     assert page.locator('.planner-image img').first.evaluate('(e)=>getComputedStyle(e).objectFit') == 'contain'
 
 
+@pytest.mark.legacy_ui
 def test_grid_inserts_by_pointer_without_schedule_swaps_and_locks_history(ui):
     page = ui.open("/?poll=250#/grid/ig-main", height=1500)
     order = lambda: page.eval_on_selector_all(".gcell", "els => els.map(e => e.dataset.variant)")
@@ -425,6 +443,7 @@ def test_grid_inserts_by_pointer_without_schedule_swaps_and_locks_history(ui):
     assert ui.srv.feed_revs['ig-main'] == 1
 
 
+@pytest.mark.legacy_ui
 def test_grid_inserts_by_keyboard(ui):
     page = ui.open("/?poll=250#/grid/ig-main", height=1300)
     original = page.locator('.gcell').evaluate_all('(els)=>els.map(e=>e.dataset.variant)')
@@ -440,6 +459,7 @@ def test_grid_inserts_by_keyboard(ui):
     assert page.evaluate("document.activeElement.closest('.gcell')?.dataset.variant") == original[0]
 
 
+@pytest.mark.legacy_ui
 def test_grid_arrow_keys_move_focus_and_account_selector_switches_layout(ui):
     page = ui.open("/#/grid/ig-main", height=1300)
     page.focus('.gcell[data-index="0"] .g-link')
@@ -453,6 +473,7 @@ def test_grid_arrow_keys_move_focus_and_account_selector_switches_layout(ui):
 
 
 # ------------------------------------------------------------------ phones, motion, themes
+@pytest.mark.legacy_ui
 def test_phone_width_has_no_sideways_scroll_and_week_is_the_default(ui):
     page = ui.open("/#/calendar", width=390, height=844, has_touch=True, is_mobile=True)
     page.wait_for_selector(".view-week")
@@ -469,6 +490,7 @@ def test_phone_width_has_no_sideways_scroll_and_week_is_the_default(ui):
     assert grip["width"] >= 26 and grip["height"] >= 26
 
 
+@pytest.mark.legacy_ui
 def test_touch_drag_starts_only_from_the_grip(ui):
     page = ui.open("/#/calendar", width=390, height=844, has_touch=True, is_mobile=True)
     page.evaluate("location.hash = '#/calendar?view=week&d=2026-11-02'")
@@ -497,6 +519,7 @@ def test_touch_drag_starts_only_from_the_grip(ui):
     assert ui.srv.unscheduled_calls[-1]["variant"] == "v_ig"
 
 
+@pytest.mark.legacy_ui
 def test_reduced_motion_is_respected(browser):
     u = Ui(browser)
     try:
@@ -509,6 +532,7 @@ def test_reduced_motion_is_respected(browser):
         u.close()
 
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize("scheme", ["light", "dark"])
 def test_both_color_schemes_render_with_the_right_palette(browser, scheme):
     u = Ui(browser)
@@ -524,6 +548,7 @@ def test_both_color_schemes_render_with_the_right_palette(browser, scheme):
         u.close()
 
 
+@pytest.mark.legacy_ui
 def test_other_workstreams_pages_degrade_to_a_notice_or_their_module(ui):
     page = ui.open()
     page.evaluate("location.hash = '#/review'")
@@ -533,6 +558,7 @@ def test_other_workstreams_pages_degrade_to_a_notice_or_their_module(ui):
     assert "does not exist" in page.locator(".empty h1").inner_text()
 
 
+@pytest.mark.legacy_ui
 def test_help_dialog_lists_the_keyboard_path(ui):
     page = ui.open()
     page.keyboard.press("?")

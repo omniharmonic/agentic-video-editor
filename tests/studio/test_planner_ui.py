@@ -48,6 +48,7 @@ def note(pg):
 
 # ---------------------------------------------------------------------------------------------------- (1) reschedule without dragging
 
+@pytest.mark.legacy_ui
 def test_a_card_opens_a_side_preview_not_the_editor(rig):
     pg = rig.page()
     pg.wait_for_selector(".cal-grid .card")
@@ -57,6 +58,7 @@ def test_a_card_opens_a_side_preview_not_the_editor(rig):
     assert pg.locator("#peek [data-act='open-editor']").get_attribute("href").startswith("#/post/")
 
 
+@pytest.mark.legacy_ui
 def test_change_time_with_the_date_and_time_picker_then_undo_with_z(rig):
     pg = rig.page()
     pg.wait_for_selector(".cal-grid .card")
@@ -76,6 +78,7 @@ def test_change_time_with_the_date_and_time_picker_then_undo_with_z(rig):
     assert rig.local("review") == "2026-10-21T09:00"
 
 
+@pytest.mark.legacy_ui
 def test_the_picker_lists_the_next_free_slots_and_a_slot_fills_the_fields(rig):
     pg = rig.page()
     pg.wait_for_selector(".cal-grid .card")
@@ -93,6 +96,7 @@ def test_the_picker_lists_the_next_free_slots_and_a_slot_fills_the_fields(rig):
     assert rig.local("draft") == "2026-10-26T09:00"
 
 
+@pytest.mark.legacy_ui
 def test_next_free_slot_from_the_keyboard_and_from_the_preview(rig):
     pg = rig.page()
     pg.wait_for_selector(".cal-grid .card")
@@ -110,6 +114,7 @@ def test_next_free_slot_from_the_keyboard_and_from_the_preview(rig):
     assert rig.local("fb") == "2026-10-23T09:00"
 
 
+@pytest.mark.legacy_ui
 def test_a_taken_slot_is_refused_in_words_and_nothing_moves(rig):
     pg = rig.page()
     pg.wait_for_selector(".cal-grid .card")
@@ -125,6 +130,7 @@ def test_a_taken_slot_is_refused_in_words_and_nothing_moves(rig):
     rig.allow_errors = False
 
 
+@pytest.mark.legacy_ui
 def test_retiming_an_approved_post_keeps_the_approval_and_explains_itself(rig):
     pg = rig.page()
     pg.wait_for_selector(".cal-grid .card")
@@ -151,6 +157,7 @@ def test_retiming_an_approved_post_keeps_the_approval_and_explains_itself(rig):
     assert "Moved from" in pg.locator("#peek .peek-history").inner_text()
 
 
+@pytest.mark.legacy_ui
 def test_the_editor_has_the_same_controls_for_time(rig, width=1440):
     pid, vid = rig.posts["review"]
     pg = rig.page(f"#/post/{pid}?variant={vid}", wait=".ed", width=width)
@@ -179,6 +186,7 @@ def test_the_editor_has_the_same_controls_for_time(rig, width=1440):
     pg.screenshot(path=f'/private/tmp/ave-integration-editor-unscheduled-{width}.png')
 
 
+@pytest.mark.legacy_ui
 def test_a_published_post_offers_no_time_controls(rig, width=1440):
     pid, vid = rig.posts["fb"]
     item = rig.item("fb")
@@ -195,10 +203,12 @@ def test_a_published_post_offers_no_time_controls(rig, width=1440):
     assert pg.locator('body').evaluate('(el)=>el.scrollWidth<=innerWidth')
 
 
+@pytest.mark.legacy_ui
 def test_phone_editor_time_journey(rig):
     test_the_editor_has_the_same_controls_for_time(rig,width=390)
 
 
+@pytest.mark.legacy_ui
 def test_phone_published_editor_time_lock(rig):
     test_a_published_post_offers_no_time_controls(rig,width=390)
 
@@ -211,6 +221,7 @@ def select_cards(rig, pg, names):
         rig.card(pg, n).locator(".card-link").click()
 
 
+@pytest.mark.legacy_ui
 def test_select_several_and_shift_them_a_week_then_undo_the_batch(rig):
     pg = rig.page()
     pg.wait_for_selector(".cal-grid .card")
@@ -228,6 +239,7 @@ def test_select_several_and_shift_them_a_week_then_undo_the_batch(rig):
     assert rig.local("review") == "2026-10-21T09:00" and rig.local("fb") == "2026-10-21T09:00"
 
 
+@pytest.mark.legacy_ui
 def test_a_refused_member_stays_selected_with_its_reason_and_the_rest_move(rig):
     pg = rig.page()
     pg.wait_for_selector(".cal-grid .card")
@@ -244,6 +256,7 @@ def test_a_refused_member_stays_selected_with_its_reason_and_the_rest_move(rig):
     assert rig.item("review")["status"] == "awaiting_approval"
 
 
+@pytest.mark.legacy_ui
 def test_bulk_unschedule_keeps_an_approval_and_undo_puts_the_time_back(rig):
     pg = rig.page()
     pg.wait_for_selector(".cal-grid .card")
@@ -257,6 +270,7 @@ def test_bulk_unschedule_keeps_an_approval_and_undo_puts_the_time_back(rig):
     assert rig.local("approved") == "2026-10-23T09:00"
 
 
+@pytest.mark.legacy_ui
 def test_bulk_next_free_slots_places_the_whole_tray(rig):
     pg = rig.page()
     pg.wait_for_selector(".cal-grid .card")
@@ -268,6 +282,7 @@ def test_bulk_next_free_slots_places_the_whole_tray(rig):
     assert rig.local("draft") and rig.local("draft") > "2026-10-19"
 
 
+@pytest.mark.legacy_ui
 def test_move_to_account_only_for_unqueued_posts_of_the_same_platform(rig):
     pg = rig.page()
     pg.wait_for_selector(".cal-grid .card")
@@ -286,6 +301,7 @@ def test_move_to_account_only_for_unqueued_posts_of_the_same_platform(rig):
     assert rig.item("approved")["status"] == "approved"
 
 
+@pytest.mark.legacy_ui
 def test_x_selects_r_changes_time_n_takes_the_next_slot_and_escape_clears(rig):
     pg = rig.page()
     pg.wait_for_selector(".cal-grid .card")
@@ -302,6 +318,7 @@ def test_x_selects_r_changes_time_n_takes_the_next_slot_and_escape_clears(rig):
     assert pg.locator(".card.is-selected").count() == 0
 
 
+@pytest.mark.legacy_ui
 def test_published_cards_cannot_be_selected(rig):
     item = rig.item("fb")
     item["status"] = "published"
@@ -317,6 +334,7 @@ def test_published_cards_cannot_be_selected(rig):
 
 # ---------------------------------------------------------------------------------------------------- (3) filters that persist
 
+@pytest.mark.legacy_ui
 def test_brand_chips_separate_two_brands_and_the_choice_persists(rig):
     pg = rig.page()
     pg.wait_for_selector(".cal-grid .card")
@@ -343,6 +361,7 @@ def test_brand_chips_separate_two_brands_and_the_choice_persists(rig):
     pg.wait_for_selector(f'.card[data-variant="{rig.posts["review"][1]}"]')
 
 
+@pytest.mark.legacy_ui
 def test_the_campaign_filter_narrows_to_one_campaign(rig):
     pg = rig.page()
     pg.wait_for_selector(".cal-grid .card")
@@ -353,6 +372,7 @@ def test_the_campaign_filter_narrows_to_one_campaign(rig):
     assert pg.locator(".fbar-clear").count() == 1
 
 
+@pytest.mark.legacy_ui
 def test_filters_that_match_nothing_say_so_and_offer_to_clear(rig):
     pg = rig.page("#/calendar?view=week&d=2026-12-07")                                   # a week with nothing in it
     pg.wait_for_selector(".cal-grid")
@@ -363,6 +383,7 @@ def test_filters_that_match_nothing_say_so_and_offer_to_clear(rig):
     rig.until(pg, "!document.querySelector('.empty-filter')")
 
 
+@pytest.mark.legacy_ui
 def test_accounts_are_summarised_in_one_line_not_seven_chips(rig):
     pg = rig.page()
     pg.wait_for_selector(".cal-grid .card")
@@ -374,6 +395,7 @@ def test_accounts_are_summarised_in_one_line_not_seven_chips(rig):
 
 # ---------------------------------------------------------------------------------------------------- (4) the side preview
 
+@pytest.mark.legacy_ui
 def test_the_preview_shows_the_platform_mock_hashtags_alt_text_status_and_history(rig):
     pg = rig.page()
     pg.wait_for_selector(".cal-grid .card")
@@ -393,6 +415,7 @@ def test_the_preview_shows_the_platform_mock_hashtags_alt_text_status_and_histor
     assert pg.evaluate("document.activeElement.closest('.card').dataset.variant") == rig.posts["review"][1]      # focus is back where it was
 
 
+@pytest.mark.legacy_ui
 def test_a_missing_alt_text_is_called_out_in_the_preview(rig):
     pid, vid = rig.posts["fb"]
     from ave.studio import store
@@ -405,6 +428,7 @@ def test_a_missing_alt_text_is_called_out_in_the_preview(rig):
     assert "Missing" in pg.locator("#peek .peek-alts li.missing").inner_text()
 
 
+@pytest.mark.legacy_ui
 def test_the_preview_is_a_bottom_sheet_on_a_phone_and_nothing_scrolls_sideways(rig):
     pg = rig.page(width=390)
     pg.wait_for_selector(".cal-grid .card")
@@ -416,6 +440,7 @@ def test_the_preview_is_a_bottom_sheet_on_a_phone_and_nothing_scrolls_sideways(r
     rig.until(pg, "!document.querySelector('#peek.on')")
 
 
+@pytest.mark.legacy_ui
 def test_the_needs_rework_note_is_on_the_preview(rig):
     pid, vid = rig.posts["fb"]
     rig.w.studio.add_feedback(pid, "rework_copy", note="Too salesy. Say what the bread tastes like.", variant=vid, by="maren")
@@ -427,6 +452,7 @@ def test_the_needs_rework_note_is_on_the_preview(rig):
     assert "Sent back to Claude" in pg.locator("#peek .peek-reason").inner_text()
 
 
+@pytest.mark.legacy_ui
 def test_a_stale_approval_is_explained_on_the_card_and_in_the_preview(rig):
     item = rig.item("approved")
     item["caption"] = item["caption"] + " (edited behind the studio's back)"
@@ -443,6 +469,7 @@ def test_a_stale_approval_is_explained_on_the_card_and_in_the_preview(rig):
 
 # ---------------------------------------------------------------------------------------------------- (5) ideas
 
+@pytest.mark.legacy_ui
 def test_the_ideas_page_lists_ideas_with_their_reason_and_confidence(rig):
     pg = rig.page("#/ideas", wait=".ideas")
     pg.wait_for_selector(".idea")
@@ -451,6 +478,7 @@ def test_the_ideas_page_lists_ideas_with_their_reason_and_confidence(rig):
     assert pg.locator("#nav a[data-p=ideas] .count").inner_text() == "1"
 
 
+@pytest.mark.legacy_ui
 def test_turn_an_idea_into_a_draft_and_undo(rig):
     pid, _ = rig.posts["idea"]
     pg = rig.page("#/ideas", wait=".ideas")
@@ -465,6 +493,7 @@ def test_turn_an_idea_into_a_draft_and_undo(rig):
     assert post["stage"] == "idea" and post["copy"]["base"] == ""
 
 
+@pytest.mark.legacy_ui
 def test_set_an_idea_aside_and_undo_it(rig):
     pid, _ = rig.posts["idea"]
     pg = rig.page("#/ideas", wait=".ideas")
@@ -477,6 +506,7 @@ def test_set_an_idea_aside_and_undo_it(rig):
     assert store.load_post(rig.w.sp, pid)["stage"] == "idea"
 
 
+@pytest.mark.legacy_ui
 def test_an_idea_with_no_brand_can_be_given_one_and_the_brand_filter_then_finds_it(rig):
     pg = rig.page("#/ideas", wait=".ideas")
     pg.wait_for_selector(".idea-brandpick select")
@@ -488,6 +518,7 @@ def test_an_idea_with_no_brand_can_be_given_one_and_the_brand_filter_then_finds_
     pg.wait_for_selector(".idea")
 
 
+@pytest.mark.legacy_ui
 def test_the_empty_ideas_page_says_how_ideas_arrive(rig):
     from ave.studio import store
     from ave.studio.events import AGENT
@@ -501,6 +532,7 @@ def test_the_empty_ideas_page_says_how_ideas_arrive(rig):
 
 # ---------------------------------------------------------------------------------------------------- (8) states, help, themes, phones
 
+@pytest.mark.legacy_ui
 def test_the_help_dialog_documents_the_new_keys(rig):
     pg = rig.page()
     pg.wait_for_selector(".cal-grid .card")
@@ -511,6 +543,7 @@ def test_the_help_dialog_documents_the_new_keys(rig):
         assert words.lower() in t.lower(), words
 
 
+@pytest.mark.legacy_ui
 def test_the_calendar_says_so_when_the_server_is_gone_and_offers_to_try_again(rig):
     pg = rig.page()
     pg.wait_for_selector(".cal-grid .card")
@@ -521,6 +554,7 @@ def test_the_calendar_says_so_when_the_server_is_gone_and_offers_to_try_again(ri
     pg.unroute("**/api/studio/calendar*")
 
 
+@pytest.mark.legacy_ui
 def test_the_boot_error_has_a_try_again_button(rig):
     rig.allow_errors = True
     ctx = rig.browser.new_context(viewport={"width": 1280, "height": 800})
@@ -532,6 +566,7 @@ def test_the_boot_error_has_a_try_again_button(rig):
     assert "not reachable" in pg.locator(".empty-error").inner_text() and pg.locator(".empty-error button").inner_text() == "Try again"
 
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize("scheme", ["light", "dark"])
 def test_the_new_surfaces_follow_the_colour_scheme(rig, scheme):
     pg = rig.page(scheme=scheme)
@@ -549,6 +584,7 @@ def test_the_new_surfaces_follow_the_colour_scheme(rig, scheme):
     assert film == ("rgb(42, 58, 70)" if scheme == "dark" else "rgb(15, 23, 29)")
 
 
+@pytest.mark.legacy_ui
 def test_reduced_motion_removes_the_toast_and_panel_transitions(rig):
     pg = rig.page(reduced=True)
     pg.wait_for_selector(".cal-grid .card")
@@ -557,6 +593,7 @@ def test_reduced_motion_removes_the_toast_and_panel_transitions(rig):
     assert pg.evaluate("getComputedStyle(document.querySelector('#peek')).transitionDuration") in ("0s", "0.000001s")
 
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize("route", [WEEK, "#/calendar?view=month&d=2026-10-19", "#/ideas"])
 def test_no_planner_surface_scrolls_sideways_on_a_phone(rig, route):
     pg = rig.page(route, width=390)
@@ -569,6 +606,7 @@ def test_no_planner_surface_scrolls_sideways_on_a_phone(rig, route):
     assert pg.evaluate("document.documentElement.scrollWidth") <= 390, route
 
 
+@pytest.mark.legacy_ui
 def test_a_card_has_its_own_change_time_button_that_needs_no_drag(rig):
     pg = rig.page()
     pg.wait_for_selector(".cal-grid .card")
@@ -583,6 +621,7 @@ def test_a_card_has_its_own_change_time_button_that_needs_no_drag(rig):
     assert rig.card(pg, "approved", "week").locator(".card-act").count() == 1
 
 
+@pytest.mark.legacy_ui
 def test_the_grid_page_follows_the_brand_choice(rig):
     pg = rig.page("#/grid/ig-main", wait=".planner-feed")
     assert pg.get_by_label("Feed account", exact=True).locator("option").count() == 4
@@ -592,6 +631,7 @@ def test_the_grid_page_follows_the_brand_choice(rig):
     assert pg.get_by_label("Feed account", exact=True).locator("option").count() == 2
 
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize("route,pattern", [("#/alerts", "**/api/studio/alerts*"), ("#/feedback", "**/api/studio/feedback*"), ("#/accounts", "**/api/studio/connections"),
                                            ("#/library", "**/api/studio/library*"), ("#/campaigns", "**/api/studio/campaigns*")])
 def test_a_panel_page_with_the_server_gone_says_why_and_can_try_again(rig, route, pattern):

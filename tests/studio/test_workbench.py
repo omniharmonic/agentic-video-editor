@@ -14,7 +14,8 @@ from ave.studio.ui.server import StudioServer
 from ave.studio.workbench import Workbench, Busy, execute_operation, job_path, read, write
 from .test_api import Client
 
-BROWSER_CACHE = str(Path.home() / 'Library/Caches/ms-playwright')
+from browser_cache import playwright_cache_dir
+BROWSER_CACHE = str(playwright_cache_dir())
 
 @pytest.fixture(autouse=True)
 def real_browser_cache(monkeypatch):

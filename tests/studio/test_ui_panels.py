@@ -100,6 +100,7 @@ def _variant(state, post, vid):
 
 # ---- zero external requests, no console errors -----------------------------------------------------------------------------------
 
+@pytest.mark.legacy_ui
 def test_every_panel_loads_with_zero_external_requests_and_no_console_errors(ui):
     p = ui()
     for route in ("#/post/" + POST, "#/review", "#/library", "#/feedback", "#/alerts", "#/accounts", "#/previews"):
@@ -112,6 +113,7 @@ def test_every_panel_loads_with_zero_external_requests_and_no_console_errors(ui)
 
 # ---- inline edit, autosave, CAS ---------------------------------------------------------------------------------------------------------
 
+@pytest.mark.legacy_ui
 def test_inline_edit_autosaves_after_the_debounce_and_writes_a_human_edit_line(ui):
     p = ui()
     pg = p.goto(f"#/post/{POST}?variant=v_fb")
@@ -126,6 +128,7 @@ def test_inline_edit_autosaves_after_the_debounce_and_writes_a_human_edit_line(u
     assert "Saved" in pg.locator(".ed-save").inner_text()
 
 
+@pytest.mark.legacy_ui
 def test_typing_in_a_burst_makes_one_save(ui):
     p = ui()
     pg = p.goto(f"#/post/{POST}?variant=v_fb")
@@ -136,6 +139,7 @@ def test_typing_in_a_burst_makes_one_save(ui):
     assert p.state()["posts"][POST]["rev"] == 8
 
 
+@pytest.mark.legacy_ui
 def test_an_agent_edit_to_the_same_field_opens_the_three_way_panel_and_keep_mine_wins(ui):
     p = ui()
     pg = p.goto(f"#/post/{POST}?variant=v_fb")
@@ -158,6 +162,7 @@ def test_an_agent_edit_to_the_same_field_opens_the_three_way_panel_and_keep_mine
     assert st["posts"][POST]["rev"] == 9
 
 
+@pytest.mark.legacy_ui
 def test_three_way_panel_take_theirs_and_merge_by_hand(ui):
     p = ui()
     pg = p.goto(f"#/post/{POST}?variant=v_fb")
@@ -181,6 +186,7 @@ def test_three_way_panel_take_theirs_and_merge_by_hand(ui):
     assert _variant(p.state(), POST, "v_fb")["copy"]["caption"] == "Merged: mine and theirs."
 
 
+@pytest.mark.legacy_ui
 def test_an_agent_edit_to_a_different_field_is_rebased_without_a_panel(ui):
     p = ui()
     pg = p.goto(f"#/post/{POST}?variant=v_fb")
@@ -192,6 +198,7 @@ def test_an_agent_edit_to_a_different_field_is_rebased_without_a_panel(ui):
     assert st["posts"][POST]["copy"]["link"] == "https://acme.example/new" and _variant(st, POST, "v_fb")["copy"]["caption"] == "Mine only."
 
 
+@pytest.mark.legacy_ui
 def test_a_background_agent_edit_shows_up_when_nothing_is_dirty(ui):
     p = ui()
     pg = p.goto(f"#/post/{POST}?variant=v_fb")
@@ -201,6 +208,7 @@ def test_a_background_agent_edit_shows_up_when_nothing_is_dirty(ui):
 
 # ---- asset swap -------------------------------------------------------------------------------------------------------------------------
 
+@pytest.mark.legacy_ui
 def test_swapping_an_asset_demotes_the_approval_and_says_why(ui):
     p = ui()
     pg = p.goto(f"#/post/{POST}?variant=v_ig")
@@ -221,6 +229,7 @@ def test_swapping_an_asset_demotes_the_approval_and_says_why(ui):
 
 # ---- send back --------------------------------------------------------------------------------------------------------------------------
 
+@pytest.mark.legacy_ui
 def test_send_back_writes_one_line_per_kind_with_the_structured_shape(ui):
     p = ui()
     pg = p.goto(f"#/post/{POST}?variant=v_fb")
@@ -251,6 +260,7 @@ def test_send_back_writes_one_line_per_kind_with_the_structured_shape(ui):
     assert "Waiting for the editor" in pg.locator(".st-tab[aria-selected=true]").inner_text()
 
 
+@pytest.mark.legacy_ui
 def test_send_back_drop_rejects_and_a_selection_is_passed_along(ui):
     p = ui()
     pg = p.goto(f"#/post/{POST}?variant=v_fb")
@@ -274,6 +284,7 @@ def test_send_back_drop_rejects_and_a_selection_is_passed_along(ui):
     assert v["dropped"] and v["queue_status"] == "rejected"
 
 
+@pytest.mark.legacy_ui
 def test_send_back_needs_a_kind_and_a_note(ui):
     p = ui()
     pg = p.goto(f"#/post/{POST}?variant=v_fb")
@@ -287,6 +298,7 @@ def test_send_back_needs_a_kind_and_a_note(ui):
     assert not [f for f in p.state()["feedback"] if f["post"] == POST and f["kind"] != "human_edit"]
 
 
+@pytest.mark.legacy_ui
 def test_s_key_opens_send_back_and_escape_closes_it_and_returns_focus(ui):
     p = ui()
     pg = p.goto(f"#/post/{POST}?variant=v_fb")
@@ -305,6 +317,7 @@ def _look(pg, p, post, variant):
     pg.wait_for_selector(".rv-metertext:has-text('Looked at')", timeout=8000)
 
 
+@pytest.mark.legacy_ui
 def test_review_shows_the_exact_sha_records_the_view_and_needs_the_pin(ui):
     p = ui()
     pg = p.goto("#/review")
@@ -333,6 +346,7 @@ def test_review_shows_the_exact_sha_records_the_view_and_needs_the_pin(ui):
     assert pg.locator("#rv-pin").input_value() == ""                      # the PIN is never kept
 
 
+@pytest.mark.legacy_ui
 def test_review_locks_after_five_wrong_pins(ui):
     p = ui()
     pg = p.goto("#/review")
@@ -346,6 +360,7 @@ def test_review_locks_after_five_wrong_pins(ui):
     pg.wait_for_selector(".rv-msg:has-text('locked')")
 
 
+@pytest.mark.legacy_ui
 def test_review_j_k_move_and_a_second_post_must_be_looked_at_before_it_can_be_ticked(ui):
     p = ui()
     pg = p.goto("#/review")
@@ -367,6 +382,7 @@ def _png_bytes(w=64, h=48, color=(30, 90, 140)):
     return b.getvalue()
 
 
+@pytest.mark.legacy_ui
 def test_library_filters_upload_and_detail(ui, tmp_path):
     p = ui()
     pg = p.goto("#/library")
@@ -397,6 +413,7 @@ def test_library_filters_upload_and_detail(ui, tmp_path):
     assert "Pexels License" in detail and "p_20261102_k3f9 / v_ig" in detail
 
 
+@pytest.mark.legacy_ui
 def test_broll_modal_shows_licence_and_attribution_and_downloads_only_on_a_named_pick(ui):
     p = ui()
     pg = p.goto("#/library")
@@ -428,6 +445,7 @@ def _counter(pg, platform, ptype):
     return int(out.get_attribute("data-used")), int(out.get_attribute("data-limit")), art
 
 
+@pytest.mark.legacy_ui
 def test_counters_use_each_platforms_unit_and_agree_with_the_python_metrics(ui):
     p = ui()
     pg = p.goto("#/previews")
@@ -450,6 +468,7 @@ def test_counters_use_each_platforms_unit_and_agree_with_the_python_metrics(ui):
     assert "approximate" in art.get_attribute("aria-label").lower() and "Approximate" in art.inner_text()
 
 
+@pytest.mark.legacy_ui
 def test_fold_is_drawn_per_platform_and_the_toggle_hides_the_remainder(ui):
     p = ui()
     pg = p.goto("#/previews")
@@ -464,6 +483,7 @@ def test_fold_is_drawn_per_platform_and_the_toggle_hides_the_remainder(ui):
     assert x.locator(".pv-more").count() == 0                                # 275 weighted chars: no fold
 
 
+@pytest.mark.legacy_ui
 def test_instagram_grid_crop_and_safe_zones(ui):
     p = ui()
     pg = p.goto("#/previews")
@@ -485,6 +505,7 @@ def test_instagram_grid_crop_and_safe_zones(ui):
     assert abs(top["height"] / box["height"] - 0.13) < 0.01 and abs(bottom["height"] / box["height"] - 0.20) < 0.01
 
 
+@pytest.mark.legacy_ui
 def test_the_editor_counter_follows_typing_and_flags_going_over(ui):
     p = ui()
     pg = p.goto(f"#/post/{SOCIAL}?variant=v_x")
@@ -497,6 +518,7 @@ def test_the_editor_counter_follows_typing_and_flags_going_over(ui):
     assert "over" in pg.locator(".pv-count-state").inner_text()
 
 
+@pytest.mark.legacy_ui
 def test_the_editor_preview_follows_the_selected_account(ui):
     p = ui()
     pg = p.goto(f"#/post/{SOCIAL}?variant=v_x")
@@ -510,6 +532,7 @@ def test_the_editor_preview_follows_the_selected_account(ui):
 
 # ---- feedback, alerts, accounts ---------------------------------------------------------------------------------------------------------
 
+@pytest.mark.legacy_ui
 def test_feedback_page_lists_open_lines_and_the_other_tabs(ui):
     p = ui()
     pg = p.goto("#/feedback")
@@ -519,6 +542,7 @@ def test_feedback_page_lists_open_lines_and_the_other_tabs(ui):
     pg.wait_for_selector(".st-empty")
 
 
+@pytest.mark.legacy_ui
 def test_alerts_show_advice_and_acknowledge(ui):
     p = ui()
     pg = p.goto("#/alerts")
@@ -528,6 +552,7 @@ def test_alerts_show_advice_and_acknowledge(ui):
     pg.wait_for_selector("button:has-text('Acknowledged')")
 
 
+@pytest.mark.legacy_ui
 def test_accounts_show_state_in_words_and_never_credential_values(ui):
     p = ui()
     pg = p.goto("#/accounts")
@@ -544,6 +569,7 @@ def test_accounts_show_state_in_words_and_never_credential_values(ui):
 
 # ---- narrow screens and motion ----------------------------------------------------------------------------------------------------------
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize("route", [f"#/post/{POST}?variant=v_fb", "#/review", "#/library", "#/feedback", "#/alerts", "#/accounts", "#/previews"])
 def test_no_horizontal_scroll_at_390px(ui, route):
     p = ui(width=390, height=844)
@@ -553,6 +579,7 @@ def test_no_horizontal_scroll_at_390px(ui, route):
     assert sw <= 391, f"{route}: page is {sw}px wide"
 
 
+@pytest.mark.legacy_ui
 def test_buttons_and_fields_are_touch_sized_at_390px(ui):
     p = ui(width=390, height=844)
     pg = p.goto(f"#/post/{POST}?variant=v_fb")
@@ -562,6 +589,7 @@ def test_buttons_and_fields_are_touch_sized_at_390px(ui):
     assert small == 0
 
 
+@pytest.mark.legacy_ui
 def test_reduced_motion_is_respected(ui):
     p = ui(reduced_motion="reduce")
     pg = p.goto(f"#/post/{POST}?variant=v_fb")
@@ -571,6 +599,7 @@ def test_reduced_motion_is_respected(ui):
     assert dur in ("0s", "0.00001s", "1e-05s") or float(dur.rstrip("s").split(",")[0]) < 0.01
 
 
+@pytest.mark.legacy_ui
 def test_roles_and_labels(ui):
     p = ui()
     pg = p.goto(f"#/post/{POST}?variant=v_fb")

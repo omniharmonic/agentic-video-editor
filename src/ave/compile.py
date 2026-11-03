@@ -513,7 +513,12 @@ class _Reader:
         if start < 0:
             _warn(self.warnings, f"{self.label}: audio asked for before the start of {self.path.name}; silence is used")
         coarse = a // SR
-        proc = ffutil.run(["-ss", str(coarse), "-i", str(self.path), "-vn", "-map", "0:a:0",
+        # No `-ss` at all for the first second: FFmpeg 9 treats `-ss 0` as a seek and then reads AAC from the container's pre-roll
+        # (1024 samples earlier than a plain read), so reads that began at second 0 and reads after a seek disagreed by one AAC frame.
+        # Caveat: this assumes the audio stream starts at 0 (true for AAC in mp4 after the priming is dropped). A container whose audio
+        # start_time is non-zero would put every read, seeked or not, on that offset; none of the sources AVE ingests have one.
+        seek = ["-ss", str(coarse)] if coarse else []
+        proc = ffutil.run([*seek, "-i", str(self.path), "-vn", "-map", "0:a:0",
                            "-af", f"aresample={SR},atrim=start_sample={a - coarse * SR}:end_sample={b - coarse * SR}",
                            "-ac", str(self.channels), "-f", "f32le", "-"], text=False)
         raw = np.frombuffer(proc.stdout, np.float32)

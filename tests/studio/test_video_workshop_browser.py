@@ -10,6 +10,7 @@ from .test_workbench_browser import browser,rig,wait_for
 
 EVIDENCE=Path(tempfile.gettempdir())/'ave-media-video-fix1-evidence';EVIDENCE.mkdir(exist_ok=True)
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize('width',[1440,390])
 def test_video_gui(rig,browser,width,tmp_path):
     studio,server=rig
@@ -38,6 +39,7 @@ def test_video_gui(rig,browser,width,tmp_path):
         jobs=server.app.workbench.overview()['jobs'];(EVIDENCE/f'video-{width}.json').write_text(json.dumps({'original_sha256':original,'jobs':jobs},indent=2))
     finally:page.close()
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize('width',[1440,390])
 def test_transcribe_adopt_caption_and_audio_gui(rig,browser,width):
     if not os.getenv('AVE_VIDEO_SPEECH_FIXTURE'):
@@ -66,6 +68,7 @@ def test_transcribe_adopt_caption_and_audio_gui(rig,browser,width):
     finally:page.close()
 
 
+@pytest.mark.legacy_ui
 def test_hour_source_bounded_gui_and_near_end_render(browser):
     if not os.getenv('AVE_VIDEO_LONG_ACCEPTANCE'):
         pytest.skip('Provisioned hour-source acceptance: set AVE_VIDEO_LONG_ACCEPTANCE (see VIDEO_ACCEPTANCE.md)')
@@ -91,6 +94,7 @@ def test_hour_source_bounded_gui_and_near_end_render(browser):
     finally:page.close();server.shutdown();thread.join(5);server.server_close()
 
 
+@pytest.mark.legacy_ui
 def test_independent_sources_trim_split_join_reorder_gui(browser):
     if not os.getenv('AVE_VIDEO_LONG_ACCEPTANCE'):
         pytest.skip('Provisioned independent speech acceptance: set AVE_VIDEO_LONG_ACCEPTANCE (see VIDEO_ACCEPTANCE.md)')
@@ -114,6 +118,7 @@ def test_independent_sources_trim_split_join_reorder_gui(browser):
     finally:page.close();server.shutdown();thread.join(5);server.server_close()
 
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize('width',[1440,390])
 def test_portable_kept_source_click_captions_and_playback(rig,browser,width,tmp_path):
     from .video_fixtures import tone,registered_kept
@@ -149,6 +154,7 @@ def test_portable_kept_source_click_captions_and_playback(rig,browser,width,tmp_
     finally:page.close()
 
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize('width',[1440,390])
 def test_occurrence_cleanup_worker_and_restore_gui(rig,browser,width,tmp_path):
     import numpy as np

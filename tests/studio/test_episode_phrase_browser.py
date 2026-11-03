@@ -29,6 +29,7 @@ def open_editor(page,server):
     page.goto(server.url()+'#/workbench');page.get_by_role('button',name='Episodes',exact=True).click();page.get_by_role('button',name='Synthetic conversation',exact=True).click();page.get_by_role('button',name='Revise sound & captions',exact=True).click();page.get_by_text('Correct caption wording',exact=True).click()
 
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize('width',[1440,390])
 def test_phrase_cross_page_reopens_full_saved_range_and_restores(rig,browser,tmp_path,synthetic_final_asr,width):
     studio,server=rig;eid,app,source,before=phrase_ready(studio,tmp_path);server.app.native_authority=FakeAuthority();context=browser.new_context(viewport={'width':width,'height':1000 if width==1440 else 844});page=context.new_page();page.set_default_timeout(30000)
@@ -43,6 +44,7 @@ def test_phrase_cross_page_reopens_full_saved_range_and_restores(rig,browser,tmp
     finally:context.close();app.close()
 
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize('boundary',['continuity_id','occurrence_id','transcript_sha256'])
 def test_phrase_ignores_replaced_delayed_page_and_refuses_boundary(rig,browser,tmp_path,synthetic_final_asr,boundary):
     studio,server=rig;eid,app,_,_=phrase_ready(studio,tmp_path);context=browser.new_context();page=context.new_page();pending=[];errors=[];page.on('pageerror',lambda error:errors.append(str(error)))
@@ -64,6 +66,7 @@ def test_phrase_ignores_replaced_delayed_page_and_refuses_boundary(rig,browser,t
         context.close();app.close()
 
 
+@pytest.mark.legacy_ui
 def test_phrase_current_changed_rough_clears_stale_controls(rig,browser,tmp_path,synthetic_final_asr):
     studio,server=rig;eid,app,_,_=phrase_ready(studio,tmp_path);context=browser.new_context();page=context.new_page()
     try:
@@ -73,6 +76,7 @@ def test_phrase_current_changed_rough_clears_stale_controls(rig,browser,tmp_path
     finally:context.close();app.close()
 
 
+@pytest.mark.legacy_ui
 def test_rough_shows_nonlexical_decisions_linked_by_cut_id(rig,browser,tmp_path,synthetic_final_asr):
     from .test_episode_release import finished
     studio,server=rig;eid,_,app,_=finished(studio,tmp_path);context=browser.new_context();page=context.new_page()
@@ -89,6 +93,7 @@ def test_rough_shows_nonlexical_decisions_linked_by_cut_id(rig,browser,tmp_path,
     finally:context.close();app.close()
 
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize('width',[1440,390])
 def test_deep_rough_audition_reveals_player_and_returns_exact_decision(rig,browser,tmp_path,synthetic_final_asr,width):
     from .test_episode_release import finished

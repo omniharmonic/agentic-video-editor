@@ -26,6 +26,7 @@ def test_bound_options_preserve_legacy_hashes():
     assert safety.meta_hash(new)!=safety.meta_hash({**new,'delivery':{'method':'automatic'}})
 
 
+@pytest.mark.legacy_ui
 def test_composer_first_capture(rig,browser):
     from pathlib import Path
     studio,server=rig;page=browser.new_page(viewport={'width':1440,'height':960});errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
@@ -36,6 +37,7 @@ def test_composer_first_capture(rig,browser):
         assert not errors,errors
     finally:page.close()
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize('width,height',[(1440,960),(1024,768),(390,844)])
 def test_real_carousel_and_video_screen(rig,browser,width,height):
     from pathlib import Path
@@ -134,6 +136,7 @@ def test_actual_frame_extraction_and_captured_revision(tmp_path):
     assert store.load_post(studio.sp,post['id'])==p
 
 
+@pytest.mark.legacy_ui
 def test_fresh_profile_import_caption_group_and_reload(rig,browser,tmp_path):
     from PIL import Image
     from pathlib import Path
@@ -154,6 +157,7 @@ def test_fresh_profile_import_caption_group_and_reload(rig,browser,tmp_path):
     finally:page.close()
 
 
+@pytest.mark.legacy_ui
 def test_dirty_failure_navigation_and_conflict_preserve_text(rig,browser):
     from tests.studio.test_production_ui import wait_for
     studio,server=rig;page=browser.new_page(viewport={'width':1440,'height':960});errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
@@ -173,6 +177,7 @@ def test_dirty_failure_navigation_and_conflict_preserve_text(rig,browser):
     finally:page.close()
 
 
+@pytest.mark.legacy_ui
 def test_carousel_keyboard_pointer_alt_undo_and_inherit(rig,browser):
     from tests.studio.test_production_ui import wait_for
     studio,server=rig;page=browser.new_page(viewport={'width':1440,'height':960});post=next(p for p in store.list_posts(studio.sp) if len(p['media'])==2 and p['media'][0]['role']=='image');vid=post['variants'][0]['id']
@@ -275,6 +280,7 @@ def test_version_three_approval_bound_options_and_reviewed_zip(tmp_path,monkeypa
     assert store.load_post(sp,post['id'])['variants'][0]['delivery']['method']=='manual'
 
 
+@pytest.mark.legacy_ui
 def test_touch_reorder_back_forward_and_visible_caption(rig,browser):
     from tests.studio.test_production_ui import wait_for
     studio,server=rig;context=browser.new_context(viewport={'width':390,'height':844},is_mobile=True,has_touch=True);page=context.new_page();post=next(p for p in store.list_posts(studio.sp) if len(p['media'])==2 and p['media'][0]['role']=='image')
@@ -293,6 +299,7 @@ def test_touch_reorder_back_forward_and_visible_caption(rig,browser):
     finally:context.close()
 
 
+@pytest.mark.legacy_ui
 def test_production_source_drafts_and_anchors_survive_navigation(rig,browser):
     from tests.studio.test_production_ui import wait_for
     studio,server=rig;page=browser.new_page(viewport={'width':1440,'height':960});post=next(p for p in store.list_posts(studio.sp) if p['media'] and p['production']['status']!='ready' and not any(v.get('result') for v in p['variants']));pid=post['id']
@@ -310,6 +317,7 @@ def test_production_source_drafts_and_anchors_survive_navigation(rig,browser):
     finally:page.close()
 
 
+@pytest.mark.legacy_ui
 def test_second_channel_profile_edit_groups_and_prepare_review(rig,browser):
     from tests.studio.test_production_ui import wait_for
     studio,server=rig;profile=authoring.profile_save(studio,{'platform':'instagram','profile':{'display_name':'Second notebook'}},AGENT);post=next(p for p in store.list_posts(studio.sp) if len(p['media'])==2 and p['media'][0]['role']=='image');page=browser.new_page(viewport={'width':1440,'height':960})
@@ -331,6 +339,7 @@ def test_second_channel_profile_edit_groups_and_prepare_review(rig,browser):
     finally:page.close()
 
 
+@pytest.mark.legacy_ui
 def test_gui_frame_cover_keeps_dirty_caption_and_source_bytes(rig,browser):
     from tests.studio.test_production_ui import wait_for
     studio,server=rig;post=next(p for p in store.list_posts(studio.sp) if any(m['role']=='video' for m in p['media']));video=next(m for m in post['media'] if m['role']=='video');record=store.read_assets(studio.sp)[video['asset']];before=(studio.sp.root/record['file']).read_bytes();page=browser.new_page(viewport={'width':1024,'height':768});route=f'**/api/studio/posts/{post["id"]}/edit'
@@ -361,6 +370,7 @@ def test_frame_rejects_nonfinite_out_of_range_and_cancelled_job(tmp_path):
     assert store.load_post(studio.sp,post['id'])==post
 
 
+@pytest.mark.legacy_ui
 def test_local_pins_reported_context_avatar_and_profile_delete(rig,browser):
     from tests.studio.test_production_ui import wait_for
     from ave.studio import feed_plan
@@ -374,6 +384,7 @@ def test_local_pins_reported_context_avatar_and_profile_delete(rig,browser):
     finally:page.close()
 
 
+@pytest.mark.legacy_ui
 def test_legacy_slot_order_matches_preview_alt_and_payload(rig,browser):
     from tests.studio.test_production_ui import wait_for
     from ave.studio.sync import _spec

@@ -50,6 +50,7 @@ def test_undo_scope_and_overlapping_change_refused(tmp_path):
     assert projected(s,p,vid)[0]['alt']=='Later overlapping edit'
 
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize('in_flight',[False,True])
 def test_hook_uses_dirty_body_and_pending_provenance(rig,browser,in_flight):
     s,server=rig;p=carousel(s);vid=p['variants'][0]['id']
@@ -78,6 +79,7 @@ def test_hook_uses_dirty_body_and_pending_provenance(rig,browser,in_flight):
     finally:page.close()
 
 
+@pytest.mark.legacy_ui
 def test_conflict_discard_switch_saves_latest_and_clears_undo(rig,browser):
     s,server=rig;p=carousel(s);first=p['variants'][0]['id']
     profile=authoring.profile_save(s,{'platform':'instagram','profile':{'display_name':'Second profile'}},AGENT)
@@ -99,6 +101,7 @@ def test_conflict_discard_switch_saves_latest_and_clears_undo(rig,browser):
     finally:page.close()
 
 
+@pytest.mark.legacy_ui
 def test_undo_last_slide_accessible_and_gui_later_alt_preserved(rig,browser):
     s,server=rig;p=carousel(s);page=browser.new_page(viewport={'width':390,'height':844})
     try:
@@ -113,6 +116,7 @@ def test_undo_last_slide_accessible_and_gui_later_alt_preserved(rig,browser):
     finally:page.close()
 
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize('width,height',[(390,844),(1024,768)])
 def test_cover_focal_touch_preview_export_and_fresh_reel_presence(rig,browser,width,height):
     from ave.studio.manual_export import build as export
@@ -189,6 +193,7 @@ def test_gapped_legacy_undo_restores_inheritance_and_follows_shared(tmp_path,lat
     assert (saved['variants'][0]['media'] is None)==(not later_alt)
 
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize('target',['content','cover'])
 def test_existing_focal_keyboard_pointer_undo_keeps_saved_snapshot(rig,browser,target):
     s,server=rig
@@ -227,6 +232,7 @@ def test_existing_focal_keyboard_pointer_undo_keeps_saved_snapshot(rig,browser,t
     finally:page.close()
 
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize('target',['content','cover'])
 def test_rapid_keyboard_focal_axes_wait_for_saved_revision(rig,browser,target):
     s,server=rig;p=next(p for p in store.list_posts(s.sp) if any(m['role']=='video' for m in p['media']))
@@ -257,6 +263,7 @@ def test_rapid_keyboard_focal_axes_wait_for_saved_revision(rig,browser,target):
     finally:page.close()
 
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize('target',['content','cover'])
 def test_focal_third_keyboard_edit_after_redraw_preserves_pending_axis(rig,browser,target):
     s,server=rig;p=next(p for p in store.list_posts(s.sp) if any(m['role']=='video' for m in p['media']))

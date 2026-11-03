@@ -82,6 +82,7 @@ def touch_move(page,source,target):
     cdp.detach()
 
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize('width,touch',[(1360,False),(390,True)])
 def test_whole_image_drag_saves_real_plan_and_phone_uses_same_order(planning,browser,width,touch):
     studio,server=planning
@@ -114,6 +115,7 @@ def test_whole_image_drag_saves_real_plan_and_phone_uses_same_order(planning,bro
         context.close()
 
 
+@pytest.mark.legacy_ui
 def test_keyboard_move_and_escape_preserve_state(planning,browser):
     studio,server=planning
     context,page=open_page(browser,server)
@@ -136,6 +138,7 @@ def test_keyboard_move_and_escape_preserve_state(planning,browser):
         context.close()
 
 
+@pytest.mark.legacy_ui
 def test_conflicting_second_window_reload_is_truthful(planning,browser):
     studio,server=planning
     context,first=open_page(browser,server)
@@ -155,6 +158,7 @@ def test_conflicting_second_window_reload_is_truthful(planning,browser):
         context.close()
 
 
+@pytest.mark.legacy_ui
 def test_touch_browsing_scrolls_until_arrange_is_enabled(planning,browser):
     studio,server=planning
     context,page=open_page(browser,server,390,True)
@@ -180,6 +184,7 @@ def test_touch_browsing_scrolls_until_arrange_is_enabled(planning,browser):
         context.close()
 
 
+@pytest.mark.legacy_ui
 def test_seventy_five_drafts_remain_reachable_and_selection_survives_reload(planning,browser):
     from ave.studio import store,model
     from ave.studio.events import AGENT
@@ -205,6 +210,7 @@ def test_seventy_five_drafts_remain_reachable_and_selection_survives_reload(plan
         context.close()
 
 
+@pytest.mark.legacy_ui
 def test_reel_video_preview_and_stories_are_separate_from_posts(planning,browser):
     import shutil,subprocess
     from ave.library import add_file
@@ -247,6 +253,7 @@ def test_reel_video_preview_and_stories_are_separate_from_posts(planning,browser
         context.close()
 
 
+@pytest.mark.legacy_ui
 def test_keyboard_navigation_scrolls_focused_tile_into_view_without_refresh_jumps(planning,browser):
     from ave.studio import store, model
     from ave.studio.events import AGENT

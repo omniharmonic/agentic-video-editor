@@ -28,6 +28,7 @@ def prepare_reviewed(rig, *, method="manual", publishers=None):
     return p,item
 
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize('width,height',[(1440,960),(1024,768),(390,844)])
 def test_manual_history_form_and_report(rig,browser,width,height):
     studio,server=rig
@@ -67,6 +68,7 @@ def test_manual_history_form_and_report(rig,browser,width,height):
     finally:ctx.close()
 
 
+@pytest.mark.legacy_ui
 def test_browser_shows_native_dependency_and_cannot_report(rig,browser):
     studio,server=rig
     p=next(p for p in store.list_posts(studio.sp) if len(p['media'])==2 and p['media'][0]['role']=='image');v=p['variants'][0]
@@ -80,6 +82,7 @@ def test_browser_shows_native_dependency_and_cannot_report(rig,browser):
     finally:page.close()
 
 
+@pytest.mark.legacy_ui
 def test_reviewed_form_without_native_bridge_is_honest(rig,browser):
     studio,server=rig;p,item=prepare_reviewed(rig)
     manual_export.build(studio.sp,p['id'],p['variants'][0]['id'],expected_rev=p['rev'],now=studio.now())
@@ -100,6 +103,7 @@ def test_reviewed_form_without_native_bridge_is_honest(rig,browser):
     finally:page.close()
 
 
+@pytest.mark.legacy_ui
 def test_real_pdf_import_and_delivery_capability_details(rig,browser,tmp_path):
     from PIL import Image
     from ave.studio import model
@@ -126,6 +130,7 @@ def test_real_pdf_import_and_delivery_capability_details(rig,browser,tmp_path):
     finally:page.close()
 
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize('phase,source,adjunct,width',[
     ('published','provider_response','uncertain',1440),('published','provider_response','uncertain',390),
     ('published','provider_response','failed',1024),('published','provider_response','published',390),
@@ -199,6 +204,7 @@ def pending_operation(rig):
     return p,item,a
 
 
+@pytest.mark.legacy_ui
 def test_pending_status_refresh_button_settles_failure_without_send(rig,browser):
     from ave.studio import dispatch,seal
     studio,server=rig;p,item,a=pending_operation(rig);v=p['variants'][0]

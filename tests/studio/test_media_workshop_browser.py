@@ -14,6 +14,7 @@ from .test_media_workshop import spec
 
 EVIDENCE=Path('/private/tmp/ave-media-image-evidence');EVIDENCE.mkdir(exist_ok=True)
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize('width',[1440,390])
 def test_canvas_journey(rig,browser,width,tmp_path):
     studio,server=rig
@@ -60,6 +61,7 @@ def test_canvas_journey(rig,browser,width,tmp_path):
         jobs=server.app.workbench.overview()['jobs'];(EVIDENCE/f'journey-{width}.json').write_text(json.dumps({'source':a,'post':saved,'jobs':jobs},indent=2))
     finally:page.close()
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize('width',[1440,390])
 def test_real_photo_and_split(rig,browser,width):
     studio,server=rig
@@ -79,6 +81,7 @@ def test_real_photo_and_split(rig,browser,width):
         assert hashlib.sha256(p.read_bytes()).hexdigest()==a['sha256']
     finally:page.close()
 
+@pytest.mark.legacy_ui
 def test_75_asset_actual_lazy_renditions(rig,browser):
     studio,server=rig;root=Path('/private/tmp/ave-preview-load-fixtures-20261029')
     if not (root/'manifest.json').exists():pytest.skip('Prepared75 inputs unavailable')
@@ -104,6 +107,7 @@ def test_75_asset_actual_lazy_renditions(rig,browser):
         page.screenshot(path=str(EVIDENCE/'75-library.png'))
     finally:page.close()
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize('width',[1440,390])
 def test_manuscript_gui_first_middle_final(rig,browser,width):
     studio,server=rig;p=Path('/private/tmp/ave-manuscript-fixtures-20261029/long-manuscript.docx')
@@ -137,6 +141,7 @@ def test_manuscript_gui_first_middle_final(rig,browser,width):
         assert hashlib.sha256(p.read_bytes()).hexdigest()==src['sha256']
     finally:page.close()
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize('width',[1440,390])
 def test_reopened_design_layer_sources_and_fit(rig,browser,width,tmp_path):
     from ave.studio import media_workshop as W
@@ -164,6 +169,7 @@ def test_reopened_design_layer_sources_and_fit(rig,browser,width,tmp_path):
         assert canvas.evaluate('(el)=>[el.width,el.height]')==[1080,1350]
     finally:page.close()
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize('width',[1440,390])
 def test_mixed_document_gui_discloses_missing_text(rig,browser,width,tmp_path):
     from .test_media_workshop import mixed_pdf,write_docx

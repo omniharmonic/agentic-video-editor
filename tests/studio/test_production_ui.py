@@ -83,6 +83,7 @@ def wait_for(fn,page):
     assert fn()
 
 
+@pytest.mark.legacy_ui
 def test_production_browser_journey(rig,browser):
     studio,server=rig;page=browser.new_page(viewport={'width':1440,'height':960});errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
     try:
@@ -113,6 +114,7 @@ def test_production_browser_journey(rig,browser):
     finally:page.close()
 
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize('width,height',[(1440,960),(1024,768),(390,844)])
 def test_populated_views_and_theme(rig,browser,width,height):
     studio,server=rig;context=browser.new_context(viewport={'width':width,'height':height},color_scheme='dark');page=context.new_page();out=Path('/tmp/ave-production-evidence');out.mkdir(exist_ok=True)
@@ -132,6 +134,7 @@ def test_populated_views_and_theme(rig,browser,width,height):
     finally:context.close()
 
 
+@pytest.mark.legacy_ui
 def test_campaign_and_saved_view_journey(rig,browser):
     studio,server=rig;page=browser.new_page(viewport={'width':1440,'height':960})
     try:
@@ -162,6 +165,7 @@ def test_production_api_conflict_media_and_no_queue_follow(rig):
         assert c.req('GET',projected['thumbnail']['url'])[0]==200
 
 
+@pytest.mark.legacy_ui
 def test_keyboard_edit_conflict_recovery_and_large_inventory(rig,browser):
     studio,server=rig
     for i in range(63):studio.create_post(idea=f'Writing idea {i:02}')
@@ -203,6 +207,7 @@ def review_rig(tmp_path):
     server.shutdown();thread.join(5);server.server_close()
 
 
+@pytest.mark.legacy_ui
 def test_review_brief_preserves_sources_and_draft_through_stage_and_poll(review_rig,browser):
     studio,server,p,c,person,sources=review_rig
     page=browser.new_page(viewport={'width':1440,'height':960})
@@ -240,6 +245,7 @@ def test_review_brief_preserves_sources_and_draft_through_stage_and_poll(review_
     finally:page.close()
 
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize('absent_cadence',[False,True])
 def test_review_campaign_goal_preserves_each_cadence(review_rig,browser,absent_cadence):
     import json
@@ -267,6 +273,7 @@ def test_review_campaign_goal_preserves_each_cadence(review_rig,browser,absent_c
     finally:page.close()
 
 
+@pytest.mark.legacy_ui
 def test_review_rejected_controls_restore_authoritative_state(review_rig,browser):
     studio,server,p,c,person,sources=review_rig;page=browser.new_page(viewport={'width':1440,'height':960});errors=[]
     page.on('pageerror',lambda e:errors.append(str(e)))
@@ -317,6 +324,7 @@ def test_review_rejected_controls_restore_authoritative_state(review_rig,browser
     finally:page.close()
 
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize('case,label',[('valid','Approved'),('stale','Approval stale'),('expired','Approval expired'),('uncertain','Delivery uncertain')])
 def test_review_release_labels_follow_authoritative_flags(review_rig,browser,monkeypatch,case,label):
     from ave.studio import state,policy
@@ -344,6 +352,7 @@ def test_review_release_labels_follow_authoritative_flags(review_rig,browser,mon
     finally:page.close()
 
 
+@pytest.mark.legacy_ui
 def test_review_workflow_order_retirement_and_mixed_views(review_rig,browser):
     studio,server,p,c,person,sources=review_rig;page=browser.new_page(viewport={'width':1440,'height':960})
     order=['blocked','writing','idea','review','ready']

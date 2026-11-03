@@ -19,6 +19,7 @@ def browser():
         b.close()
 
 
+@pytest.mark.legacy_ui
 @pytest.mark.parametrize('width',[1440,390])
 def test_phone_preview_and_original_media_download(tmp_path,browser,width):
     built=build_studio(tmp_path)
@@ -73,6 +74,7 @@ def test_phone_preview_and_original_media_download(tmp_path,browser,width):
         page.close();server.shutdown();worker.join(5);server.server_close()
 
 
+@pytest.mark.legacy_ui
 def test_pipeline_board_and_table_share_real_post_inventory(tmp_path,browser):
     built=build_studio(tmp_path)
     from ave.studio import store
@@ -134,6 +136,7 @@ def test_numbered_layout_manual_download_uses_its_actual_work_path(tmp_path):
         server.shutdown();worker.join(5);server.server_close()
 
 
+@pytest.mark.legacy_ui
 def test_phone_carousel_matches_export_order_and_composed_caption(tmp_path,browser):
     from test_manual_export import make_post
     from ave.studio.project import StudioProject

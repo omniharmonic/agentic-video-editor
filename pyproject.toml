@@ -84,4 +84,5 @@ markers = [
   "apple: needs macOS / Apple frameworks (Vision, VideoToolbox, FluidAudio); skipped elsewhere",
   "resolve: needs a running DaVinci Resolve",
   "network: needs the internet",
+  "legacy_ui: drives a page of the old studio shell, which the Room replaces; excluded from CI",
 ]
