@@ -111,3 +111,21 @@ def test_assemble_copies_channel_map_to_sources(synth_episode):
     doc = assemble.build(ep, (640, 360))
     assert doc["sources"]["A"]["channel_map"] == cm
     assert "channel_map" not in doc["sources"]["B"]
+
+
+def test_analysis_context_default_compatibility_and_native_fixed_namespace(tmp_path):
+    from ave.episode import Episode,write_json
+    from ave.audio import analysis_wav_path,REGISTERED_ANALYSIS_CONTEXT
+    import hashlib
+    ep=Episode(tmp_path/'episode');ep.create()
+    assert ep.analysis_context is None
+    assert analysis_wav_path(ep,'raw/cam/take.mov')==ep.work/'audio/raw__cam__take.16k.wav'
+    # Editable episode metadata cannot request a different analysis destination.
+    write_json(ep.meta_path,{'analysis_context':REGISTERED_ANALYSIS_CONTEXT})
+    reloaded=Episode(ep.root);assert reloaded.analysis_context is None
+    assert analysis_wav_path(reloaded,'raw/cam/take.mov')==ep.work/'audio/raw__cam__take.16k.wav'
+    reloaded.analysis_context=REGISTERED_ANALYSIS_CONTEXT
+    digest=hashlib.sha256(b'raw/cam/take.mov').hexdigest()
+    assert analysis_wav_path(reloaded,'raw/cam/take.mov')==ep.work/'audio'/REGISTERED_ANALYSIS_CONTEXT/(digest+'.16k.wav')
+    reloaded.analysis_context='/tmp/arbitrary'
+    with __import__('pytest').raises(ValueError,match='Unknown analysis context'):analysis_wav_path(reloaded,'raw/cam/take.mov')

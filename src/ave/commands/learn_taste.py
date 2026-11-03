@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 import json
 
-from .. import taste
+from .. import humanpresence, taste
 from ..episode import Episode
 
 
@@ -32,6 +32,8 @@ def cmd_suggest(a) -> int:
 
 
 def cmd_apply(a) -> int:
+    if not a.dry_run:
+        humanpresence.require_human("applying taste weights", "ave learn taste apply %s" % a.episode)
     r = taste.apply_suggestion(_ep(a), a.also, a.taste, dry_run=a.dry_run)
     print(json.dumps(r, indent=2, ensure_ascii=False))
     return 0

@@ -1,0 +1,38 @@
+[
+  {
+    "note": "UNVERIFIED: response shapes written from Pixabay's public API documentation as remembered; never recorded from a live call. The video route is listed first because FakeHttp matches by URL substring.",
+    "method": "GET",
+    "url": "pixabay.com/api/videos/",
+    "response": {
+      "total": 1, "totalHits": 1,
+      "hits": [
+        {"id": 4401, "pageURL": "https://pixabay.com/videos/bread-oven-4401/", "type": "film", "tags": "bread, oven, baking",
+         "duration": 18, "picture_id": "11111111",
+         "videos": {
+           "large": {"url": "https://cdn.pixabay.com/video/2020/01/01/4401-large.mp4", "width": 1920, "height": 1080, "size": 9000000},
+           "medium": {"url": "https://cdn.pixabay.com/video/2020/01/01/4401-medium.mp4", "width": 1280, "height": 720, "size": 4000000},
+           "small": {"url": "https://cdn.pixabay.com/video/2020/01/01/4401-small.mp4", "width": 960, "height": 540, "size": 2000000},
+           "tiny": {"url": "https://cdn.pixabay.com/video/2020/01/01/4401-tiny.mp4", "width": 640, "height": 360, "size": 900000}},
+         "views": 1, "downloads": 1, "likes": 1, "comments": 0, "user_id": 12, "user": "Baker"}
+      ]
+    }
+  },
+  {
+    "method": "GET",
+    "url": "pixabay.com/api/",
+    "response": {
+      "total": 4692, "totalHits": 500,
+      "hits": [
+        {"id": 195893, "pageURL": "https://pixabay.com/photos/bread-crust-195893/", "type": "photo", "tags": "bread, crust, kitchen",
+         "previewURL": "https://cdn.pixabay.com/photo/2013/10/15/09/12/bread-195893_150.jpg", "previewWidth": 150, "previewHeight": 99,
+         "webformatURL": "https://pixabay.com/get/g1f2e3d_640.jpg", "webformatWidth": 640, "webformatHeight": 426,
+         "largeImageURL": "https://pixabay.com/get/g1f2e3d_1280.jpg", "imageWidth": 4000, "imageHeight": 2667, "imageSize": 4731420,
+         "views": 7671, "downloads": 6439, "likes": 5, "user_id": 48777, "user": "Josch13"},
+        {"id": 88, "pageURL": "https://pixabay.com/photos/loaf-88/", "type": "photo", "tags": "loaf, rustic",
+         "previewURL": "https://cdn.pixabay.com/photo/p88_150.jpg", "webformatURL": "https://pixabay.com/get/g88_640.jpg",
+         "webformatWidth": 427, "webformatHeight": 640, "largeImageURL": "https://pixabay.com/get/g88_1280.jpg",
+         "imageWidth": 2000, "imageHeight": 3000, "user_id": 5, "user": "Maker"}
+      ]
+    }
+  }
+]

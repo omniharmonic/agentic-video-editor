@@ -1,0 +1,47 @@
+{
+  "method": "GET",
+  "path": "/api/studio/changes",
+  "status": 200,
+  "query": {
+    "cursor": "ev:18273"
+  },
+  "response": {
+    "cursor": "ev:18691",
+    "events": [
+      {
+        "ts": "2026-10-19T17:30:00Z",
+        "actor": {
+          "kind": "human",
+          "name": "maren"
+        },
+        "post": "p_20261102_k3f9",
+        "variant": "v_ig",
+        "op": "approved",
+        "rev": 7,
+        "before_sha": null,
+        "after_sha": null,
+        "detail": {
+          "queue_id": "20261019-101500-day-3-the-star-a1b2",
+          "source": "studio-ui"
+        }
+      },
+      {
+        "ts": "2026-10-19T18:02:00Z",
+        "actor": {
+          "kind": "human",
+          "name": "maren"
+        },
+        "post": "p_20261102_k3f9",
+        "variant": "v_ig",
+        "op": "move",
+        "rev": 7,
+        "before_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "after_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "detail": {
+          "from": "2026-11-01T09:00",
+          "to": "2026-11-02T09:00"
+        }
+      }
+    ]
+  }
+}

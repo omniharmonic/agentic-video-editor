@@ -63,12 +63,12 @@ def episode_to_output(doc: dict, e: float) -> float:
 
 # ---- reading a chapter list ---------------------------------------------------------------------
 
-def chapters_path(ep: Episode) -> Path:
-    return ep.work / "chapters.json"
+def chapters_path(ep: Episode, name: str | None = None) -> Path:
+    return ep.work / (f"chapters.{name}.json" if name else "chapters.json")
 
 
-def load_list(ep: Episode) -> list[dict] | None:
-    p = chapters_path(ep)
+def load_list(ep: Episode, name: str | None = None) -> list[dict] | None:
+    p = chapters_path(ep, name)
     if not p.is_file():
         return None
     data = read_json(p)
@@ -168,12 +168,16 @@ def derive_breaks(transcript: dict, policy: dict) -> list[dict]:
     return out
 
 
-def build(ep: Episode, final_doc: dict | None, duration: float, policy: dict) -> dict:
-    """Resolve the chapter list for the final video. Returns {"chapters", "source", "draft_titles", "note"}."""
-    given = load_list(ep)
-    if given:
-        cs = normalise(given, duration, policy["chapters"]["youtube_min_gap_s"])
-        return {"chapters": cs, "source": "chapters.json", "draft_titles": False, "note": ""}
+def build(ep: Episode, final_doc: dict | None, duration: float, policy: dict, name: str | None = None, shared: bool = True) -> dict:
+    """Resolve the chapter list for one final video. Returns {"chapters", "source", "draft_titles", "note"}.
+
+    `name` reads work/chapters.<name>.json first. `shared=False` ignores work/chapters.json: with several finals it cannot say which
+    video its times belong to, and a session's chapters on another session's audio are wrong without looking wrong."""
+    for src in ([name] if name else []) + ([None] if shared else []):
+        given = load_list(ep, src)
+        if given:
+            cs = normalise(given, duration, policy["chapters"]["youtube_min_gap_s"])
+            return {"chapters": cs, "source": chapters_path(ep, src).name, "draft_titles": False, "note": ""}
     tpath = ep.work / "transcript.json"
     if not tpath.is_file():
         return {"chapters": [], "source": None, "draft_titles": False,
@@ -189,7 +193,7 @@ def build(ep: Episode, final_doc: dict | None, duration: float, policy: dict) ->
     cs = [{"start": episode_to_output(final_doc, b["start"]), "title": b["title"]} for b in br]
     return {"chapters": normalise(cs, duration, policy["chapters"]["youtube_min_gap_s"]), "source": "transcript topic breaks",
             "draft_titles": True,
-            "note": "chapter titles are machine drafts (the words that mark each section): write work/chapters.json to replace them"}
+            "note": f"chapter titles are machine drafts (the words that mark each section): write work/{chapters_path(ep, name).name} to replace them"}
 
 
 def youtube_block(chapters: list[dict], policy: dict) -> tuple[str, list[str]]:

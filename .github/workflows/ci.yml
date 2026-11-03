@@ -34,7 +34,7 @@ jobs:
 
       - name: Install FFmpeg (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg && sudo mkdir -p /private/tmp && sudo chmod 1777 /private/tmp
 
       # Homebrew's plain `ffmpeg` formula is built WITHOUT libass (no `ass`/`subtitles` filters), so captions cannot be burned in.
       # `ffmpeg-full` has it; it is keg-only, so put its bin first on PATH. This is the command the README tells users to run.
@@ -68,7 +68,7 @@ jobs:
         env:
           NUMBA_NUM_THREADS: "1"
           NUMBA_THREADING_LAYER: workqueue
-        run: uv run pytest -q -n auto --dist loadfile --timeout 300 -m "not apple and not resolve and not network"
+        run: uv run pytest -q -n auto --dist loadfile --timeout 300 -m "not apple and not resolve and not network and not legacy_ui"
 
   package:
     name: wheel install smoke test

@@ -1,0 +1,104 @@
+# Platform preview rules for the Studio UI (spec 7.4). EVERY number here is UNVERIFIED and the UI says "approximate" next to every
+# preview. A rule may only flip to `verified: true` with the date and the source it was checked against (the burn-in reality check
+# files corrections here: one real post screenshot per platform against its preview).
+#
+# Shape: platforms.<name> has `verified`, `source`, and optional blocks. A block that carries numbers has its own `verified` + `source`.
+# `fold`:   where the feed truncates a caption behind "more".  unit: chars | lines.  For `lines`, `chars_per_line` is the wrap width.
+# `counter`: the unit the platform counts in (chars | graphemes | x_weighted) and the preview's soft limit. HARD limits come from
+#            config/platforms.yaml through the same preflight as the queue; the editor shows both when they differ.
+# `surfaces`: per post_type, how the media is drawn (aspect, crop, safe zones).
+# static/previews/previews.json is a generated mirror of this file for the browser (tests/studio/test_previews_config.py keeps them equal).
+version: 1
+approximate_label: "Approximate: layout and cut-offs are documentation-derived and not yet checked against a live post."
+
+platforms:
+  instagram:
+    verified: false
+    source: https://help.instagram.com/ (caption "more" cut and 3:4 profile grid as observed 2025; not exercised by this repo)
+    counter: {verified: false, source: config/platforms.yaml instagram.image.caption_max_chars, unit: chars, soft_limit: 2200}
+    fold: {verified: false, source: observed feed behaviour, unit: chars, at: 125}
+    hashtags: {verified: false, source: observed, advise_max: 5}
+    grid:
+      verified: false
+      source: observed 2025 profile grid change (1:1 became 3:4)
+      columns: 3
+      cell_aspect: [3, 4]          # width:height, centered cover crop
+    surfaces:
+      feed: {verified: false, source: observed, aspects: [[4, 5], [1, 1], [191, 100]], crop_to_aspect: [4, 5]}
+      carousel: {verified: false, source: observed, aspects: [[4, 5], [1, 1]], max_items: 10}
+      story: {verified: false, source: config/content.yaml safe_area 9x16, aspect: [9, 16], safe: {top: 0.13, bottom: 0.20, x: 0.085}}
+      reel: {verified: false, source: config/content.yaml safe_area 9x16, aspect: [9, 16], safe: {top: 0.13, bottom: 0.20, x: 0.085}, right_rail: 0.14}
+
+  facebook:
+    verified: false
+    source: https://developers.facebook.com/docs/pages-api/ (feed truncation as observed; not exercised by this repo)
+    counter: {verified: false, source: config/platforms.yaml facebook.image.caption_max_chars, unit: chars, soft_limit: 5000}
+    fold: {verified: false, source: observed feed behaviour, unit: lines, at: 3, chars_per_line: 52}
+    surfaces:
+      feed: {verified: false, source: observed, aspects: [[1, 1], [4, 5], [191, 100]], layout: single_or_grid}
+      carousel: {verified: false, source: observed, aspects: [[1, 1]], max_items: 10}
+      video: {verified: false, source: observed, aspect: [16, 9]}
+      reel: {verified: false, source: config/content.yaml safe_area 9x16, aspect: [9, 16], safe: {top: 0.13, bottom: 0.20, x: 0.085}}
+
+  x:
+    verified: false
+    source: https://docs.x.com/x-api/posts/manage-tweets/introduction (weighted length per twitter-text)
+    counter: {verified: false, source: twitter-text weights, unit: x_weighted, soft_limit: 280, url_weight: 23, wide_weight: 2}
+    fold: {verified: false, source: observed, unit: chars, at: 280}
+    surfaces:
+      text: {verified: false, source: observed}
+      feed: {verified: false, source: observed, max_images: 4, aspects: [[16, 9], [1, 1]], layout: grid_1_to_4}
+
+  linkedin:
+    verified: false
+    source: https://learn.microsoft.com/linkedin/marketing/ (feed truncation as observed on mobile)
+    counter: {verified: false, source: config/studio docs, unit: chars, soft_limit: 3000}
+    fold: {verified: false, source: observed mobile feed, unit: lines, at: 3, chars_per_line: 48}
+    surfaces:
+      feed: {verified: false, source: observed, aspects: [[191, 100], [1, 1], [4, 5]]}
+      document: {verified: false, source: observed, aspect: [4, 5], note: "PDF carousel"}
+      text: {verified: false, source: observed}
+
+  threads:
+    verified: false
+    source: https://developers.facebook.com/docs/threads/ (text limit per vendor docs)
+    counter: {verified: false, source: vendor docs, unit: graphemes, soft_limit: 500}
+    fold: {verified: false, source: observed, unit: lines, at: 8, chars_per_line: 46}
+    surfaces:
+      text: {verified: false, source: observed}
+      feed: {verified: false, source: observed, aspects: [[4, 5], [1, 1]], max_items: 20}
+
+  bluesky:
+    verified: false
+    source: https://docs.bsky.app/docs/advanced-guides/posts (300 graphemes)
+    counter: {verified: false, source: lexicon app.bsky.feed.post, unit: graphemes, soft_limit: 300}
+    fold: {verified: false, source: observed, unit: chars, at: 300}
+    surfaces:
+      text: {verified: false, source: observed}
+      feed: {verified: false, source: observed, max_images: 4, aspects: [[1, 1], [16, 9]], layout: grid_1_to_4}
+
+  tiktok:
+    verified: false
+    source: https://developers.tiktok.com/doc/content-posting-api-get-started
+    counter: {verified: false, source: vendor docs, unit: chars, soft_limit: 2200}
+    fold: {verified: false, source: observed, unit: chars, at: 80}
+    surfaces:
+      video: {verified: false, source: config/content.yaml safe_area 9x16, aspect: [9, 16], safe: {top: 0.13, bottom: 0.20, x: 0.085}, right_rail: 0.16}
+      reel: {verified: false, source: config/content.yaml safe_area 9x16, aspect: [9, 16], safe: {top: 0.13, bottom: 0.20, x: 0.085}, right_rail: 0.16}
+
+  youtube:
+    verified: false
+    source: config/platforms.yaml youtube (title 100; description fold as observed)
+    counter: {verified: false, source: config/platforms.yaml youtube.title_max_chars, unit: chars, soft_limit: 100}
+    fold: {verified: false, source: observed, unit: chars, at: 150}
+    surfaces:
+      short: {verified: false, source: config/content.yaml safe_area 9x16, aspect: [9, 16], safe: {top: 0.13, bottom: 0.20, x: 0.085}, right_rail: 0.14}
+      video: {verified: false, source: observed, aspect: [16, 9]}
+
+  pinterest:
+    verified: false
+    source: https://developers.pinterest.com/docs/api/v5/ (title 100; 2:3 pins)
+    counter: {verified: false, source: vendor docs, unit: chars, soft_limit: 100}
+    fold: {verified: false, source: observed, unit: chars, at: 50}
+    surfaces:
+      pin: {verified: false, source: observed, aspect: [2, 3]}

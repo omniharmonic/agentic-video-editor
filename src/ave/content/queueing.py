@@ -21,14 +21,16 @@ from . import registry as R
 def derive_title(item: dict, speakers: list[dict] | None = None) -> str:
     """The queue requires a title; images have none, so use the plainest true one."""
     s = item["slots"]
-    if item["template"] == "quote-post":
-        s = R.effective_slots(R.load_registry().get("quote-post").slots, s, speakers)
+    if item["template"] in ("quote-post", "testimonial"):
+        s = R.effective_slots(R.load_registry().get(item["template"]).slots, s, speakers)
         who = f" ({s['attribution']})" if s.get("attribution") else ""
         return (s["quote"][:70].rstrip() + ("..." if len(s["quote"]) > 70 else "")) + who
     if item["template"] == "thumbnail":
         return s["title"]
-    if item["template"] == "carousel":
+    if isinstance(s.get("cover"), dict):                       # carousel and tip-list
         return s["cover"]["title"]
+    if s.get("title"):                                         # card-shaped studio templates (announcement, offer, event, stat-card, ...)
+        return s["title"]
     return item["id"]
 
 
@@ -37,15 +39,16 @@ def derive_caption(item: dict, speakers: list[dict] | None = None) -> str:
     if item.get("caption"):
         return item["caption"]
     s = item["slots"]
-    if item["template"] == "quote-post":
-        s = R.effective_slots(R.load_registry().get("quote-post").slots, s, speakers)
+    if item["template"] in ("quote-post", "testimonial"):
+        s = R.effective_slots(R.load_registry().get(item["template"]).slots, s, speakers)
         who = f"\n\n{s['attribution']}" + (f", {s['title']}" if s.get("title") else "") if s.get("attribution") else ""
         return f"“{s['quote']}”{who}"
     if item["template"] == "thumbnail":
         return s["title"] + (f" — with {s['guest']}" if s.get("guest") else "")
-    if item["template"] == "carousel":
+    if isinstance(s.get("cover"), dict):
         return s["cover"]["title"] + ("\n\n" + s["closing"]["cta"] if s["closing"].get("cta") else "")
-    return ""
+    parts = [s.get(k) for k in ("title", "price", "stat", "when", "valid", "time", "place", "sub", "cta") if s.get(k)]
+    return "\n".join(str(x) for x in parts)
 
 
 def queue_approved(ep: Episode, doc_id: str = "main", *, platforms: list[str] | None = None, visibility: str = "private",
@@ -83,7 +86,7 @@ def queue_approved(ep: Episode, doc_id: str = "main", *, platforms: list[str] | 
             outs = sorted(outs, key=lambda x: x.get("slide", 0))
             g = groups.setdefault(tuple(o["file"] for o in outs), {"platforms": [], "outs": outs})
             g["platforms"].append(plat)
-        mtype = "carousel" if item["template"] == "carousel" else "image"
+        mtype = "carousel" if R.load_registry().get(item["template"]).kind == "carousel" else "image"
         for files, g in groups.items():
             plats = [p for p in g["platforms"] if p in ALL_PLATFORMS]
             for p in [p for p in g["platforms"] if p not in ALL_PLATFORMS]:

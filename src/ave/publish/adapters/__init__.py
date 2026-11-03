@@ -1,4 +1,5 @@
-"""Adapter registry. Direct adapters: youtube, facebook. Anything else goes through the experimental aggregator."""
+"""Adapter registry. Direct adapters: youtube, facebook. Anything else goes through the experimental aggregator, or (studio platforms)
+through `ave.platforms.registry`."""
 
 from __future__ import annotations
 
@@ -6,7 +7,10 @@ from .base import Publisher
 
 DIRECT = ("youtube", "facebook")
 AGGREGATED = ("instagram", "x", "tiktok")
-ALL_PLATFORMS = DIRECT + AGGREGATED
+# Platforms only the studio layer knows (`ave.platforms`); queue items for them preflight against an UNBOUND (dry-run only) adapter
+# unless the caller passes account-bound adapters via `publishers=`.
+STUDIO = ("bluesky", "threads", "linkedin", "pinterest", "manual")
+ALL_PLATFORMS = DIRECT + AGGREGATED + STUDIO
 
 
 def get_publisher(name: str, **kw) -> Publisher:
@@ -19,5 +23,5 @@ def get_publisher(name: str, **kw) -> Publisher:
     if name in AGGREGATED:
         from .aggregator import AggregatorPublisher
         return AggregatorPublisher(network=name, **kw)
-    raise ValueError(f"unknown platform {name!r}; choose from {', '.join(ALL_PLATFORMS)}. "
-                     "Direct Instagram/X/TikTok are not implemented: they route through the aggregator adapter.")
+    from ...platforms import registry          # E3: everything else is the studio registry's call (it raises ValueError for unknown names)
+    return registry.get_publisher(name, **kw)

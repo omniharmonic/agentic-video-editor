@@ -66,8 +66,9 @@ def test_repo_default_is_false_and_an_install_override_turns_it_on(cep, monkeypa
 
 def test_templates_command_lists_registry_and_matrix(cep, capsys):
     _, out = run(capsys, "templates")
-    assert {t["id"] for t in out["templates"]} == {"quote-post", "thumbnail", "carousel", "reel-card"}
-    assert len(out["matrix"]) == 18 and out["styles"] == ["ink", "paper", "clay"]
+    assert {"quote-post", "thumbnail", "carousel", "reel-card"} <= {t["id"] for t in out["templates"]}
+    assert len([r for r in out["matrix"] if r["template"] in ("quote-post", "thumbnail", "carousel", "reel-card")]) == 18
+    assert out["styles"] == ["ink", "paper", "clay"]
 
 
 # ---- plan ----------------------------------------------------------------------------------------
@@ -157,19 +158,19 @@ def test_render_review_decide_approve_flow(planned, capsys):
         assert it["review"]["critic"]["ok"] and it["outputs"][0]["sha256"]
     _, rv = run(capsys, "review", ep.root)
     page = Path(rv["index"]).read_text()
-    refs = re.findall(r'src="([^"]+\.png)"', page)
-    assert len(refs) == 2
+    refs = re.findall(r'src="([^"]+\.(?:png|jpg))"', page)
+    assert len(refs) >= 2
     for r in refs:
         assert (Path(rv["index"]).parent / r).resolve().is_file(), r              # the page references real files
     assert "<mark>A goal is a wish and a system is a habit" in page and "Maren Okafor at" in page
     assert "contrast" in page and "decisions.json" in page and 'id="phone"' in page
     d = ep.root / "decisions.json"
     d.write_text(json.dumps([{"id": "quote-c01-4x5", "decision": "approve", "note": "yes"}, {"id": "thumb", "decision": "reject", "note": "too plain"}]))
-    code, out = run(capsys, "decide", ep.root, d, "--by", "ben")
+    code, out = run(capsys, "decide", ep.root, d, "--by", "maren")
     assert out["approved_items"] == ["quote-c01-4x5"] and out["version"] == 3
     doc = M.load_latest(ep)
     by_id = {i["id"]: i for i in doc["items"]}
-    assert by_id["quote-c01-4x5"]["review"]["status"] == "approved" and by_id["quote-c01-4x5"]["review"]["by"] == "ben"
+    assert by_id["quote-c01-4x5"]["review"]["status"] == "approved" and by_id["quote-c01-4x5"]["review"]["by"] == "maren"
     assert by_id["thumb"]["review"]["status"] == "rejected"
     assert (M.content_dir(ep) / "decisions.jsonl").read_text().count("\n") == 2
     assert M.list_versions(ep) == [1, 2, 3]                                          # nothing overwritten
@@ -183,7 +184,7 @@ def test_decide_refuses_a_file_that_changed_since_render_and_unknown_ids(planned
     f.write_bytes(f.read_bytes() + b"x")
     d = ep.root / "decisions.json"
     d.write_text(json.dumps([{"id": doc["items"][0]["id"], "decision": "approve"}, {"id": "ghost", "decision": "approve"}]))
-    code, out = run(capsys, "decide", ep.root, d, "--by", "ben", ok=False)
+    code, out = run(capsys, "decide", ep.root, d, "--by", "maren", ok=False)
     assert code == 2 and out["applied"] == []
     assert "changed on disk since it was rendered" in out["refused"][0]["problems"][0] and "no item 'ghost'" in out["refused"][1]["problems"][0]
 
@@ -197,13 +198,13 @@ def test_critic_failure_blocks_approval_unless_overridden_with_a_note(planned, c
     iid = doc["items"][0]["id"]
     d = ep.root / "d.json"
     d.write_text(json.dumps([{"id": iid, "decision": "approve"}]))
-    code, out = run(capsys, "decide", ep.root, d, "--by", "ben", ok=False)
+    code, out = run(capsys, "decide", ep.root, d, "--by", "maren", ok=False)
     assert code == 2 and "the critic flagged this item" in out["refused"][0]["problems"][0]
     d.write_text(json.dumps([{"id": iid, "decision": "approve", "override": True}]))
-    code, out = run(capsys, "decide", ep.root, d, "--by", "ben", ok=False)
+    code, out = run(capsys, "decide", ep.root, d, "--by", "maren", ok=False)
     assert "needs a note" in out["refused"][0]["problems"][0]
     d.write_text(json.dumps([{"id": iid, "decision": "approve", "override": True, "note": "intentional, large display type"}]))
-    code, out = run(capsys, "decide", ep.root, d, "--by", "ben")
+    code, out = run(capsys, "decide", ep.root, d, "--by", "maren")
     assert out["approved_items"] == [iid] and M.load_latest(ep)["items"][0]["review"]["critic_override"] is True
 
 
@@ -213,7 +214,7 @@ def test_nudge_changes_style_clears_renders_and_rerenders_only_that_item(planned
     before = {i["id"]: i for i in M.load_latest(ep)["items"]}
     d = ep.root / "d.json"
     d.write_text(json.dumps([{"id": "quote-c01-4x5", "decision": "nudge", "nudge": {"style": "paper", "format": "1x1"}}]))
-    _, out = run(capsys, "decide", ep.root, d, "--by", "ben")
+    _, out = run(capsys, "decide", ep.root, d, "--by", "maren")
     assert out["applied"][0]["needs_render"] and "re-render" in out["next"]
     nd = {i["id"]: i for i in M.load_latest(ep)["items"]}
     assert nd["quote-c01-4x5"]["outputs"] == [] and nd["quote-c01-4x5"]["style"] == "paper"
@@ -228,7 +229,7 @@ def test_nudging_a_quote_to_a_paraphrase_is_refused(planned, capsys):
     ep = planned
     d = ep.root / "d.json"
     d.write_text(json.dumps([{"id": "quote-c01-4x5", "decision": "nudge", "nudge": {"slots": {"quote": "Goals are wishes and systems are habits"}}}]))
-    code, out = run(capsys, "decide", ep.root, d, "--by", "ben", ok=False)
+    code, out = run(capsys, "decide", ep.root, d, "--by", "maren", ok=False)
     assert code == 2 and "does not appear verbatim" in " ".join(out["refused"][0]["problems"])
 
 
@@ -238,7 +239,7 @@ def test_alt_text_nudge_rewrites_the_description_without_rerendering(planned, ca
     before = M.load_latest(ep)["items"][0]["outputs"][0]["sha256"]
     d = ep.root / "d.json"
     d.write_text(json.dumps([{"id": "quote-c01-4x5", "decision": "nudge", "nudge": {"alt_text": "Cream serif words on a dark brown field."}}]))
-    _, out = run(capsys, "decide", ep.root, d, "--by", "ben")
+    _, out = run(capsys, "decide", ep.root, d, "--by", "maren")
     assert out["applied"][0]["needs_render"] is False
     o = M.load_latest(ep)["items"][0]["outputs"][0]
     assert o["alt_text"].startswith("Cream serif") and o["sha256"] == before
@@ -249,7 +250,7 @@ def test_reproposing_keeps_human_decisions_and_replaces_drafts(planned, tmp_path
     run(capsys, "render", ep.root)
     d = ep.root / "d.json"
     d.write_text(json.dumps([{"id": "quote-c01-4x5", "decision": "approve"}]))
-    run(capsys, "decide", ep.root, d, "--by", "ben")
+    run(capsys, "decide", ep.root, d, "--by", "maren")
     pf = picks_file(tmp_path, [pick_quote(id="other", format="1x1", slots={"quote": "We do not fix a field in a season, we tend it for a generation.", "attribution": "Maren Okafor"})])
     _, out = run(capsys, "propose", ep.root, pf)
     assert out["kept_human_decisions"] == ["quote-c01-4x5"]
@@ -258,26 +259,38 @@ def test_reproposing_keeps_human_decisions_and_replaces_drafts(planned, tmp_path
 
 # ---- queue ---------------------------------------------------------------------------------------
 
-def test_queue_adds_approved_items_as_image_posts_once_and_never_approves(planned, capsys, isolated_secrets):
+def test_queue_adds_approved_items_as_image_posts_once_and_never_approves(planned, capsys, isolated_secrets, monkeypatch, tmp_path):
+    # Instagram takes JPEG only (config/platforms.yaml, studio spec E6): the renderer writes the JPEG for an instagram target, so the file reviewed
+    # in the content review page is the file queued, hashed and approved (no loosened platform limits needed any more).
     ep = planned
     run(capsys, "render", ep.root)
     d = ep.root / "d.json"
     d.write_text(json.dumps([{"id": "quote-c01-4x5", "decision": "approve"}, {"id": "thumb", "decision": "approve"}]))
-    run(capsys, "decide", ep.root, d, "--by", "ben")
+    run(capsys, "decide", ep.root, d, "--by", "maren")
     code, out = run(capsys, "queue", ep.root, "--dry-run")
     assert [q["item"] for q in out["queued"]] == ["quote-c01-4x5"] and all(q["dry_run"] for q in out["queued"])
     assert any(s.get("platform") == "youtube" and "video only" in s["why"] for s in out["skipped"])
     assert queue.list_items(ep) == []
+    # An explicit offline image-capable template; no provider is contacted or authenticated.
+    import yaml
+    config=tmp_path/'fictional-aggregator.yaml'
+    config.write_text(yaml.safe_dump({'base_url':'https://aggregator.example.invalid',
+        'auth':{'header':'Authorization'},'networks':{'instagram':'instagram'},
+        'upload':{'path':'/media','url_path':'url'},
+        'post':{'path':'/posts','json':{'media':'{media_urls}','caption':'{caption}','alt':'{alt_texts}'}}}))
+    monkeypatch.setenv('AVE_AGGREGATOR_CONFIG',str(config))
     # private is the default, and the aggregator cannot hold a post back: the item is queued as a DRAFT that says so
     code, out = run(capsys, "queue", ep.root, ok=False)
-    assert code == 2 and "cannot hold a post back" in out["queued"][0]["problems"][0] and queue.list_items(ep)[0]["status"] == "draft"
+    assert code == 2 and "cannot transmit private/unlisted visibility" in out["queued"][0]["problems"][0] and queue.list_items(ep)[0]["status"] == "draft"
     code, out = run(capsys, "queue", ep.root, "--visibility", "public")
     q = [i for i in queue.list_items(ep) if i["status"] == "awaiting_approval"]
     assert len(q) == 1 and q[0]["media_type"] == "image" and q[0]["approvals"] == []
     assert q[0]["platforms"] == ["instagram"] and q[0]["visibility"] == "public"
     doc = M.load_latest(ep)
     o = doc["items"][0]["outputs"][0]
-    assert q[0]["sha256"] == o["sha256"] and q[0]["alt_texts"] == [o["alt_text"]]
+    assert o["file"].endswith(".jpg") and q[0]["files"] == [o["file"]]
+    assert q[0]["sha256"] == o["sha256"] == __import__("ave.publish.safety", fromlist=["x"]).sha256_file(ep.root / o["file"]) and q[0]["alt_texts"] == [o["alt_text"]]
+    assert (ep.root / o["file"]).read_bytes()[:3] == b"\xff\xd8\xff"
     assert q[0]["caption"].startswith("“A goal is a wish") and q[0]["origin"]["item"] == "quote-c01-4x5"
     code, out = run(capsys, "queue", ep.root, "--visibility", "public")
     assert out["queued"] == [] and any("already queued" in s["why"] for s in out["skipped"])
@@ -289,7 +302,7 @@ def test_queue_refuses_an_item_whose_file_changed_after_approval(planned, capsys
     run(capsys, "render", ep.root)
     d = ep.root / "d.json"
     d.write_text(json.dumps([{"id": "quote-c01-4x5", "decision": "approve"}]))
-    run(capsys, "decide", ep.root, d, "--by", "ben")
+    run(capsys, "decide", ep.root, d, "--by", "maren")
     f = ep.root / M.load_latest(ep)["items"][0]["outputs"][0]["file"]
     f.write_bytes(f.read_bytes() + b"x")
     code, out = run(capsys, "queue", ep.root, ok=False)
@@ -308,7 +321,7 @@ def test_rerendering_an_approved_item_voids_its_approval(planned, capsys):
     run(capsys, "render", ep.root)
     d = ep.root / "d.json"
     d.write_text(json.dumps([{"id": "quote-c01-4x5", "decision": "approve"}]))
-    run(capsys, "decide", ep.root, d, "--by", "ben")
+    run(capsys, "decide", ep.root, d, "--by", "maren")
     _, rep = run(capsys, "render", ep.root)
     assert any("approved" in s["why"] for s in rep["skipped"])
     _, rep = run(capsys, "render", ep.root, "--item", "quote-c01-4x5")

@@ -1,0 +1,55 @@
+name: episode-shorts-to-posts
+title: Episode clips to short-video posts
+summary: >
+  The creator's loop for short clips: the human keeps clips, the agent builds and polishes vertical shorts (optionally with licensed B-roll placed from the
+  studio library), `ave studio ingest shorts` turns each human-approved clip's exports into a post with a variant per account, a human attests the licenses
+  of the footage, the queue is synced (never approved), and the human reviews and approves. Nothing is queued from a clip no human kept.
+inputs:
+  - {name: episode, required: true, path: true, description: "An episode folder with a transcript (and, after step 2, clips a human kept)"}
+steps:
+  - id: survey
+    kind: mechanical
+    title: See what the episode already offers (clips, cards, package, queue)
+    command: "ave studio ingest episode {episode} --studio {studio}"
+    done_when: {file: "work/survey.json"}
+  - id: choose
+    kind: human
+    title: Keep, maybe or skip each clip
+    prompt: "Open `ave ui` for the episode and decide on the clips (or run `ave clips decide <episode> <id> --verdict keep` in your own terminal). A decision typed through an agent shell does not count: only kept-from-a-terminal-or-the-UI clips can become posts."
+    command: "ave ui {episode}"
+    done_when: {episode_file: "work/learning/clip_decisions.jsonl"}
+  - id: shorts
+    kind: agent
+    skill: ave-shorts
+    title: Build, polish and export the shorts for the studio's platforms
+    checklist:
+      - "`ave clips build --approved-only`, then `ave shorts build` per kept clip; LOOK at `ave shorts preview` stills and read `completeness`, `edges` and `needs_review`."
+      - "Polish with the helpers, never by hand-editing a version: `ave shorts recut` (a start or end moved inward on word boundaries; `--dry-run` first), `ave shorts retitle` (the opening title; a topic, not the speaker's words), `ave broll place` (licensed library B-roll; read skills/ave-studio-broll; suggest-only until the human likes it, then `--apply`)."
+      - "`ave shorts export --clip <slug> --platforms reels,youtube,facebook,x` (one export per platform the studio's accounts post to); read each sidecar's `limits`, `licenses` and `needs_review`."
+    done_when: {episode_file: "exports/shorts"}
+  - id: ingest
+    kind: agent
+    skill: ave-studio
+    title: Ingest the kept clips' exports as posts
+    checklist:
+      - "`ave studio ingest shorts <episode> --dry-run` first: read `refused` (an unapproved clip, a draft or stale export, a failed limit or license), `skipped` (an account with no short format) and each drafted caption's `problems`."
+      - "Run it for real (`--clips ids` to choose, `--accounts` to narrow). It registers the renders in the library with `derived_from`, creates one post per clip and a variant per account, and never approves or queues."
+      - "Read every drafted caption: a verbatim quote, the title, credits and hashtags per config. Fix what the critic says (`ave studio post critique`, `post edit`); never invent words for the speaker."
+    done_when: {posts: {origin: episode_short, has_media: true, min: 1}}
+  - id: attest
+    kind: human
+    title: Stand behind the licenses of the footage
+    prompt: "The episode's own footage and music were recorded in the library as CLAIMS (`ave studio library attest` lists them). Look at what each claim says, then attest. Without it no queue item can exist for these posts."
+    command: "ave studio library attest --all --studio {studio}"
+    done_when: {library: {source: render, covered: true, min: 1}}
+  - id: sync
+    kind: mechanical
+    title: Create the queue items (runs every preflight; never approves)
+    command: "ave studio queue sync --studio {studio}"
+    done_when: {variants: {status: [in_review, approved, scheduled], min: 1}}
+  - id: review
+    kind: human
+    title: Review each short as it will go out and approve
+    prompt: "Watch the exact file for each variant, read the caption and hashtags, and approve what you want to send (the typed hash or the UI PIN). Then plan the schedule (ave-studio-calendar)."
+    command: "ave studio ui {studio}"
+    done_when: {variants: {status: [approved, scheduled], min: 1}}

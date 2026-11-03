@@ -1,0 +1,11 @@
+[
+  {
+    "method": "GET",
+    "url": "/v5/user_account",
+    "response": {
+      "username": "acmebakery",
+      "account_type": "BUSINESS"
+    },
+    "_source": "documentation-derived, UNVERIFIED live: https://developers.pinterest.com/docs/api/v5/pins-create/"
+  }
+]

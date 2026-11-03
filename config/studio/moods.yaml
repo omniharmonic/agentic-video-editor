@@ -1,0 +1,59 @@
+# Mechanical vocabulary for `ave studio broll queries` (spec 5.2). This file only widens a search; it never judges a picture.
+# The agent edits the query list it gets back, and the authenticity critic (config/assets.critic.yaml) judges what it finds.
+# Per-studio override: <studio>/policy/moods.yaml (deep-merged: a mood you redefine replaces this one; lists are replaced whole).
+#
+# A mood applies when any of its `triggers` appears as a word in the source text (or the caller names it). Its `modifiers` are appended to
+# the strongest keyword to make extra queries. Modifiers lean toward found, specific, natural-light footage and away from catalogue
+# phrasing; they are a starting point, not taste.
+
+version: 1
+
+# How many queries a single post may spend on providers (provider quotas are small; Pexels is about 200 requests an hour (U)).
+max_queries: 6
+
+# Orientation to ask providers for, by post type. Providers take landscape | portrait | square.
+orientation_by_post_type:
+  feed: portrait
+  carousel: portrait
+  story: portrait
+  reel: portrait
+  short: portrait
+  pin: portrait
+  video: landscape
+  text: landscape
+  document: landscape
+
+# Which kind of stock to look for by post type.
+kind_by_post_type:
+  feed: photo
+  carousel: photo
+  pin: photo
+  text: photo
+  document: photo
+  story: video
+  reel: video
+  short: video
+  video: video
+
+moods:
+  morning:
+    triggers: [morning, dawn, sunrise, breakfast, early, wake]
+    modifiers: ["window light", "overcast morning"]
+  warm:
+    triggers: [warm, cozy, home, kitchen, oven, bake, bread, tea, coffee, soup]
+    modifiers: ["warm window light", "steam"]
+  hands:
+    triggers: [craft, make, build, mend, repair, knead, stitch, plant, garden, cook, sourdough, starter]
+    modifiers: ["hands working", "close texture"]
+  quiet:
+    triggers: [quiet, calm, rest, pause, still, slow, breathe, peace]
+    modifiers: ["empty room daylight", "still water"]
+  outdoors:
+    triggers: [walk, trail, forest, river, field, mountain, weather, rain, snow, wind]
+    modifiers: ["overcast landscape", "wet ground"]
+  people:
+    triggers: [community, neighbor, friends, family, meeting, together, team, crowd, market]
+    modifiers: ["candid hands", "street market"]
+  night:
+    triggers: [night, evening, late, dusk, lamp, candle]
+    modifiers: ["lamp light", "dusk window"]

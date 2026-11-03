@@ -19,12 +19,15 @@ from .episode import Episode
 def _license_gate(ep: Episode, doc: dict, allow_unlicensed: bool) -> list[str]:
     """Every music/B-roll file must have a license-log entry for exactly these bytes. Returns warnings; raises otherwise."""
     from .assets import licenses
+    from .broll import place
     files = [m["file"] for m in doc["tracks"].get("music") or []]
-    files += [o["file"] for o in doc["tracks"].get("overlays") or [] if o.get("kind") == "broll"]
-    if not files:
+    files += [o["file"] for o in doc["tracks"].get("overlays") or [] if o.get("kind") == "broll" and not o.get("library")]
+    lib = place.closure(ep, doc)      # B-roll placed from a studio library is licensed (and human-attested) in THAT library
+    if not files and not lib["required"]:
         return []
-    cov = licenses.coverage(ep, files)
+    cov = licenses.coverage(ep, files) if files else {"missing": [], "unreadable": []}
     bad = [m["file"] for m in cov["missing"]] + list(cov["unreadable"])
+    bad += [f"{m['asset']}: {m['why']}" for m in lib["missing"]] + list(lib["problems"])
     if bad and not allow_unlicensed:
         raise SystemExit("These files have no license-log entry, so the final cannot use them:\n  - " + "\n  - ".join(bad) +
                          "\nLog each one with `ave assets log-license` (or fetch it with `ave assets stock-get`), or pass --allow-unlicensed "

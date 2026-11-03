@@ -1,0 +1,54 @@
+{
+  "method": "PUT",
+  "path": "/api/studio/library/upload",
+  "status": 201,
+  "query": {
+    "name": "quote-card.png"
+  },
+  "response": {
+    "asset": {
+      "v": 1,
+      "id": "a_0a1b2c3d4e5f",
+      "sha256": "0a1b2c3d4e5f0000000000000000000000000000000000000000000000000000",
+      "kind": "image",
+      "ext": ".png",
+      "file": "library/assets/0a/0a1b2c3d4e5f0000000000000000000000000000000000000000000000000000.png",
+      "bytes": 214003,
+      "w": 1080,
+      "h": 1350,
+      "duration": null,
+      "fps": null,
+      "source": {
+        "type": "render",
+        "provider": null,
+        "asset_id": null,
+        "url": null
+      },
+      "license": {
+        "entry": null,
+        "summary": "own work",
+        "attribution": {
+          "required": false,
+          "text": null
+        }
+      },
+      "ai_generated": false,
+      "derived_from": [
+        "a_9f2c1d4e7b10"
+      ],
+      "tags": [
+        "quote-card"
+      ],
+      "alt": "Quote card: a goal is a wish and a system is a habit.",
+      "people": {
+        "faces": 0,
+        "release": null
+      },
+      "origin": null,
+      "added": "2026-10-19T09:00:00-0600",
+      "added_by": "claude"
+    },
+    "duplicate": false
+  },
+  "note": "body is the raw file bytes (streamed, sha computed on the fly, cap 512 MB)"
+}

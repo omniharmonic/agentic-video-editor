@@ -4,7 +4,7 @@
 base_url: https://api.example.invalid          # must be https
 auth:
   header: Authorization                        # header name your vendor expects
-  prefix: "Bearer "                            # prepended to the key from `ave publish auth aggregator`
+  prefix: "Bearer "                            # prepended to the key from `ave publish auth aggregator --host <the base_url host>`
 supports_visibility: false                     # true only if the service can hold a post back (draft/private)
 requires_public_url: false                     # true if the service pulls the video from a URL (then set item.public_url)
 networks:                                      # our name -> the vendor's network identifier

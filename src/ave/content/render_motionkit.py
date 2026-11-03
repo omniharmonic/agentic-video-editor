@@ -18,7 +18,7 @@ import re
 from contextlib import contextmanager
 from pathlib import Path
 
-from .. import motion
+from .. import imgfmt, motion
 from ..episode import Episode
 from . import manifest as M
 from . import people
@@ -72,6 +72,8 @@ class Session:
         sync_playwright = motion._require_playwright()
         self._pw = sync_playwright().start()
         try:
+            from ave.desktop_runtime import frozen, component
+            if frozen(): component('browser')
             self._browser = self._pw.chromium.launch(args=["--font-render-hinting=none", "--disable-lcd-text", "--force-color-profile=srgb",
                                                           "--hide-scrollbars", "--disable-gpu"])
         except Exception as e:
@@ -237,7 +239,7 @@ def default_alt_text(item: dict, slots: dict) -> list[str]:
     """Accurate-by-construction alt text (one string per image); the agent can override with item.alt_text."""
     t = item["template"]
     show = slots.get("show") or ""
-    if t == "quote-post":
+    if t in ("quote-post", "testimonial"):
         who = ", ".join(x for x in (slots.get("attribution"), slots.get("title") or slots.get("role")) if x)
         return [f"Quote card{(' from ' + show) if show else ''}: “{slots['quote']}”" + (f" — {who}." if who else "")]
     if t == "thumbnail":
@@ -245,7 +247,7 @@ def default_alt_text(item: dict, slots: dict) -> list[str]:
                 + (" A photograph of the guest sits on the right." if slots.get("image") else "")]
     if t == "reel-card":
         return [f"{slots['kind'].capitalize()} card: “{slots['title']}”" + (f", {slots['subtitle']}." if slots.get("subtitle") else ".")]
-    if t == "carousel":
+    if t == "carousel" or ("cover" in slots and "slides" in slots):         # tip-list and any other carousel-shaped template
         out = []
         for s in _slides(slots):
             n, tot = s["index"], s["total"]
@@ -259,7 +261,17 @@ def default_alt_text(item: dict, slots: dict) -> list[str]:
             else:
                 out.append(f"Slide {n} of {tot}, closing: {s['line']}" + (f" {s['cta']}" if s.get("cta") else ""))
         return out
-    return [item["template"]]
+    return [_generic_alt(item["template"], slots, show)]
+
+
+def _generic_alt(template: str, slots: dict, show: str) -> str:
+    """Alt text for a card-shaped template, accurate by construction: its own words in reading order, nothing added."""
+    order = ("kicker", "title", "stat", "price", "when", "sub", "source", "valid", "detail", "time", "place", "cta", "before_label", "after_label")
+    words = [str(slots[k]).strip() for k in order if isinstance(slots.get(k), str) and slots[k].strip()]
+    label = template.replace("-", " ").capitalize()
+    photos = [k for k in ("image", "before", "after") if slots.get(k)]
+    text = f"{label} card{(' from ' + show) if show else ''}: " + " · ".join(words) + ("." if words else "")
+    return text + (" Photographs: " + ", ".join(photos) + "." if photos else "")
 
 
 def _props(tpl: R.Template, item: dict, ep: Episode, canvas: tuple[int, int], cfg: dict) -> dict:
@@ -268,11 +280,12 @@ def _props(tpl: R.Template, item: dict, ep: Episode, canvas: tuple[int, int], cf
     slots = R.effective_slots(tpl.slots, item["slots"], people.load_speakers(ep))
     props = {**slots, "_style": R.resolve_style(item["style"]), "_type": styles["type"], "_tracking": styles["tracking"],
              "_safe": cfg["safe_area"][item["format"]], "_format": item["format"]}
-    if tpl.id == "thumbnail" and slots.get("image"):
-        img = (ep.root / slots["image"]) if not Path(slots["image"]).is_absolute() else Path(slots["image"])
-        if not img.is_file():
-            raise FileNotFoundError(f"thumbnail image not found: {img}")
-        props["_image_url"] = img.resolve().as_uri()
+    for name, rule in (tpl.slots.get("properties") or {}).items():     # every x-asset slot is a picture: the page gets its file URL as _<name>_url
+        if rule.get("x-asset") and isinstance(slots.get(name), str) and slots[name].strip():
+            img = (ep.root / slots[name]) if not Path(slots[name]).is_absolute() else Path(slots[name])
+            if not img.is_file():
+                raise FileNotFoundError(f"{tpl.id} {name} not found: {img}")
+            props[f"_{name}_url"] = img.resolve().as_uri()
     return props
 
 
@@ -290,7 +303,7 @@ def render_item(ep: Episode, item: dict, session: Session, out_dir: Path, reg: R
     base = _props(tpl, item, ep, canvas, cfg)
     page_dir = tpl.still_dir(item["renderer"])
     pages = [(None, base)]
-    if tpl.id == "carousel":
+    if tpl.kind == "carousel":
         pages = [(s["index"], {**base, "_slide": s}) for s in _slides(base)]
     t = CARD_HOLD_S if tpl.id == "reel-card" else 0.0
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -298,7 +311,7 @@ def render_item(ep: Episode, item: dict, session: Session, out_dir: Path, reg: R
     alts = [alts] if isinstance(alts, str) and alts else (alts if isinstance(alts, list) and alts else default_alt_text(item, base))
     if len(alts) != len(pages):
         alts = default_alt_text(item, base)
-    platforms = item.get("platforms") or tpl.default_platforms or ["any"]
+    platforms = sorted(item.get("platforms") or tpl.default_platforms or ["any"], key=imgfmt.needs_jpeg)   # PNG outputs first: the neutral master leads, the JPEG a platform needs follows
     outputs, per_image, notes = [], [], []
     for k, (idx, props) in enumerate(pages):
         shot = session.shoot(page_dir, canvas, props, t=t, duration=max(t, 1.0) + 1.0, want_background=want_background)
@@ -313,7 +326,14 @@ def render_item(ep: Episode, item: dict, session: Session, out_dir: Path, reg: R
         per_image.append({"file": ep.rel(path), **crit})
         notes += [(f"slide {idx}: " if idx else "") + n for n in crit["notes"]]
         for plat in platforms:
-            o = {"platform": plat, "w": canvas[0], "h": canvas[1], "file": ep.rel(path), "sha256": sha, "alt_text": alts[k]}
+            f, fsha = ep.rel(path), sha
+            if imgfmt.needs_jpeg(plat):        # Instagram takes JPEG only: the file the human reviews is the JPEG that will be posted
+                jpg = path.with_suffix(".jpg")
+                jtmp = path.with_suffix(".jpg.tmp")
+                jtmp.write_bytes(imgfmt.to_jpeg_bytes(data, imgfmt.max_file_bytes(plat)))
+                jtmp.replace(jpg)
+                f, fsha = ep.rel(jpg), safety.sha256_file(jpg)
+            o = {"platform": plat, "w": canvas[0], "h": canvas[1], "file": f, "sha256": fsha, "alt_text": alts[k]}
             if idx is not None:
                 o["slide"] = idx
             outputs.append(o)

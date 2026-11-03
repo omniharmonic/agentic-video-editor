@@ -1,0 +1,10 @@
+[
+  {
+    "method": "GET",
+    "url": "/17890000000000001",
+    "response": {
+      "status_code": "PUBLISHED"
+    },
+    "_source": "documentation-derived, UNVERIFIED live: https://developers.facebook.com/docs/instagram-platform/content-publishing"
+  }
+]

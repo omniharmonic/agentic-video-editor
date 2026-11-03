@@ -152,7 +152,7 @@ def test_text_report_has_evidence_lines_and_never_applies(tmp_path, capsys):
 
 # ---- trim set + assemble + resume ------------------------------------------------------------------------------------------
 
-def test_trim_set_records_and_logs_and_validates(tmp_path, capsys):
+def test_trim_set_records_and_logs_and_validates(tmp_path, capsys, human):
     ep = make_ep(tmp_path, slate_transcript())
     cli.main(["progress", str(ep.root)])
     capsys.readouterr()
@@ -218,7 +218,7 @@ def test_assemble_trims_one_session_of_a_multisession_episode(ms_copy):
     assert editdoc.validate(comb) == [] and comb["duration"] == pytest.approx(other["duration"] + 50.0, abs=1.0)
 
 
-def test_resume_shows_an_unapproved_suggestion_as_an_open_question(tmp_path, capsys):
+def test_resume_shows_an_unapproved_suggestion_as_an_open_question(tmp_path, capsys, human):
     ep = make_ep(tmp_path, slate_transcript())
     cli.main(["progress", str(ep.root)])
     assert "trim" not in state.briefing(ep).lower().split("open questions")[-1]

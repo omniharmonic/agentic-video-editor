@@ -1,3 +1,4 @@
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -94,6 +95,30 @@ def ms_copy(ms_roots, tmp_path):
 
 
 @pytest.fixture(autouse=True)
+def _approval_age_follows_fake_time(request, monkeypatch):
+    """Fixtures approve at FakeClock time and the 14-day check reads the real clock, so they would expire by calendar date."""
+    if "studio" not in request.path.parts:      # elsewhere the real clock is the point, and FakeClock.latest may be another test's
+        return
+    import time
+    from datetime import datetime
+    from ave.publish import safety
+    from studio_helpers import FakeClock
+    age = safety.approval_age_days
+
+    def aged(at, now=None):
+        fake = FakeClock.latest
+        if now is None and fake is not None:
+            try:
+                when = datetime.fromisoformat(str(at).replace("Z", "+00:00"))
+                if when <= fake.now() or when.timestamp() < time.time() - 3600:     # a test may wind its clock back past the approval
+                    now = max(fake.now(), when).timestamp()
+            except (TypeError, ValueError):
+                pass
+        return age(at, now)
+    monkeypatch.setattr(safety, "approval_age_days", aged)
+
+
+@pytest.fixture(autouse=True)
 def _isolated_show_config(tmp_path_factory, monkeypatch):
     """Never read the developer's real taste profile or clip-reason overrides: each test gets empty ones."""
     d = tmp_path_factory.mktemp("showcfg")
@@ -133,3 +158,89 @@ def _fake_resolve_mcp(tmp_path_factory, monkeypatch):
     (d / "venv/bin").mkdir(parents=True)
     (d / "venv/bin/python").write_text("")
     monkeypatch.setenv("AVE_RESOLVE_MCP", str(d))
+
+
+@pytest.fixture
+def human(monkeypatch):
+    """Pretend a person is at a terminal (the one seam: ave.humanpresence.is_human_terminal) for tests of human-only commands."""
+    from ave import humanpresence
+    monkeypatch.setattr(humanpresence, "is_human_terminal", lambda: True)
+
+
+# ---- optional extras --------------------------------------------------------------------------------------------------
+# `setup.sh --minimal` installs only the core dependencies. A test that needs an optional extra (OpenCV, librosa, Playwright,
+# keyring + the Google client) then reports a SKIP naming the extra, instead of failing. The full suite needs `uv sync --all-extras`.
+# Only a genuinely missing module is converted: any other failure in these tests is still a failure.
+_EXTRAS = {"cv2": "vision", "librosa": "audio", "playwright": "motion", "keyring": "publish", "httplib2": "publish",
+           "googleapiclient": "publish", "google_auth_oauthlib": "publish", "requests": "publish"}
+
+
+def _missing_extra(exc: BaseException) -> str | None:
+    import importlib.util
+    if isinstance(exc, ModuleNotFoundError):
+        mod = (exc.name or "").split(".")[0]
+    elif isinstance(exc, SystemExit) and "Playwright is not installed" in str(exc.code):
+        mod = "playwright"
+    elif isinstance(exc, SystemExit) and (m := re.search(r"No module named '([\w.]+)'", str(exc.code))):
+        mod = m.group(1).split(".")[0]      # a command that wrapped the ImportError in its own message
+    else:
+        return None
+    if mod in _EXTRAS and importlib.util.find_spec(mod) is None:
+        return f"needs the '{_EXTRAS[mod]}' extra ({mod} not installed): uv sync --extra {_EXTRAS[mod]}, or --all-extras"
+    return None
+
+
+def _skip_when_extra_missing():
+    try:
+        yield
+    except (ModuleNotFoundError, SystemExit) as e:
+        why = _missing_extra(e)
+        if why is None:
+            raise
+        pytest.skip(why)
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_setup(item):
+    return (yield from _skip_when_extra_missing())
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_call(item):
+    return (yield from _skip_when_extra_missing())
+
+
+# Modules whose MODULE-scoped fixtures render through Playwright/Chromium. pytest itself trips over a module fixture that dies in setup
+# (an internal assertion on re-setup), so these are skipped up front rather than converted after the fact.
+_NEEDS_PLAYWRIGHT_MODULES = {"test_content_byline", "test_content_render", "test_sequence"}
+
+
+def pytest_collection_modifyitems(config, items):
+    import importlib.util
+    if importlib.util.find_spec("playwright") is not None:
+        return
+    skip = pytest.mark.skip(reason="needs the 'motion' extra (playwright not installed): uv sync --extra motion, or --all-extras")
+    for item in items:
+        if item.module.__name__.split(".")[-1] in _NEEDS_PLAYWRIGHT_MODULES:
+            item.add_marker(skip)
+
+
+@pytest.fixture(autouse=True)
+def _never_touch_the_real_keychain(request, monkeypatch):
+    """No test may read or write the developer's login keychain (approval key, platform tokens): macOS answers a failed write from a
+    background or parallel process with a "a keychain cannot be found to store ..." dialog, repeatedly. An in-memory keyring
+    stands in, and a fixed test approval key is set unless a test sets its own."""
+    if "isolated_secrets" in request.fixturenames:      # tests that bring their own keyring stand-in keep it
+        return
+    from ave.publish import safety as _safety
+    _safety.reset_approval_key_cache()
+    store: dict = {}
+    try:
+        import keyring
+    except ImportError:
+        keyring = None
+    if keyring is not None:
+        monkeypatch.setattr(keyring, "get_password", lambda svc, name: store.get((svc, name)))
+        monkeypatch.setattr(keyring, "set_password", lambda svc, name, v: store.__setitem__((svc, name), v))
+        monkeypatch.setattr(keyring, "delete_password", lambda svc, name: store.pop((svc, name), None))
+    monkeypatch.setenv("AVE_APPROVAL_KEY", "test-approval-key-not-secret")

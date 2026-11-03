@@ -1,0 +1,13 @@
+[
+  {
+    "method": "POST",
+    "url": "/100000000000001/photos",
+    "final": true,
+    "early": true,
+    "response": {
+      "id": "1001",
+      "post_id": "100000000000001_1001"
+    },
+    "_source": "documentation-derived, UNVERIFIED live: https://developers.facebook.com/docs/graph-api/reference/page/photos/"
+  }
+]

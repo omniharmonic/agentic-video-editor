@@ -1,0 +1,136 @@
+{
+  "method": "POST",
+  "path": "/api/studio/posts/p_20261102_k3f9/edit",
+  "status": 200,
+  "request": {
+    "expected_rev": 7,
+    "patch": {
+      "variants.v_ig.copy.caption": "Day 3: the starter smells like pears. Totally normal."
+    }
+  },
+  "response": {
+    "post": {
+      "v": 1,
+      "kind": "studio.post",
+      "id": "p_20261102_k3f9",
+      "rev": 8,
+      "stage": "active",
+      "campaign": "c_fall-launch",
+      "idea": {
+        "text": "Sourdough starter day-by-day",
+        "origin": {
+          "type": "blog",
+          "ref": "writing/starter.md",
+          "passages": [
+            "s004",
+            "s005"
+          ]
+        },
+        "reason": "evergreen, matches the October theme",
+        "confidence": 0.7
+      },
+      "copy": {
+        "base": "Day 3: the starter smells like pears. That is normal.",
+        "link": "https://acme.example/starter",
+        "first_comment": "",
+        "hashtags": [
+          "sourdough"
+        ],
+        "cta": ""
+      },
+      "media": [
+        {
+          "slot": 0,
+          "asset": "a_9f2c1d4e7b10",
+          "role": "image",
+          "alt": "A jar of starter with bubbles at the glass.",
+          "crop": {
+            "grid_focus": [
+              0.5,
+              0.4
+            ]
+          }
+        }
+      ],
+      "variants": [
+        {
+          "id": "v_ig",
+          "account": "ig-main",
+          "platform": "instagram",
+          "post_type": "feed",
+          "copy": {
+            "caption": "Day 3: the starter smells like pears. Totally normal.",
+            "first_comment": null,
+            "hashtags": null
+          },
+          "media": null,
+          "schedule": {
+            "local": "2026-11-02T09:00",
+            "tz": "America/Denver",
+            "utc": "2026-11-02T16:00:00Z",
+            "slot": "r1",
+            "locked": false,
+            "set_by": "agent"
+          },
+          "queue": {
+            "root": ".",
+            "id": "20261019-101500-day-3-the-star-a1b2"
+          },
+          "queue_sha": "9f2c1d4e7b10a3b5c6d7e8f901234567890abcdef1234567890abcdef1234567",
+          "flags": [
+            "moved_after_approval"
+          ],
+          "attempts": [],
+          "result": null,
+          "dropped": false,
+          "status": "in_review",
+          "status_reason": "awaiting the human's approval",
+          "queue_status": "awaiting_approval",
+          "approval": null
+        },
+        {
+          "id": "v_fb",
+          "account": "fb-page",
+          "platform": "facebook",
+          "post_type": "feed",
+          "copy": {
+            "caption": null,
+            "first_comment": null,
+            "hashtags": null
+          },
+          "media": null,
+          "schedule": {
+            "local": "2026-11-03T12:30",
+            "tz": "America/Denver",
+            "utc": "2026-11-03T19:30:00Z",
+            "slot": "r3",
+            "locked": false,
+            "set_by": "agent"
+          },
+          "queue": {
+            "root": ".",
+            "id": "20261019-101501-day-3-the-star-c3d4"
+          },
+          "queue_sha": "1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f",
+          "flags": [],
+          "attempts": [],
+          "result": null,
+          "dropped": false,
+          "status": "in_review",
+          "status_reason": "awaiting the human's approval",
+          "queue_status": "awaiting_approval",
+          "approval": null
+        }
+      ],
+      "disclosure": {
+        "ai_generated": false
+      },
+      "created": "2026-10-19T10:15:00-0600",
+      "updated": "2026-10-19T11:02:00-0600",
+      "by": "claude"
+    },
+    "warnings": [
+      "approval dropped: caption changed; v_ig is in_review again"
+    ]
+  }
+}

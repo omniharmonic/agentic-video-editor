@@ -161,6 +161,9 @@ def _layers(ep: Episode, doc: dict, fps: float, total: int, n_video: int, audio_
         if n <= 0:
             warnings.append(f"dialogue segment {s['id']} is shorter than one frame at {fps:g} fps: no clip for it")
             continue
+        if s.get("fill") == "silence":                 # an inserted B-roll's gap: nothing to play
+            cursor = b
+            continue
         if s.get("fill") == "room_tone":
             if not room:
                 raise ValueError(f"dialogue segment {s['id']} uses fill 'room_tone' but the doc has no tracks.room_tone")
@@ -216,6 +219,13 @@ def plan(ep: Episode, doc: dict, *, name: str, audio_master: Path | None = None,
     `proxies` ({original abs path: proxy abs path}, from `proxies.proxy_map`) asks the script to LINK those proxies to the imported
     originals; every item in the plan still names the ORIGINAL file, so renders come from originals. `try_subtitles` (W7, UNVERIFIED in
     real Resolve) asks the script to attempt SRT-on-timeline; `srt_copy` is where `ave handoff` put a copy named after the timeline."""
+    if editdoc.effective_mode(doc) == "audio":
+        if audio_master is None:
+            raise ValueError("Audio review requires an exact compiled audio master; render this edit first.")
+        if layers:
+            raise ValueError("Choose the audio master review timeline. Editable source layers are separate from the exact mixed master.")
+        return master_review_plan(doc, name=name, master=audio_master, duration=doc['duration'],
+                                  srt=srt, project=project, try_subtitles=try_subtitles)
     problems = editdoc.validate(doc)
     if problems:
         raise ValueError("cannot hand off an invalid EditDoc:\n  - " + "\n  - ".join(problems))
@@ -254,7 +264,7 @@ def plan(ep: Episode, doc: dict, *, name: str, audio_master: Path | None = None,
             warnings.append(f"source(s) {', '.join(mapped)} have a channel_map (dead channel, or `sum` for a speaker-per-channel master): "
                             "the raw files play as recorded in Resolve. Hand over the compiled dialogue master (dual mono) instead.")
         for s in doc["tracks"]["dialogue"]:
-            if s.get("fill") == "room_tone":
+            if s.get("fill") in ("room_tone", "silence"):
                 continue
             rec, n = _frames(s["o0"], s["o1"], fps)
             start = max(0, round(editdoc.source_time(doc, s["src"], s["e0"]) * fps))
@@ -275,8 +285,12 @@ def plan(ep: Episode, doc: dict, *, name: str, audio_master: Path | None = None,
     overlays = []
     for o in doc["tracks"].get("overlays") or []:
         rec, n = _frames(o["o0"], o["o1"], fps)
-        overlays.append({"id": o["id"], "file": _abs(ep, o["file"]), "start_frame": 0, "end_frame": n, "record_frame": rec,
+        s0 = round(float(o.get("src_in") or 0.0) * fps)          # B-roll placed with --in starts that far into its file
+        overlays.append({"id": o["id"], "file": _abs(ep, o["file"]), "start_frame": s0, "end_frame": s0 + n, "record_frame": rec,
                          "frames": n, "track_index": max(2, int(o.get("layer", 1)) + 1) + overlay_shift, "media_type": 1, "kind": o.get("kind")})
+        if o.get("kind") == "broll" and (o.get("ken_burns") or o.get("fit", "cover") != "stretch" or o.get("audio") == "keep"):
+            warnings.append(f"B-roll {o['id']}: Resolve gets the clip at its in-point, full size; the cover/contain fit, Ken Burns move and kept sound "
+                            "are applied by the ffmpeg render (ave render), not in the hand-off")
 
     captions = doc.get("captions") or {}
     srt_path = srt or (ep.root / captions["srt"] if captions.get("srt") else None)
@@ -300,3 +314,55 @@ def plan(ep: Episode, doc: dict, *, name: str, audio_master: Path | None = None,
         from . import sequence
         sequence.apply_to_handoff_plan(ep, out, doc["sequences"])
     return out
+
+
+def master_review_plan(doc: dict, *, name: str, master: Path, duration: float,
+                       srt: Path | None = None, project: str | None = None,
+                       try_subtitles: bool = False) -> dict:
+    """Place the selected finished programme, including its actual mixed sound.
+
+    This is deliberately one master per track. Source edits may have drift,
+    crossfades, ducking, motion and sequence components that Resolve's free
+    bridge cannot reconstruct. No duplicate music is placed over the mix.
+    ``duration`` is the selected render's complete programme duration, which
+    can include opening/closing components outside the body's EditDoc clock.
+    """
+    import math
+    problems = editdoc.validate(doc)
+    if problems:
+        raise ValueError('Invalid review EditDoc: ' + '; '.join(problems))
+    if type(duration) not in (int, float) or not math.isfinite(duration) or duration <= 0:
+        raise ValueError('Exact rendered programme duration required')
+    fps = doc['fps']; total = round(duration * fps)
+    if total < 1:
+        raise ValueError('Review master must contain at least one timeline frame')
+    path = str(Path(master).resolve())
+    mode = editdoc.effective_mode(doc)
+    common = {'file': path, 'names': [Path(path).name], 'start_frame': 0,
+              'end_frame': total, 'record_frame': 0, 'frames': total, 'track_index': 1}
+    video = [] if mode == 'audio' else [{**common, 'id': 'programme-picture', 'media_type': 1}]
+    audio = [] if mode == 'silent_video' else [{**common, 'id': 'programme-sound', 'media_type': 2}]
+    return {'name': name, 'project': project, 'stage': doc['stage'], 'media_mode': mode,
+            'fps': fps, 'canvas': doc['canvas'], 'timeline_frames': total,
+            'import': [path], 'video': video, 'audio': audio, 'music': [], 'overlays': [],
+            'subtitles': {'srt': str(Path(srt).resolve()), 'try': bool(try_subtitles),
+                          'cues': srt_cue_count(Path(srt)), 'copy': None} if srt else None,
+            'warnings': ['Exact rendered master review; sound, effects and programme components are baked. '
+                         'Source layers are not editable in this master timeline.'],
+            'review_mode': 'exact-rendered-master'}
+
+
+def checked_report(stdout: str, *, returncode: int, expected_name: str) -> dict:
+    """Parse actual bridge output; a plan, dry run or exit zero is not a handoff."""
+    import json
+    try:
+        result = json.loads(stdout)
+    except (ValueError, TypeError) as exc:
+        raise ValueError('Resolve returned no valid handoff report; no success recorded') from exc
+    if not isinstance(result, dict) or result.get('ok') is not True or returncode != 0:
+        raise ValueError('Resolve handoff did not succeed: ' + str(result))
+    if result.get('dry_run') or result.get('timeline') != expected_name:
+        raise ValueError('Resolve report does not identify the actual requested timeline')
+    if result.get('problems'):
+        raise ValueError('Resolve reported incomplete timeline verification')
+    return result

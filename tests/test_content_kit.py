@@ -28,6 +28,8 @@ def test_stills_pages_hardcode_no_brand_values_and_use_no_animation_library():
 def test_every_template_yaml_has_a_page_and_valid_references():
     reg = R.load_registry()
     for t in reg.templates.values():
+        if "motion-kit" not in t.renderers:
+            continue                                     # the visual canvas has no HTML page of its own
         assert (t.still_dir() / "template.html").is_file()
         assert t.rev() == t.rev() and len(t.rev()) == 12
 
@@ -52,4 +54,4 @@ def test_skill_frontmatter_and_content(name):
 
 def test_skills_forbid_agent_publishing_and_unapproved_canva():
     allt = " ".join((ROOT / "skills" / n / "SKILL.md").read_text() for n in SKILLS)
-    assert "! ave publish approve" in allt and "AVE_ALLOW_UNATTENDED_APPROVAL" in allt and "Canva" in allt
+    assert "! ave publish approve" in allt and "AVE_ALLOW_UNATTENDED_APPROVAL" not in allt and "Canva" in allt

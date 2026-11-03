@@ -24,7 +24,7 @@ always visible, motion is off under `prefers-reduced-motion`, and every text and
   footage dirs. Ranged requests (`Range: bytes=`) are supported so the video can seek. Previews are served this way too.
 - Jobs are an allowlist of `ave` subcommands with typed arguments (`src/ave/ui/jobs.py`). No shell, no free-form strings, no file-path
   arguments, no `--allow-unapproved`/`--allow-unlicensed`, no env overrides, no publish/approve/send. One job at a time.
-  `AVE_ALLOW_UNATTENDED_APPROVAL` is stripped from job environments.
+  Job environments carry `AVE_AGENT=1` (so `ave.humanpresence` refuses human-only acts) and never `AVE_APPROVAL_KEY`.
 
 ## Pages
 
@@ -100,4 +100,4 @@ It is the same `queue.approve` as the CLI: preflight runs, the signature binds f
 ## Files
 
 `src/ave/ui/{server,api,jobs,ledger}.py`, `src/ave/ui/static/{index.html,app.js,style.css}`, `src/ave/commands/ui.py`, tests in
-`tests/test_ui.py`. Screenshots, captured from the synthetic `ave demo` episode, are in `docs/images/ui-*.png`.
+`tests/test_ui.py`. Screenshots from a synthetic demo episode are in `docs/images/ui-*.png`.

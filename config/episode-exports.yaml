@@ -1,0 +1,18 @@
+# Explicit final delivery choices. Geometry, codecs and loudness remain shared
+# compiler presets; changing this file invalidates a selected final's inputs.
+episode_hd:
+  base: master
+  output_height: 1080
+  label: Full HD · 1080p
+  about: Full HD delivery, H.264 CRF18, AAC256k, -16 LUFS
+episode_uhd:
+  base: master
+  output_height: 2160
+  label: Ultra HD · 2160p
+  about: Ultra HD delivery, H.264 CRF18, AAC256k, -16 LUFS
+
+episode_draft:
+  base: preview
+  output_height: 540
+  label: Review copy · 540p
+  about: 540p review delivery, H.264 CRF27, AAC96k, -16 LUFS

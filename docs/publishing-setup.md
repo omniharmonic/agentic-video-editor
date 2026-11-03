@@ -60,7 +60,7 @@ There is no direct Instagram, X or TikTok adapter, deliberately:
 Instead, `instagram`, `x` and `tiktok` route through the **experimental aggregator adapter**, a generic HTTP client driven by
 `~/.config/ave/aggregator.yaml` (start from `config/aggregator.example.yaml`; override the path with `AVE_AGGREGATOR_CONFIG`).
 Candidate hosted services to evaluate (no endpoint is hard-coded; check each vendor's API docs and terms): Ayrshare,
-Upload-Post, Late. Store the key with `ave publish auth aggregator`. Aggregator posts cannot be held back, so preflight demands
+Upload-Post, Late. Store the key with `ave publish auth aggregator --host api.yourvendor.com` (a human-only step: the host is pinned in the keychain, or set `AVE_AGGREGATOR_HOSTS`; the key is never sent to any other host, a config-file `base_url` outside that list is refused, plain http is refused except to localhost, and redirects are not followed). Aggregator posts cannot be held back, so preflight demands
 `--visibility public` unless your service has a draft mode and you set `supports_visibility: true`.
 
 ## Limits and preflight
@@ -68,3 +68,7 @@ Upload-Post, Late. Store the key with `ave publish auth aggregator`. Aggregator 
 `config/platforms.yaml` holds duration/size/aspect/schedule limits, each block marked `verified: true|false` with a source
 URL. All are currently `verified: false`. Preflight blocks obviously invalid posts (16:9 file for Reels/Shorts,
 over-length, Reel under 540x960, missing AI disclosure, schedule in the past). Edit the YAML when a platform changes a limit.
+
+## Studio due times and native platform scheduling
+
+Legacy episode queue items may ask YouTube/Facebook/an aggregator to schedule a future platform release. Studio queue items (`meta_v: 2`) instead carry a due slot enforced by the local studio scheduler. After all studio dispatch gates pass, these adapters deliver immediately with the reviewed visibility; they do not forward that already-due slot as a second native platform schedule. Legacy future scheduling behavior remains unchanged. Offline rehearsals never send, and a real sender still needs an account-bound adapter and all human permissions.

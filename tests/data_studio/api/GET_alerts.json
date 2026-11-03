@@ -1,0 +1,19 @@
+{
+  "method": "GET",
+  "path": "/api/studio/alerts",
+  "status": 200,
+  "response": {
+    "alerts": [
+      {
+        "id": "al_0001",
+        "ts": "2026-10-19T12:30:00Z",
+        "severity": "warn",
+        "kind": "account_not_live",
+        "account": "ig-main",
+        "post": "p_20261102_k3f9",
+        "message": "due item skipped: account ig-main is not live",
+        "ack": null
+      }
+    ]
+  }
+}

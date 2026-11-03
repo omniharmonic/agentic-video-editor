@@ -1,0 +1,38 @@
+[
+  {
+    "method": "POST",
+    "url": "com.atproto.server.createSession",
+    "early": true,
+    "response": {
+      "accessJwt": "eyJ.bsky-access-jwt-value.sig",
+      "refreshJwt": "eyJ.bsky-refresh-jwt-value.sig",
+      "did": "did:plc:z72i7hdynmk6r22z27h6tvur",
+      "handle": "acme.bsky.social"
+    },
+    "expect": {
+      "json_keys": [
+        "identifier",
+        "password"
+      ]
+    },
+    "_source": "documentation-derived, UNVERIFIED live: https://docs.bsky.app/docs/api/com-atproto-repo-create-record"
+  },
+  {
+    "method": "GET",
+    "url": "com.atproto.repo.listRecords",
+    "response": {
+      "records": [
+        {
+          "uri": "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.post/3kkz2ofqbl22q",
+          "cid": "bafyreib2",
+          "value": {
+            "$type": "app.bsky.feed.post",
+            "text": "x",
+            "createdAt": "2026-10-19T16:00:00.000Z"
+          }
+        }
+      ]
+    },
+    "_source": "documentation-derived, UNVERIFIED live: https://docs.bsky.app/docs/api/com-atproto-repo-create-record"
+  }
+]

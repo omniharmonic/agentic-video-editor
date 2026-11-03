@@ -369,7 +369,7 @@ def test_titles_pass_the_voice_critic(synth_episode, bad, why):
     ep = synth_episode
     problems = opening.critique(ep, bad, "something else entirely", opening.config(shorts.load_config(ep)))
     assert problems and any(why in p.lower() for p in problems)
-    assert opening.critique(ep, "Why we started this table", "building things that last", opening.config(shorts.load_config(ep))) == []
+    assert opening.critique(ep, "Why we are making this show", "building things that last", opening.config(shorts.load_config(ep))) == []
 
 
 def test_title_comes_from_titles_json_before_the_clip_title_and_is_editable(synth_episode):
@@ -392,9 +392,9 @@ def test_show_name_comes_from_episode_json_or_the_title_without_its_number(synth
     meta.pop("show", None)
     write_json(ep.meta_path, meta)
     assert opening.show_name(ep, {}) == "The Long Table"
-    meta["show"] = {"name": "The Open Table"}
+    meta["show"] = {"name": "The Commons"}
     write_json(ep.meta_path, meta)
-    assert opening.show_name(ep, {}) == "The Open Table"
+    assert opening.show_name(ep, {}) == "The Commons"
 
 
 def test_a_quote_card_overlay_never_reaches_a_short(synth_episode):

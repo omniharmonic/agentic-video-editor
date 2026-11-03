@@ -1,0 +1,19 @@
+{
+  "method": "POST",
+  "path": "/api/studio/posts/p_20261102_k3f9/view",
+  "status": 200,
+  "request": {
+    "variant": "v_fb",
+    "sha": "1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f",
+    "displayed_ms": 2400
+  },
+  "response": {
+    "ok": true,
+    "viewed": {
+      "post": "p_20261102_k3f9",
+      "variant": "v_fb",
+      "sha": "1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f",
+      "at": "2026-10-19T18:31:00Z"
+    }
+  }
+}

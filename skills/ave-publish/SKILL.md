@@ -24,8 +24,8 @@ problems. Ask them to watch the exact file. The human approves:
 
 ```bash
 ave publish approve <ep> <id>                  # prompts; they type the first 8 chars of the sha256 they reviewed
-#   You cannot do this step: it refuses without a real terminal and --confirm-sha is disabled. Tell the human to run
-#   `! ave publish approve <ep> <id>` (the leading ! runs it in this session). Never set AVE_ALLOW_UNATTENDED_APPROVAL; that is for CI only.
+#   You cannot do this step: it refuses without a real terminal (ave.humanpresence) and there is no --confirm-sha. Tell the human to run
+#   `! ave publish approve <ep> <id>` (the leading ! runs it in this session). There is no unattended switch.
 ```
 
 Only after the human says to publish in this session: `ave publish run <ep> <id> --yes`.

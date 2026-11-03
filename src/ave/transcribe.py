@@ -12,6 +12,7 @@ other camera onto it. All times are seconds (float).
 from __future__ import annotations
 
 import json
+import math
 import subprocess
 from pathlib import Path
 
@@ -44,25 +45,67 @@ def pick_source(ep: Episode, explicit: str | None) -> str:
     return max(pool, key=lambda m: m["duration"])["file"]
 
 
-def _run(cmd: list[str]) -> None:
-    proc = subprocess.run(cmd, capture_output=True, text=True)
+def _run(cmd: list[str]) -> str:
+    from .ui.jobs import child_env
+    from .publish.safety import redact_obj
+    proc = subprocess.run(cmd, capture_output=True, text=True, env=child_env())
+    diagnostics = str(redact_obj((proc.stdout + "\n" + proc.stderr)[-4000:]))
     if proc.returncode != 0:
-        raise SystemExit(f"command failed ({proc.returncode}): {' '.join(cmd)}\n{proc.stderr[-2000:]}")
+        raise SystemExit(f"Transcription engine failed ({proc.returncode}): {diagnostics}")
+    return diagnostics
 
 
-def run_fluidaudio_asr(wav: Path, out_json: Path, language: str | None) -> list[dict]:
+def _output(cmd: list[str], path: Path) -> dict:
+    # Never mistake a previous run's JSON for a successful current invocation.
+    path.unlink(missing_ok=True)
+    diagnostics = _run(cmd)
+    try:
+        data = json.loads(path.read_text())
+        if not isinstance(data, dict): raise ValueError("not an object")
+        return data
+    except (OSError, ValueError) as exc:
+        raise SystemExit(f"Transcription engine produced no valid output JSON ({type(exc).__name__}). {diagnostics or 'No engine diagnostic was emitted.'}") from None
+
+
+def _bounded_model_times(rows: list[dict], wav: Path, start: str, end: str) -> list[dict]:
+    """Normalize only small model boundary drift; raw helper JSON stays intact.
+
+    The pinned offline diarizer emits up to 67.9 ms beyond an exact hour.
+    Permit at most 100 ms at source edges, reject invalid intervals, and never
+    silently repair material timestamp errors. The input is an analysis WAV.
+    """
+    import soundfile as sf
+    info = sf.info(str(wav))
+    duration = info.frames / info.samplerate
+    result = []
+    for row in rows:
+        a, b = float(row[start]), float(row[end])
+        if not all(math.isfinite(t) for t in (a, b)) or a > b or a < -.1 or b > duration + .1:
+            raise SystemExit('Model timestamps exceed the source bounds (100 ms edge tolerance)')
+        result.append({**row, start: max(0., min(duration, a)), end: max(0., min(duration, b))})
+    return result
+
+
+def run_fluidaudio_asr(wav: Path, out_json: Path, language: str | None, *, local_model_dir: Path | None = None) -> list[dict]:
     cli = config.fluidaudio_cli()
     if not cli:
         raise SystemExit("FluidAudio not built. Run scripts/build-fluidaudio.sh (or use --asr whisper).")
     cmd = [str(cli), "transcribe", str(wav), "--word-timestamps", "--output-json", str(out_json)]
+    from .desktop_runtime import frozen, component
+    if local_model_dir is not None:
+        cmd += ["--local-model-dir", str(local_model_dir), "--model-version", "v3"]
+    elif frozen():
+        cmd += ["--local-model-dir", str(component('asr')), "--model-version", "v3"]
     if language:
         cmd += ["--language", language]
-    _run(cmd)
-    data = json.loads(out_json.read_text())
-    return [
+    data = _output(cmd, out_json)
+    if not isinstance(data.get("wordTimings"), list):
+        raise SystemExit("Transcription engine output has no wordTimings list")
+    words = [
         {"w": w["word"], "start": float(w["startTime"]), "end": float(w["endTime"]), "conf": float(w.get("confidence", 1.0))}
         for w in data["wordTimings"]
     ]
+    return _bounded_model_times(words, wav, 'start', 'end') if frozen() else words
 
 
 def run_whisper_asr(wav: Path, out_prefix: Path, language: str | None) -> list[dict]:
@@ -73,8 +116,7 @@ def run_whisper_asr(wav: Path, out_prefix: Path, language: str | None) -> list[d
     cmd = [str(cli), "-m", str(model), "-f", str(wav), "-oj", "-of", str(out_prefix), "-ml", "1", "-sow", "-np"]
     if language:
         cmd += ["-l", language]
-    _run(cmd)
-    data = json.loads(out_prefix.with_suffix(".json").read_text())
+    data = _output(cmd, out_prefix.with_suffix(".json"))
     words = []
     for seg in data.get("transcription", []):
         text = seg["text"].strip()
@@ -94,10 +136,16 @@ def run_fluidaudio_diarization(wav: Path, out_json: Path, num_speakers: int | No
     if not cli:
         raise SystemExit("FluidAudio not built. Run scripts/build-fluidaudio.sh")
     cmd = [str(cli), "process", str(wav), "--mode", "offline", "--output", str(out_json)]
+    from .desktop_runtime import frozen, component
+    if frozen(): cmd += ["--local-model-dir", str(component('diarization'))]
     if num_speakers:
         cmd += ["--min-speakers", str(num_speakers), "--max-speakers", str(num_speakers)]
-    _run(cmd)
-    return json.loads(out_json.read_text())
+    data = _output(cmd, out_json)
+    if not isinstance(data.get("segments"), list):
+        raise SystemExit("Diarization engine output has no segments list")
+    if frozen():
+        data = {**data, 'segments': _bounded_model_times(data['segments'], wav, 'startTimeSeconds', 'endTimeSeconds')}
+    return data
 
 
 def assign_speakers(words: list[dict], segments: list[dict]) -> None:
@@ -271,6 +319,9 @@ def transcribe(ep: Episode, source: str | None = None, asr: str = "fluidaudio",
     wav = analysis_wav_path(ep, rel)
     if not wav.exists():
         raise SystemExit(f"Analysis audio missing: {wav}. Run: ave audio {ep.root}")
+    import soundfile as sf
+    if sf.info(wav).frames <= 0:
+        raise SystemExit("Analysis audio has no samples. Import a nonempty recording before transcription.")
     asr_dir = ep.work / "asr"
     asr_dir.mkdir(exist_ok=True)
 

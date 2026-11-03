@@ -191,5 +191,5 @@ def _platform_fit(item: dict, reg: R.Registry, cfg: dict) -> list[str]:
     for p in item.get("platforms") or []:
         spec = (plats.get(p) or {}).get("image")
         if spec:
-            out += [f"{p}: {m}" for m in base.image_dimension_problems(spec, w, h, carousel=item["template"] == "carousel")]
+            out += [f"{p}: {m}" for m in base.image_dimension_problems(spec, w, h, carousel=reg.get(item["template"]).kind == "carousel")]
     return out

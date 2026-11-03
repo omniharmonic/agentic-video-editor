@@ -48,8 +48,7 @@ def track_plans(plan: dict) -> dict[tuple[str, int], list[dict]]:
 def matches(p_: dict, it: dict, tl0: int, kind: str) -> bool:
     """A placed item is the planned one: same start and length (and, for video, the same camera file)."""
     ok_ = int(it["start"]) == tl0 + p_["record_frame"] and int(it["duration"]) == p_["frames"]
-    if kind == "video":
-        ok_ = ok_ and it.get("name") in p_.get("names", [Path(p_["file"]).name])
+    ok_ = ok_ and it.get("name") in p_.get("names", [Path(p_["file"]).name])
     return ok_
 
 
@@ -407,10 +406,17 @@ def main() -> None:
         a_items = server.timeline(action="get_items", params={"track_type": "audio", "track_index": 1}).get("items", [])
         if len(a_items) != len(plan["audio"]):
             problems.append(f"audio items: Resolve has {len(a_items)}, plan has {len(plan['audio'])}")
+        else:
+            a_items = sorted(a_items, key=lambda i: i["start"])
+            for wanted, actual in zip(plan['audio'], a_items):
+                if not matches(wanted, actual, tl_start, 'audio'):
+                    problems.append(f"{wanted['id']}: audio start or duration differs from the exact plan")
         gaps = server.timeline(action="detect_gaps_overlaps")
         if gaps.get("gap_count") or gaps.get("overlap_count"):
             problems.append(f"detect_gaps_overlaps: {gaps.get('gap_count')} gaps, {gaps.get('overlap_count')} overlaps")
-    report = {"ok": not problems, "timeline": name, "video_items": len(items), "audio_items": len(a_items),
+    report = {"ok": not problems, "timeline": name, "project": server.project_settings(action="get_name").get("name"),
+              "media_mode": plan.get('media_mode', 'audiovisual'), "review_mode": plan.get('review_mode', 'source-edit'),
+              "video_items": len(items), "audio_items": len(a_items),
               "music": len(plan["music"]), "overlays": len(plan["overlays"]), "subtitles": subtitles,
               "gaps": gaps.get("gap_count"), "overlaps": gaps.get("overlap_count"), "problems": problems,
               "warnings": plan["warnings"], "timeline_start_frame": tl_start}

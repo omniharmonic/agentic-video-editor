@@ -6,6 +6,8 @@
 #   safe  = rectangle (fractions of W/H kept clear on each side) that the rendered text must stay inside
 # Colors are "#RRGGBB" with an optional alpha 0-1 as a second field, e.g. ["#000000", 0.6].
 
+timing_adjustment_limit_s: 2.0
+
 rules:
   # Long-form (YouTube, podcast video). Sources: Netflix/BBC subtitle guidance (<=42 chars/line, 2 lines, ~17 cps).
   long:
@@ -50,7 +52,6 @@ styles:
     margin_v: 0.085         # distance of the text block's bottom edge from the bottom of the frame (fraction of H)
     safe: {left: 0.08, right: 0.08, top: 0.05, bottom: 0.05}
     karaoke: false
-    line_spacing_ss: 0.0
 
   # Vertical shorts: bold, word-by-word progressive highlight, block centred at 65% of the height.
   short:
@@ -68,7 +69,6 @@ styles:
     # Platform UI covers the bottom quarter and the right-hand button column of a vertical video.
     safe: {left: 0.111, right: 0.111, top: 0.12, bottom: 0.25}
     karaoke: true
-    line_spacing_ss: 0.0
 
   # Quiet, small, for videos that already have a lot going on.
   minimal:
@@ -84,4 +84,3 @@ styles:
     margin_v: 0.07
     safe: {left: 0.10, right: 0.10, top: 0.05, bottom: 0.04}
     karaoke: false
-    line_spacing_ss: 0.0

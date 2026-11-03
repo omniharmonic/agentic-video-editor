@@ -17,6 +17,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import re
 import shutil
 import subprocess
 import time
@@ -24,7 +25,7 @@ from pathlib import Path
 
 import yaml
 
-from . import completeness, editdoc, ffutil, opening, presets, reframe, resources, zoomstate
+from . import completeness, config, editdoc, ffutil, opening, presets, reframe, resources, zoomstate
 from .episode import Episode, read_json, write_json
 
 CONFIG = resources.config_file("shorts.yaml")
@@ -182,8 +183,8 @@ def camera_speakers(ep: Episode, doc: dict) -> dict[str, str]:
 def segment_speakers(ep: Episode, doc: dict) -> dict[str, str | None]:
     """{video segment id: the speaker with the most word time while the segment is on screen} (None = no speech)."""
     from . import captions
-    tr = read_json(ep.artifact("transcript.json"))
-    words = captions.map_words_to_output(tr["words"], doc)
+    from .occurrences import mapped_words
+    words = mapped_words(ep, doc)
     out: dict[str, str | None] = {}
     for s in doc["tracks"]["video"]:
         acc: dict[str, float] = {}
@@ -292,7 +293,8 @@ def _signature(select_path: str, select_mtime_hash: str, cfg: dict, style: str, 
 
 
 def build_short(ep: Episode, clip: dict, cfg: dict | None = None, layout: str = "crop", detector=None, force: bool = False,
-                allow_incomplete: bool = False, opening_mode: str | None = None, title: str | None = None) -> dict:
+                allow_incomplete: bool = False, opening_mode: str | None = None, title: str | None = None,
+                extra_short: dict | None = None, extra_review: list[str] | None = None) -> dict:
     """Build (or find unchanged) the short EditDoc for one clip. Returns {slug, path, version, status, needs_review, notes}.
 
     Hard guarantees (see `completeness.py`, `opening.py`):
@@ -300,7 +302,10 @@ def build_short(ep: Episode, clip: dict, cfg: dict | None = None, layout: str = 
         edges. An incomplete clip is cut from its `context_variant` when that is complete, else REFUSED (SystemExit).
         `allow_incomplete` is the explicit override; it is recorded in the doc, the sidecar and PROGRESS.md.
       * the cut never slices a word: the first and last edge are moved to word gaps with a little pad.
-      * the opening is a title (overlay or card), never the quote (`opening_mode`: none | title_card | title_overlay)."""
+      * the opening is a title (overlay or card), never the quote (`opening_mode`: none | title_card | title_overlay).
+
+    `extra_short` / `extra_review` let a caller that changed the cut (`ave shorts recut`) record that in the doc's `short` block and in
+    `needs_review`; nothing else uses them."""
     from . import captions
     cfg = cfg or load_config(ep)
     if layout not in ("crop", "stack", "audiogram"):
@@ -391,6 +396,7 @@ def build_short(ep: Episode, clip: dict, cfg: dict | None = None, layout: str = 
     elif open_rec["mode"] != "none":
         notes.append(f"opening {open_rec['mode']}: title {open_rec['title']!r} (a draft: edit it; source {open_rec['title_source']})")
 
+    review += list(extra_review or [])
     style = captions.get_style(style_name, ep=ep)
     if stack_plan and isinstance(style.get("position"), dict):
         style = {**style, "position": {**style["position"], "y": stack_plan["caption_y"]}}      # on the seam between the two halves
@@ -406,7 +412,7 @@ def build_short(ep: Episode, clip: dict, cfg: dict | None = None, layout: str = 
     doc["short"] = {"slug": slug, "clip_id": clip["id"], "title": clip["title"], "layout": layout, "sig": sig,
                     "select": clip["edit"]["path"], "draft": clip["status"] != "approved", "needs_review": review,
                     "completeness": {**comp, "cut": cut_rep}, "edges": edges, "opening": open_rec, "clip_range": [clip["start"], clip["end"]],
-                    "crop_motion": reframe.crop_motion_stats(doc), "cutaways": cut, "min_hold_notes": notes}
+                    "crop_motion": reframe.crop_motion_stats(doc), "cutaways": cut, "min_hold_notes": notes, **(extra_short or {})}
     if stack_plan:
         doc["short"]["stack"] = stack_plan
     path = editdoc.save_new_version(ep, doc, name=slug)
@@ -447,22 +453,39 @@ def video_profile(path: Path) -> dict:
 
 def licensed_files(doc: dict) -> list[str]:
     files = [m["file"] for m in doc["tracks"].get("music") or [] if m.get("file")]
-    files += [o["file"] for o in doc["tracks"].get("overlays") or [] if o.get("file") and o.get("kind") != "motion"]
+    files += [o["file"] for o in doc["tracks"].get("overlays") or [] if o.get("file") and o.get("kind") not in ("motion", "credit") and not o.get("library")]
     files += [s["file"] for s in doc["sources"].values() if s.get("role") in ("broll", "stock", "music")]
     return list(dict.fromkeys(files))
 
 
 def license_report(ep: Episode, doc: dict) -> dict:
+    """Licensing of everything the short uses: music and non-library files against the episode's license log, and B-roll placed from a studio
+    library (`ave broll place`) against that library's attested license log. `library_assets` / `derived_from` list the placed asset ids,
+    which the studio bridge records as what the render was derived from."""
+    from .broll import place
+    lib = place.closure(ep, doc)
     files = licensed_files(doc)
-    if not files:
-        return {"required": False, "ok": True, "covered": [], "missing": [], "attribution": []}
-    from .assets import licenses
-    cov = licenses.coverage(ep, files)
-    entries = [c["entry"] for c in cov["covered"] if c.get("entry")]
-    return {"required": True, "ok": not cov["missing"] and not cov["unreadable"],
-            "covered": [{k: v for k, v in c.items() if k != "entry"} for c in cov["covered"]],
-            "missing": [m["file"] for m in cov["missing"]], "unreadable": cov["unreadable"],
-            "attribution": licenses.attribution_lines(entries, include_optional=True)}
+    if not files and not lib["required"]:
+        return {"required": False, "ok": True, "covered": [], "missing": [], "attribution": [], "attribution_required": []}
+    out = {"required": True, "ok": True, "covered": [], "missing": [], "unreadable": [], "attribution": [], "attribution_required": []}
+    if files:
+        from .assets import licenses
+        cov = licenses.coverage(ep, files)
+        entries = [c["entry"] for c in cov["covered"] if c.get("entry")]
+        out.update(ok=not cov["missing"] and not cov["unreadable"],
+                   covered=[{k: v for k, v in c.items() if k != "entry"} for c in cov["covered"]],
+                   missing=[m["file"] for m in cov["missing"]], unreadable=cov["unreadable"],
+                   attribution=licenses.attribution_lines(entries, include_optional=True),
+                   attribution_required=licenses.attribution_lines(entries))
+    if lib["required"]:
+        out["ok"] = bool(out["ok"] and lib["ok"])
+        out["covered"] += [{"file": c["asset"], "license": c["license"], "source": c["source"]} for c in lib["covered"]]
+        out["missing"] += [f"{m['asset']}: {m['why']}" for m in lib["missing"]] + list(lib["problems"])
+        out["attribution"] += [t for t in lib["attributions"] + lib["optional_attributions"] if t not in out["attribution"]]
+        out["attribution_required"] += [t for t in lib["attributions"] if t not in out["attribution_required"]]
+        out["library_assets"] = lib["assets"]
+        out["derived_from"] = lib["derived_from"]
+    return out
 
 
 def description_draft(clip: dict, lic: dict, platform: str) -> str:
@@ -478,6 +501,17 @@ def _sha(path: Path) -> str:
         for b in iter(lambda: f.read(1 << 20), b""):
             h.update(b)
     return h.hexdigest()
+
+
+LOW_LIGHT_LUMA = 60
+
+
+def median_luma(path: Path) -> float | None:
+    """Median frame brightness (0-255), sampled every 5 s; None when it cannot be measured."""
+    r = subprocess.run([str(config.binary("ffmpeg")), "-hide_banner", "-i", str(path), "-vf",
+                        "fps=1/5,signalstats,metadata=print:key=lavfi.signalstats.YAVG:file=-", "-f", "null", "-"], capture_output=True, text=True)
+    values = sorted(float(x) for x in re.findall(r"YAVG=([0-9.]+)", r.stdout))
+    return values[len(values) // 2] if values else None
 
 
 def export_short(ep: Episode, clip: dict, platforms: list[str], cfg: dict | None = None) -> dict:
@@ -527,6 +561,9 @@ def export_short(ep: Episode, clip: dict, platforms: list[str], cfg: dict | None
                               start_limit_db=cfg.get("audio", {}).get("start_limit_db", 0.0))
             rendered[key] = {"file": mp4, "report": rep}
         warnings += rep.get("warnings", [])
+        luma = median_luma(mp4)
+        if luma is not None and luma < LOW_LIGHT_LUMA:
+            warnings.append(f"low light: median luma {luma:.0f} of 255, too dark for a phone feed. Grade it in Resolve before posting")
         info = ffutil.probe(mp4)
         prof = video_profile(mp4)
         size = mp4.stat().st_size

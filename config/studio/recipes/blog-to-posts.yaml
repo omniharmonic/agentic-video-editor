@@ -1,0 +1,69 @@
+name: blog-to-posts
+title: Blog post to scheduled posts
+summary: >
+  A written piece (saved as Markdown by the human; a URL is never fetched) becomes quote cards, a carousel and per-account copy, reviewed by the human
+  and sent by the scheduler. Every quote is verified word for word against the file.
+inputs:
+  - {name: file, required: true, path: true, description: "The blog post saved as Markdown (.md)"}
+steps:
+  - id: ingest
+    kind: mechanical
+    title: Split the post into sentence-addressable passages
+    command: "ave studio ingest blog {file} --studio {studio}"
+    done_when: {file: "work/content/writing.json"}
+  - id: choose
+    kind: agent
+    skill: ave-studio-ideas
+    title: Choose 4-8 quotable passages, one summary and one carousel outline
+    checklist:
+      - "Quote only passages that read well alone and begin and end on a complete sentence; never edit the words (the verbatim check refuses it)."
+      - "One post per passage: `ave studio post new --idea ... --from-blog FILE --passages p003` (records where the words came from)."
+      - "Write the reason and your confidence on each post; pick in the writer's own voice, never cheesy or corporate."
+    done_when: {posts: {origin: blog, min: 4}}
+  - id: render
+    kind: mechanical
+    title: Render a quote card for every blog post that has none yet
+    command: "ave studio render --all --studio {studio}"
+    done_when: {posts: {origin: blog, has_media: true, min: 4}}
+  - id: copy
+    kind: agent
+    skill: ave-studio-visuals
+    title: Look at every card, then write per-account copy, alt text and variants
+    checklist:
+      - "Open each rendered PNG (Read the file) and critique it: legible at phone size, words fit, nothing cheesy."
+      - "`ave studio post variant add <post> --account A --type feed` per account; `ave studio post edit` for copy; alt text on every image."
+      - "Run `ave studio post critique <post>` (the voice and length critic) and fix what it names."
+    done_when: {variants: {min: 4}}
+  - id: sync
+    kind: mechanical
+    title: Create the queue items (runs every preflight; never approves)
+    command: "ave studio queue sync --studio {studio}"
+    done_when: {variants: {status: [in_review, approved, scheduled], min: 1}}
+  - id: plan
+    kind: agent
+    skill: ave-studio-calendar
+    title: Propose times for the week
+    checklist:
+      - "Set account schedule rules if there are none: `ave studio schedule rules set <account> --rule ...`."
+      - "`ave studio schedule plan --campaign C --weeks 1` writes a proposal; it applies nothing until a human accepts it."
+    done_when: {glob: "schedule/proposals/sp_*.json", min: 1}
+  - id: review
+    kind: human
+    title: Look at each post and approve (hash-bound)
+    prompt: >
+      Open the studio, step through Review, look at each post as it will go out, and approve the ones you want. Approval is yours alone:
+      it binds the exact bytes you saw. Accept or edit the proposed times on the calendar.
+    command: "ave studio ui {studio}"
+    done_when: {variants: {status: [approved, scheduled], min: 1}}
+  - id: rehearse
+    kind: mechanical
+    title: Rehearse the scheduler (posts nothing)
+    command: "ave studio tick --studio {studio}"
+    done_when: {variants: {status: [scheduled], min: 1}}
+  - id: send
+    kind: human
+    title: Let the scheduler send (account live, then tick --send)
+    prompt: >
+      Sending is your decision. Turn an account live in your own terminal (`ave studio account live <id> --on`), then run the sender
+      (`ave studio run --send`). Until then everything stays a dry run.
+    done_when: {variants: {status: [published], min: 1}}

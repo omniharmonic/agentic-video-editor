@@ -7,6 +7,7 @@ import os
 import json
 import sys
 
+from .. import humanpresence
 from ..episode import Episode
 from ..publish import queue, safety
 from ..publish.adapters import ALL_PLATFORMS, get_publisher
@@ -119,7 +120,8 @@ def cmd_show(a) -> int:
 
 
 def cmd_approve(a) -> int:
-    """Approval is a HUMAN act. It needs the hash prefix of the exact file reviewed (typed at a prompt, or --confirm-sha)."""
+    """Approval is a HUMAN act: a real terminal (ave.humanpresence) and the hash prefix of the exact file reviewed, typed at a prompt."""
+    humanpresence.require_human("publish approval", "ave publish approve %s %s" % (a.episode, a.id))
     ep = _ep(a)
     item = queue.load(ep, a.id)
     sha = queue.current_sha(ep, item)
@@ -131,19 +133,7 @@ def cmd_approve(a) -> int:
                                                           for f, p in zip(item["files"], queue.resolve_files(ep, item))],
                      alt_texts=item.get("alt_texts"), caption=item.get("caption"))
     _out({"approving": shown, "sha256": sha})
-    # Approval must be a human at a real terminal. The hash is printed above, so a flag that skips the terminal would let an
-    # agent approve its own post; it is honoured only when the human has explicitly opted in via AVE_ALLOW_UNATTENDED_APPROVAL=1
-    # (meant for tests/CI). Agents must NEVER set that variable.
-    unattended = os.environ.get("AVE_ALLOW_UNATTENDED_APPROVAL") == "1"
-    confirm = a.confirm_sha if unattended else None
-    if a.confirm_sha and not unattended:
-        raise SystemExit("--confirm-sha is disabled: approval must be typed by the human at a terminal. "
-                         "Ask them to run:  ! ave publish approve %s %s" % (a.episode, a.id))
-    if not confirm:
-        if not (sys.stdin.isatty() and sys.stdout.isatty()):
-            raise SystemExit("approval needs a human at a terminal. Ask them to run (the leading ! runs it in this session):\n"
-                             "  ! ave publish approve %s %s" % (a.episode, a.id))
-        confirm = input("Type the first 8 characters of the sha256 above to approve: ").strip()
+    confirm = input("Type the first 8 characters of the sha256 above to approve: ").strip()
     try:
         done = queue.approve(ep, a.id, a.by or getpass.getuser(), confirm)
     except ValueError as e:
@@ -161,9 +151,32 @@ def cmd_reject(a) -> int:
     return 0
 
 
+def studio_bound(item: dict) -> str | None:
+    """Why this item belongs to a content studio (and so must go through `ave studio tick`, with pause, live, feedback, license, limits and
+    dedupe gates), else None. Studio items are `meta_v` 2; an adopted episode item is stamped `studio_bound`."""
+    if item.get("meta_v") == 2:
+        return "it is a content-studio queue item (meta_v 2)"
+    if item.get("studio_bound"):
+        return f"it was adopted by the studio at {item['studio_bound'].get('studio')}"
+    return None
+
+
+def _refuse_studio(a) -> None:
+    try:
+        item = queue.load(_ep(a), a.id)
+    except (ValueError, FileNotFoundError):
+        return
+    why = studio_bound(item)
+    if why:
+        raise SystemExit(f"refused: {why}. The legacy `ave publish` flow bypasses the studio's gates (pause, live attestation, open feedback, "
+                         "license closure, limits, dedupe). The human sends it with `ave studio tick --send`.")
+
+
 def cmd_run(a) -> int:
     """Dry-run unless --yes is given (and --dry-run always wins)."""
     send = bool(a.yes) and not a.dry_run
+    if send:
+        _refuse_studio(a)
     try:
         rep = queue.run(_ep(a), a.id, send=send)
     except (RuntimeError, ValueError, FileNotFoundError) as e:
@@ -175,6 +188,8 @@ def cmd_run(a) -> int:
 
 
 def cmd_resolve(a) -> int:
+    _refuse_studio(a)
+    humanpresence.require_human("settling an uncertain publish", f"ave publish resolve {a.id} {a.platform} " + (f"--posted {a.posted}" if a.posted else "--retry"))
     try:
         item = queue.resolve(_ep(a), a.id, a.platform, posted_url=a.posted, retry=a.retry, by=getpass.getuser())
     except (ValueError, RuntimeError) as e:
@@ -197,6 +212,13 @@ def cmd_auth(a) -> int:
         safety.set_secret("facebook_page_token", getpass.getpass("Facebook Page access token (hidden): ").strip())
         _out({"stored": "keychain", "platform": "facebook"})
     elif p == "aggregator":
+        humanpresence.require_human("storing the aggregator key and host", "ave publish auth aggregator --host %s" % (a.host or "<host>"))
+        if not a.host:
+            raise SystemExit("--host <hostname> is required: the API key will only ever be sent to hosts you pin (e.g. --host api.example.com)")
+        from urllib.parse import urlparse
+        host = (urlparse(a.host).hostname or a.host).strip().lower()
+        pinned = sorted({h for h in (safety.get_secret("aggregator_hosts") or "").split(",") if h} | {host})
+        safety.set_secret("aggregator_hosts", ",".join(pinned))
         safety.set_secret("aggregator_api_key", getpass.getpass("Aggregator API key (hidden): ").strip())
         _out({"stored": "keychain", "platform": "aggregator"})
     else:
@@ -246,7 +268,6 @@ def register(sub) -> None:
     s.add_argument("episode")
     s.add_argument("id")
     s.add_argument("--by")
-    s.add_argument("--confirm-sha", help="first 8+ chars of the sha256 of the reviewed file")
     s.set_defaults(fn=cmd_approve)
     s = ps.add_parser("reject", help="reject an item (voids approvals)")
     s.add_argument("episode")
@@ -271,6 +292,7 @@ def register(sub) -> None:
     s.add_argument("platform", choices=["youtube", "facebook", "aggregator"])
     s.add_argument("--client-secrets")
     s.add_argument("--page-id")
+    s.add_argument("--host", help="aggregator: the hostname the API key may be sent to (pinned; the config file cannot widen it)")
     s.set_defaults(fn=cmd_auth)
     s = ps.add_parser("status", help="queue counts, uncertain items, credential readiness (no secrets shown)")
     s.add_argument("episode")

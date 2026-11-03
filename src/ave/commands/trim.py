@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import json
 
-from .. import trim
+from .. import humanpresence, trim
 from ..episode import Episode, read_json
 
 
@@ -24,6 +24,8 @@ def cmd_suggest(a) -> int:
 
 
 def cmd_set(a) -> int:
+    humanpresence.require_human("setting the trim", "ave trim set %s %s%s%s" % (
+        a.episode, a.session, "" if a.in_s is None else " --in %s" % a.in_s, "" if a.out_s is None else " --out %s" % a.out_s))
     ep = _ep(a)
     rec = trim.set_trim(ep, a.session, in_s=a.in_s, out_s=a.out_s)
     print(json.dumps({"ok": True, "trim": rec, "next": f"re-run `ave assemble {ep.root} --session {a.session}` and then `ave cleanup {ep.root} --name {a.session}`"

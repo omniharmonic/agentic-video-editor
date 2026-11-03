@@ -4,20 +4,20 @@ This walks one multicam podcast episode from raw footage to a release package, w
 **HUMAN CHECKPOINT** are where you decide before anything moves on. Normally you tell your agent "edit episode X, start with the ave-pipeline
 skill" and it runs these for you; this page is for knowing what it is doing, or doing it by hand.
 
-Time to expect: setup 5 to 15 minutes (the FluidAudio build is the long part), the demo 10 seconds, a real two-hour episode a few hours of machine time at 4K
+Time to expect: setup 5 to 15 minutes (the FluidAudio build is the long part), the demo about 20 seconds, a real two-hour episode a few hours of machine time at 4K
 plus your review time.
 
 ## 0. Install and prove it works (10 minutes)
 
 ```bash
-git clone https://github.com/omniharmonic/agentic-video-editor && cd agentic-video-editor
+git clone https://github.com/OWNER/agentic-video-editor && cd agentic-video-editor
 ./scripts/setup.sh --minimal        # or ./scripts/setup.sh for everything this machine can do
 source .venv/bin/activate           # or prefix commands with .venv/bin/ or `uv run`
 ave doctor                          # required / real-footage / optional, with the fix command per gap, and a verdict line
-ave demo                            # the whole pipeline on generated footage; no footage or network needed
+ave demo                            # the whole pipeline on generated footage; no footage or network needed (builds ~/ave-demo when run inside the repo)
 ```
 
-You need FFmpeg and `uv` first; `setup.sh` tells you the exact install command if either is missing. For **real footage** you also need a
+You need FFmpeg and `uv` first; `setup.sh` tells you the exact install command if either is missing. On macOS install **`ffmpeg-full`** (`brew install ffmpeg-full`): Homebrew's plain `ffmpeg` has no libass, so shorts and burned-in captions fail. `ave doctor` shows it under "Required for captions & shorts" and will not say READY without it. For **real footage** you also need a
 transcription engine: on Apple Silicon `./scripts/setup.sh` builds FluidAudio (needs `xcode-select --install`); elsewhere install whisper.cpp
 and run `scripts/fetch-whisper-model.sh`. `ave doctor` shows which you have. Resolve is optional; see step 8.
 
@@ -25,7 +25,7 @@ and run `scripts/fetch-whisper-model.sh`. `ave doctor` shows which you have. Res
 
 ```bash
 ave workspace ~/Editing                 # once: the folder that holds all episodes (outside this repo)
-ave init-episode ep-001                 # creates ~/Editing/ep-001/{raw,work,edits,exports}, episode.json, PROGRESS.md
+ave init-episode ep-001                 # creates ~/Editing/ep-001/{raw,work,edits,exports}, episode.json, PROGRESS.md, AGENTS.md, CLAUDE.md
 ```
 
 Copy your camera files and the recorder audio into `~/Editing/ep-001/raw/`. Copy, do not move: the originals stay yours, and the tool never
@@ -97,7 +97,7 @@ ave sequence build ep-001
 ```bash
 ave captions ep-001 --stage rough --style podcast     # SRT/ASS; `ave captions check` verifies timing
 ave assets ...                                         # only if you use music or B-roll: every file needs a license-log entry
-ave final ep-001 --opening --closing                   # music (ducked), motion graphics, captions, two-pass loudness, exact-match SRT
+ave final ep-001 --opening --closing --burn            # music (ducked), motion graphics, two-pass loudness, exact-match SRT; --burn bakes captions in (needs libass)
 ```
 
 `ave final` refuses unlicensed assets. It re-transcribes its own render so the SRT matches the audio exactly.

@@ -22,16 +22,21 @@ def _doc_with_clip(ep, **slot_over):
 
 # ---- registry ------------------------------------------------------------------------------------
 
-def test_registry_loads_four_templates_and_the_matrix():
+CORE = ["carousel", "quote-post", "reel-card", "thumbnail"]
+STUDIO_PACK = ["announcement", "before-after", "event", "offer", "product-spotlight", "stat-card", "testimonial", "tip-list"]
+
+
+def test_registry_loads_the_core_templates_the_studio_pack_and_the_matrix():
     reg = R.load_registry()
-    assert reg.ids() == ["carousel", "quote-post", "reel-card", "thumbnail"]
+    assert reg.ids() == sorted(CORE + STUDIO_PACK + ["visual-canvas"])
     m = {(r["template"], r["style"], r["format"]): (r["w"], r["h"]) for r in reg.matrix()}
     assert m[("quote-post", "ink", "1x1")] == (1080, 1080)
     assert m[("quote-post", "paper", "4x5")] == (1080, 1350)
     assert m[("quote-post", "clay", "9x16")] == (1080, 1920)
     assert m[("thumbnail", "ink", "16x9")] == (1280, 720)
     assert m[("carousel", "ink", "4x5")] == (1080, 1350)
-    assert len(m) == 3 * 3 + 3 + 3 + 3          # styles x formats per template
+    assert len([k for k in m if k[0] in CORE]) == 3 * 3 + 3 + 3 + 3          # styles x formats per core template
+    assert m[("offer", "ink", "2x3")] == (1000, 1500) and m[("announcement", "paper", "191x100")] == (1200, 628)     # spec E7 formats
 
 
 def test_styles_are_token_variants_not_new_templates():

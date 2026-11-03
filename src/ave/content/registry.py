@@ -26,7 +26,7 @@ from . import settings
 
 TEMPLATES_DIR = Path(os.environ.get("AVE_CONTENT_TEMPLATES", config.REPO_ROOT / "content" / "templates"))
 STILLS_DIR = motion.KIT / "stills"
-RENDERERS = ("motion-kit", "canva")
+RENDERERS = ("motion-kit", "canva", "visual")
 
 
 class RegistryError(ValueError):

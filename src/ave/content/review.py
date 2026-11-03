@@ -17,6 +17,7 @@ import time
 from pathlib import Path
 
 from .. import clips as C
+from .. import humanpresence
 from ..episode import Episode
 from ..publish import safety
 from . import manifest as M
@@ -337,7 +338,8 @@ def decide(ep: Episode, decisions, doc_id: str = "main", by: str = "", reg: R.Re
             ignored.append(iid)
         else:
             refused.append({"id": iid, "problems": [f"unknown decision {kind!r} (approve, reject, nudge)"]})
-        _log(ep, {"at": M.now(), "by": by, "id": iid, "decision": kind, "note": d.get("note"), "override": bool(d.get("override"))})
+        _log(ep, {"at": M.now(), "by": by, "via": humanpresence.provenance(), "id": iid, "decision": kind, "note": d.get("note"),
+                  "override": bool(d.get("override"))})
     out = {"applied": applied, "refused": refused, "ignored": ignored}
     if applied:
         path = M.save_new_version(ep, doc, reg)

@@ -1,0 +1,258 @@
+{
+ "cases": [
+  {
+   "name": "plain",
+   "text": "Day 3: the starter smells like pears.",
+   "chars": 37,
+   "graphemes": 37,
+   "x_weighted": 37,
+   "folds": [
+    null,
+    20,
+    null,
+    null
+   ]
+  },
+  {
+   "name": "empty",
+   "text": "",
+   "chars": 0,
+   "graphemes": 0,
+   "x_weighted": 0,
+   "folds": [
+    null,
+    null,
+    null,
+    null
+   ]
+  },
+  {
+   "name": "emoji_single",
+   "text": "bread \ud83c\udf5e",
+   "chars": 7,
+   "graphemes": 7,
+   "x_weighted": 8,
+   "folds": [
+    null,
+    null,
+    null,
+    null
+   ]
+  },
+  {
+   "name": "emoji_zwj_family",
+   "text": "\ud83d\udc68\u200d\ud83d\udc69\u200d\ud83d\udc67",
+   "chars": 5,
+   "graphemes": 1,
+   "x_weighted": 2,
+   "folds": [
+    null,
+    null,
+    null,
+    null
+   ]
+  },
+  {
+   "name": "emoji_skin_tone",
+   "text": "\ud83d\udc4d\ud83c\udffd ok",
+   "chars": 5,
+   "graphemes": 4,
+   "x_weighted": 5,
+   "folds": [
+    null,
+    null,
+    null,
+    null
+   ]
+  },
+  {
+   "name": "flags",
+   "text": "\ud83c\uddfa\ud83c\uddf8\ud83c\uddef\ud83c\uddf5",
+   "chars": 4,
+   "graphemes": 2,
+   "x_weighted": 4,
+   "folds": [
+    null,
+    null,
+    null,
+    null
+   ]
+  },
+  {
+   "name": "keycap",
+   "text": "1\ufe0f\u20e3 first",
+   "chars": 9,
+   "graphemes": 7,
+   "x_weighted": 11,
+   "folds": [
+    null,
+    null,
+    null,
+    null
+   ]
+  },
+  {
+   "name": "variation_selector",
+   "text": "\u2764\ufe0f love",
+   "chars": 7,
+   "graphemes": 6,
+   "x_weighted": 7,
+   "folds": [
+    null,
+    null,
+    null,
+    null
+   ]
+  },
+  {
+   "name": "combining",
+   "text": "cafe\u0301 au lait",
+   "chars": 13,
+   "graphemes": 12,
+   "x_weighted": 13,
+   "folds": [
+    null,
+    null,
+    null,
+    null
+   ]
+  },
+  {
+   "name": "cjk",
+   "text": "\u65e5\u672c\u8a9e\u306e\u30c6\u30b9\u30c8",
+   "chars": 7,
+   "graphemes": 7,
+   "x_weighted": 14,
+   "folds": [
+    null,
+    null,
+    null,
+    null
+   ]
+  },
+  {
+   "name": "mixed_cjk",
+   "text": "Hello \u4e16\u754c",
+   "chars": 8,
+   "graphemes": 8,
+   "x_weighted": 10,
+   "folds": [
+    null,
+    null,
+    null,
+    null
+   ]
+  },
+  {
+   "name": "url",
+   "text": "Read https://acme.example/starter?x=1 now",
+   "chars": 41,
+   "graphemes": 41,
+   "x_weighted": 32,
+   "folds": [
+    null,
+    20,
+    null,
+    35
+   ]
+  },
+  {
+   "name": "url_trailing_dot",
+   "text": "See https://acme.example/a.",
+   "chars": 27,
+   "graphemes": 27,
+   "x_weighted": 28,
+   "folds": [
+    null,
+    20,
+    null,
+    null
+   ]
+  },
+  {
+   "name": "two_urls",
+   "text": "https://a.example/x and www.b.example/y",
+   "chars": 39,
+   "graphemes": 39,
+   "x_weighted": 51,
+   "folds": [
+    null,
+    20,
+    null,
+    null
+   ]
+  },
+  {
+   "name": "newline",
+   "text": "line one\nline two\r\nline three",
+   "chars": 29,
+   "graphemes": 28,
+   "x_weighted": 29,
+   "folds": [
+    null,
+    20,
+    null,
+    18
+   ]
+  },
+  {
+   "name": "long_ig",
+   "text": "Day 3: the starter smells like pears. That is normal, and it means the wild yeast is waking up. Keep feeding it every twelve hours and do not panic about the smell.",
+   "chars": 164,
+   "graphemes": 164,
+   "x_weighted": 164,
+   "folds": [
+    125,
+    20,
+    148,
+    54
+   ]
+  },
+  {
+   "name": "long_lines",
+   "text": "We weigh the flour. Always. A scale does not care how you feel about it, and neither does the dough, so we weigh it every single time we bake, without exception.",
+   "chars": 161,
+   "graphemes": 161,
+   "x_weighted": 161,
+   "folds": [
+    125,
+    20,
+    151,
+    58
+   ]
+  },
+  {
+   "name": "hashtags",
+   "text": "Proof it overnight #sourdough #bread \u2764\ufe0f",
+   "chars": 39,
+   "graphemes": 38,
+   "x_weighted": 39,
+   "folds": [
+    null,
+    20,
+    null,
+    null
+   ]
+  }
+ ],
+ "folds": [
+  {
+   "unit": "chars",
+   "at": 125
+  },
+  {
+   "unit": "chars",
+   "at": 20
+  },
+  {
+   "unit": "lines",
+   "at": 3,
+   "chars_per_line": 52
+  },
+  {
+   "unit": "lines",
+   "at": 2,
+   "chars_per_line": 30
+  }
+ ]
+}

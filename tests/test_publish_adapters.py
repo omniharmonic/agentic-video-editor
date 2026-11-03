@@ -1,15 +1,16 @@
 import json
 from datetime import datetime, timedelta, timezone
 
-import httplib2
 import pytest
-import yaml
-from googleapiclient.errors import HttpError
-from publish_helpers import *  # noqa: F401,F403
-from publish_helpers import FakeResp, FakeSession
 
-from ave.publish import queue, safety
-from ave.publish.adapters import get_publisher
+httplib2 = pytest.importorskip("httplib2", reason="needs the publish extra (`uv sync --extra publish`)")
+import yaml  # noqa: E402
+from googleapiclient.errors import HttpError  # noqa: E402
+from publish_helpers import *  # noqa: F401,F403,E402
+from publish_helpers import FakeResp, FakeSession  # noqa: E402
+
+from ave.publish import queue, safety  # noqa: E402
+from ave.publish.adapters import get_publisher  # noqa: E402
 from ave.publish.adapters.aggregator import AggregatorPublisher, render
 from ave.publish.adapters.base import Absent, PublishError, Uncertain, load_platforms
 from ave.publish.adapters.facebook import FacebookPublisher
@@ -143,12 +144,12 @@ def test_youtube_resumable_upload_flow(wide):
     svc = FakeYT([(None, None), (None, None), (None, {"id": "VID1", "status": {"privacyStatus": "private"}})])
     seen = []
     res = yt_pub(svc).publish(item(visibility="private", ai_disclosure=True, made_for_kids=False, tags=["t"]), wide, seen.append)
-    assert res["id"] == "VID1" and res["url"] == "https://youtu.be/VID1" and res["warnings"] == []
+    assert res["receipt"]["object"]["id"] == "VID1" and res["receipt"]["phase"] == "draft" and res["url"] is None and res["warnings"] == []
     part, body, media = svc.inserted
     assert part == "snippet,status" and media == ("media", str(wide))
     assert body["status"] == {"privacyStatus": "private", "selfDeclaredMadeForKids": False, "containsSyntheticMedia": True}
     assert body["snippet"]["title"] == "Title" and svc.req.calls == 3
-    assert seen == [{"upload_uri": "https://upload.example/session/xyz"}]    # persisted for crash recovery
+    assert seen[0] == {"upload_uri": "https://upload.example/session/xyz"} and seen[-1]["receipt"]["object"]["id"]=="VID1"    # persisted for crash recovery
 
 
 def test_youtube_schedule_forces_private_with_publish_at(wide):
@@ -172,7 +173,7 @@ def test_youtube_quota_exceeded_is_definite_failure(wide):
 
 def test_youtube_5xx_retries_same_upload_then_succeeds(wide):
     svc = FakeYT([http_error(503), (None, {"id": "V", "status": {"privacyStatus": "private"}})])
-    assert yt_pub(svc).publish(item(), wide, lambda p: None)["id"] == "V"
+    assert yt_pub(svc).publish(item(), wide, lambda p: None)["receipt"]["object"]["id"] == "V"
     assert svc.req.calls == 2
 
 
@@ -182,18 +183,11 @@ def test_youtube_persistent_5xx_is_uncertain(wide):
         yt_pub(svc).publish(item(), wide, lambda p: None)
 
 
-def test_youtube_recover_found_and_absent():
-    started = datetime.now().astimezone().strftime("%Y-%m-%dT%H:%M:%S%z")
-    up = [{"snippet": {"title": "Title", "publishedAt": "2999-01-01T00:00:00Z", "resourceId": {"videoId": "FOUND"}}}]
-    r = yt_pub(FakeYT([], uploads=up)).recover(item(), {"started": started})
-    assert r["id"] == "FOUND"
-    old = [{"snippet": {"title": "Title", "publishedAt": "2000-01-01T00:00:00Z", "resourceId": {"videoId": "OLD"}}}]
-    assert isinstance(yt_pub(FakeYT([], uploads=old)).recover(item(), {"started": started}), Absent)
+def test_youtube_recovery_requires_exact_upload_identity():
+    # Identical titles in a latest-page listing cannot prove identity or absence.
+    up=[{'snippet':{'title':'Title','publishedAt':'2999-01-01T00:00:00Z','resourceId':{'videoId':'OTHER'}}}]
+    assert yt_pub(FakeYT([],uploads=up)).recover(item(),{'started':'2026-10-29T00:00:00Z'}) is None
 
-    class Boom(FakeYT):
-        def channels(self):
-            raise RuntimeError("net")
-    assert yt_pub(Boom([])).recover(item(), {"started": started}) is None
 
 
 def test_youtube_ready_problems_and_status_hide_secrets(isolated_secrets):
@@ -243,7 +237,7 @@ def test_facebook_reel_three_step_flow(vertical, fb_creds):
     assert up[2]["headers"]["Authorization"] == "OAuth EAAPAGETOKEN1234567890abc" and up[2]["headers"]["file_size"] == str(vertical.stat().st_size)
     fin = s.calls[2][2]["data"]
     assert fin["video_state"] == "PUBLISHED" and fin["video_id"] == "R1" and "cap" in fin["description"]
-    assert res["id"] == "R1" and res["live"] is True
+    assert res["receipt"]["object"]["id"] == "R1" and res["receipt"]["phase"]=="processing"
     assert seen[0]["video_id"] == "R1"
     assert "/v21.0/12345/video_reels" in s.calls[0][1]
 
@@ -251,7 +245,7 @@ def test_facebook_reel_three_step_flow(vertical, fb_creds):
 def test_facebook_private_default_becomes_draft_never_live(vertical, fb_creds):
     s = fb_session()
     res = FacebookPublisher(session=s).publish(item(visibility="private"), vertical, lambda p: None)
-    assert s.calls[2][2]["data"]["video_state"] == "DRAFT" and res["live"] is False
+    assert s.calls[2][2]["data"]["video_state"] == "DRAFT" and res["receipt"]["phase"] == "draft"
 
 
 def test_facebook_schedule(vertical, fb_creds):
@@ -267,7 +261,7 @@ def test_facebook_longform_chunked(wide, fb_creds):
     phases = [c[2]["data"]["upload_phase"] for c in s.calls]
     assert phases == ["start", "transfer", "finish"]
     assert s.calls[1][2]["files"]["video_file_chunk"][1] == wide.read_bytes()[:100]
-    assert s.calls[2][2]["data"]["published"] == "true" and res["id"] == "L1"
+    assert s.calls[2][2]["data"]["published"] == "true" and res["receipt"]["object"]["id"] == "L1" and res["receipt"]["phase"]=="processing"
 
 
 def test_facebook_error_before_finish_is_definite(vertical, fb_creds):
@@ -275,7 +269,7 @@ def test_facebook_error_before_finish_is_definite(vertical, fb_creds):
         return FakeResp({"error": {"message": "bad token", "code": 190}}, 400)
     with pytest.raises(PublishError) as e:
         FacebookPublisher(session=FakeSession(h)).publish(item(), vertical, lambda p: None)
-    assert "EAAPAGETOKEN" not in str(e.value) and "Nothing was posted" in str(e.value)
+    assert "EAAPAGETOKEN" not in str(e.value) and "bad token" in str(e.value)
 
 
 def test_facebook_finish_5xx_is_uncertain_but_400_is_definite(vertical, fb_creds):
@@ -303,12 +297,13 @@ def test_facebook_without_credentials(vertical):
         p.publish(item(), vertical, lambda x: None)
 
 
-def test_facebook_recover(fb_creds):
-    s = FakeSession(lambda m, u, kw: FakeResp({"status": {"video_status": "ready"}}))
-    assert FacebookPublisher(session=s).recover(item(), {"video_id": "R1"})["id"] == "R1"
-    s = FakeSession(lambda m, u, kw: FakeResp({"status": {"video_status": "processing"}}))
-    assert FacebookPublisher(session=s).recover(item(), {"video_id": "R1"}) is None
-    assert FacebookPublisher(session=s).recover(item(), {}) is None
+def test_facebook_recover_requires_publication_phase(fb_creds):
+    for status in ({'video_status':'ready'},{'video_status':'processing'}):
+        s=FakeSession(lambda m,u,kw:FakeResp({'status':status}))
+        assert FacebookPublisher(session=s).recover(item(),{'video_id':'R1'}) is None
+    s=FakeSession(lambda m,u,kw:FakeResp({'status':{'publishing_phase':{'status':'complete'}}}))
+    assert FacebookPublisher(session=s).recover(item(),{'video_id':'R1'})['receipt']['phase']=='published'
+
 
 
 # ------------------------------------------------------------------ Aggregator
@@ -334,10 +329,11 @@ def test_render_templates():
 
 def test_aggregator_flow_uses_config_only(vertical, isolated_secrets):
     safety.set_secret("aggregator_api_key", "agg-key-123456")
+    safety.set_secret("aggregator_hosts", "agg.example")
     s = agg_session()
     a = AggregatorPublisher(network="instagram", config=CONF, session=s)
     res = a.publish(item(visibility="public", caption="cap", tags=["a"]), vertical, lambda p: None)
-    assert res["id"] == "P1" and res["url"] == "https://ig/p1"
+    assert res["receipt"]["object"]["id"] == "P1" and res["receipt"]["phase"]=="processing" and res["url"] is None
     assert s.calls[0][2]["headers"] == {"X-Key": "Key agg-key-123456"}
     assert s.calls[1][2]["json"] == {"net": ["ig"], "text": "cap", "media": "https://cdn/m1.mp4", "tags": ["a"]}
     assert s.calls[1][1] == "https://agg.example/post"
@@ -355,6 +351,7 @@ def test_aggregator_blocks_private_and_http_and_missing(vertical, isolated_secre
 
 def test_aggregator_post_failures(vertical, isolated_secrets):
     safety.set_secret("aggregator_api_key", "agg-key-123456")
+    safety.set_secret("aggregator_hosts", "agg.example")
     def mk(code, post_exc=False):
         def h(method, url, kw):
             if url.endswith("/media"):
@@ -363,15 +360,92 @@ def test_aggregator_post_failures(vertical, isolated_secrets):
                 raise TimeoutError("t/o")
             return FakeResp({"err": "x"}, code)
         return AggregatorPublisher(network="instagram", config=CONF, session=FakeSession(h))
+    # Transport taxonomy is tested on a valid public request; private refusal happens before HTTP.
     with pytest.raises(PublishError):
-        mk(400).publish(item(), vertical, lambda p: None)
+        mk(400).publish(item(visibility="public"), vertical, lambda p: None)
     with pytest.raises(Uncertain):
-        mk(502).publish(item(), vertical, lambda p: None)
+        mk(502).publish(item(visibility="public"), vertical, lambda p: None)
     with pytest.raises(Uncertain):
-        mk(0, True).publish(item(), vertical, lambda p: None)
+        mk(0, True).publish(item(visibility="public"), vertical, lambda p: None)
 
 
 def test_example_config_parses_and_has_no_live_endpoint():
     from pathlib import Path
     cfg = yaml.safe_load((Path(__file__).parents[1] / "config" / "aggregator.example.yaml").read_text())
     assert ".invalid" in cfg["base_url"] and cfg["post"]["path"]
+
+
+# ---- the aggregator API key only goes to a host the human pinned ----------------------------------------------
+
+def test_aggregator_key_is_never_sent_to_an_unpinned_host(vertical, isolated_secrets):
+    safety.set_secret("aggregator_api_key", "agg-key-123456")
+    s = agg_session()
+    evil = dict(CONF, base_url="https://evil.example")
+    a = AggregatorPublisher(network="instagram", config=evil, session=s)
+    assert any("not pinned" in x for x in a.ready_problems())
+    with pytest.raises(PublishError, match="not pinned|refusing"):
+        a.publish(item(visibility="public", caption="c"), vertical, lambda p: None)
+    assert s.calls == []                                                   # nothing, and so no key, left the machine
+    safety.set_secret("aggregator_hosts", "agg.example")                   # pinning another host does not help evil.example
+    assert any("not pinned" in x for x in a.ready_problems())
+    with pytest.raises(PublishError):
+        a._headers()
+
+
+def test_aggregator_allowlist_comes_from_env_and_not_from_the_config_file(vertical, isolated_secrets, monkeypatch):
+    safety.set_secret("aggregator_api_key", "agg-key-123456")
+    monkeypatch.setenv("AVE_AGGREGATOR_HOSTS", "agg.example, Other.Example")
+    assert AggregatorPublisher(network="instagram", config=CONF).ready_problems() == []
+    sneaky = dict(CONF, base_url="https://evil.example", allowed_hosts=["evil.example"])      # a config key cannot widen the list
+    assert any("not pinned" in x for x in AggregatorPublisher(network="instagram", config=sneaky).ready_problems())
+
+
+def test_aggregator_refuses_non_https_unless_loopback_or_explicitly_allowed(isolated_secrets, monkeypatch):
+    from ave.publish.adapters.aggregator import validate_config
+    assert any("https" in x for x in validate_config(dict(CONF, base_url="http://agg.example")))
+    assert any("https" in x for x in validate_config(dict(CONF, base_url="ftp://agg.example")))
+    assert not any("https" in x for x in validate_config(dict(CONF, base_url="http://127.0.0.1:8080")))
+    monkeypatch.setenv("AVE_AGGREGATOR_ALLOW_INSECURE", "1")
+    assert not any("https" in x for x in validate_config(dict(CONF, base_url="http://lan.example")))
+
+
+def test_aggregator_requests_do_not_follow_redirects(vertical, isolated_secrets):
+    safety.set_secret("aggregator_api_key", "agg-key-123456")
+    safety.set_secret("aggregator_hosts", "agg.example")
+    s = agg_session()
+    AggregatorPublisher(network="instagram", config=CONF, session=s).publish(item(visibility="public", caption="c"), vertical, lambda p: None)
+    assert s.calls and all(c[2].get("allow_redirects") is False for c in s.calls)
+
+
+# Studio scheduler slots are due times, not native platform schedules.
+def test_studio_due_slot_is_not_rejected_as_a_legacy_future_schedule(wide):
+    due = item(meta_v=2, schedule='2026-10-01T09:00:00+00:00', visibility='public')
+    for adapter in (YouTubePublisher(), FacebookPublisher(), AggregatorPublisher(network='instagram', config=CONF)):
+        assert not any('schedule' in problem for problem in adapter.preflight(due, wide))
+
+
+def test_studio_youtube_uses_immediate_visibility_not_publish_at():
+    yt = YouTubePublisher()
+    body = yt._body(item(meta_v=2,visibility='public',schedule='2026-10-01T09:00:00+00:00'))
+    assert body['status']['privacyStatus'] == 'public'
+    assert 'publishAt' not in body['status']
+
+
+@pytest.mark.parametrize('fmt,requested,expected',[('short','video_state','PUBLISHED'),('long','published','true')])
+def test_studio_facebook_does_not_reschedule_due_slot(vertical,fb_creds,fmt,requested,expected):
+    http=fb_session()
+    FacebookPublisher(session=http).publish(item(meta_v=2,visibility='public',format=fmt,schedule='2026-10-01T09:00:00+00:00'),vertical,lambda p:None)
+    finish=http.calls[-1][2]['data']
+    assert finish[requested] == expected
+    assert 'scheduled_publish_time' not in finish
+
+
+def test_studio_aggregator_omits_due_slot_in_native_schedule(vertical,isolated_secrets):
+    import copy
+    conf=copy.deepcopy(CONF)
+    conf['post']['json']['schedule']='{schedule}'
+    safety.set_secret('aggregator_api_key','agg-key-123456')
+    safety.set_secret('aggregator_hosts','agg.example')
+    http=agg_session()
+    AggregatorPublisher(network='instagram',config=conf,session=http).publish(item(meta_v=2,visibility='public',schedule='2026-10-01T09:00:00+00:00'),vertical,lambda p:None)
+    assert http.calls[-1][2]['json']['schedule'] == ''

@@ -2,8 +2,8 @@
 
 The clip finder (`clips.py`, `segment.py`) already snaps clips OUT to where a thought begins and ends and records
 `start_complete` / `end_complete` / `complete_statement`, `needs_context`, `context_variant` on every clip. Those fields
-are advice there. Here they are a gate (creator feedback 2026-10-14: clip selection must always start and end on complete
-sentences/phrases; the trial shorts were cut from old picks that predate the logic).
+are advice there. Here they are a gate (creator feedback 2026-10-14: "clip selection must ALWAYS start and end on complete
+sentences/phrases"; the trial shorts were cut from old picks that predate the logic).
 
   gate(ep, clip, policy)    -> (clip, record). The clip to cut (the original, or its `context_variant` when the original is
                                incomplete and the variant is a complete statement) and a record for the sidecar. Raises

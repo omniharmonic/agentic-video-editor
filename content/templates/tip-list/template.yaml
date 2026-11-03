@@ -1,0 +1,43 @@
+id: tip-list
+title: Tip list carousel
+kind: carousel
+description: >
+  A 4:5 swipe carousel of short, plain tips: a cover, one tip per slide (numbered by its label), a closing slide. The tips are the agent's own summary of
+  what the human said or wrote and are never set in quotation marks; do not state anything you were not told.
+formats: [4x5]
+styles: [ink, paper, clay]
+default_platforms: [instagram, facebook, linkedin]
+renderers:
+  motion-kit: {template: carousel}
+slots:
+  type: object
+  required: [cover, slides, closing]
+  additionalProperties: false
+  properties:
+    show:  {type: string, maxLength: 40, default: ""}
+    cover:
+      type: object
+      required: [title]
+      additionalProperties: false
+      properties:
+        title:    {type: string, minLength: 3, maxLength: 90}
+        subtitle: {type: string, maxLength: 80, default: "", x-byline: true}
+    slides:
+      type: array
+      minItems: 2
+      maxItems: 8
+      items:
+        type: object
+        required: [kind, text]
+        additionalProperties: false
+        properties:
+          kind:  {type: string, enum: [point]}
+          text:  {type: string, minLength: 3, maxLength: 200}
+          label: {type: string, maxLength: 24, default: "", description: "Tip 1, Tip 2, ..."}
+    closing:
+      type: object
+      required: [line]
+      additionalProperties: false
+      properties:
+        line: {type: string, minLength: 3, maxLength: 80}
+        cta:  {type: string, maxLength: 60, default: "", x-byline: true}

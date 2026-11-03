@@ -22,7 +22,7 @@ ave render <ep> --no-captions                    # skip the ASS burn even if the
 ```
 
 Presets: `master` (H.264 CRF 18, AAC 256k, -16 LUFS), `youtube` (-14 LUFS), `proxy` (540p, CRF 28, fast), `audio_only` (.m4a),
-`podcast_mp3` (.mp3). All keep true peak at or below -1 dBTP. Tune them in `src/ave/presets.py`.
+`podcast_mp3` (.mp3). Also `preview` (540p review clips) and `shorts_<platform>` (vertical, -14 LUFS). All keep true peak at or below the preset's ceiling (-1.5 dBTP). Presets are code (`src/ave/presets.py`), not YAML.
 
 ## Reading the report (stdout JSON)
 
@@ -30,13 +30,13 @@ Presets: `master` (H.264 CRF 18, AAC 256k, -16 LUFS), `youtube` (-14 LUFS), `pro
 |---|---|---|
 | `ok` | The file passed verification (streams present, size, fps, exact frame count, duration within one frame) | If the command exits non-zero, nothing was written; read the error |
 | `duration` vs `expected_duration` | Measured vs the doc | Must match to one frame |
-| `lufs`, `true_peak_db`, `lra` | Measured on the FINAL encoded file | Target is the preset's LUFS +/- 1; true peak <= -1 |
+| `lufs`, `true_peak_db`, `lra` | Measured on the FINAL encoded file | Target is the preset's LUFS +/- 1; true peak <= -1.5 (preset ceiling) |
 | `segments` | Counts of video, dialogue, music, overlays rendered | Compare with what you expect from the doc |
 | `captions_burned` | Whether the ASS file was burned in | False when the doc has no `captions.ass` or `--no-captions` |
 | `warnings[]` | Anything you must tell the human | Never drop these; report them |
 
 Typical warnings and what they mean:
-- `loudness ... outside target`: the material cannot reach the target without breaking the -1 dBTP ceiling (very peaky or very dynamic). Report it; do not force it.
+- `loudness ... outside target`: the material cannot reach the target without breaking the -1.5 dBTP ceiling (very peaky or very dynamic). Report it; do not force it.
 - `... before the start of its file` / `runs past the end`: a segment asks for source time that does not exist (black frames or silence were used). That is an EditDoc bug (offsets or `e0`); fix the doc, do not ship.
 - `audio is silent`: normalization was skipped; check the dialogue sources.
 - `no brand fonts`: captions fell back to system fonts; fine for drafts, flag for finals.

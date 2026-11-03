@@ -207,6 +207,8 @@ def _page(spec: dict, template_dir: Path | None = None):
         "true" if spec["outro"] else "false", json.dumps(_font_faces(tokens)))
     with sync_playwright() as p:
         try:
+            from ave.desktop_runtime import frozen, component
+            if frozen(): component('browser')
             browser = p.chromium.launch(args=["--font-render-hinting=none", "--disable-lcd-text", "--force-color-profile=srgb",
                                               "--hide-scrollbars", "--disable-gpu"])
         except Exception as e:  # missing browser is the usual cause
@@ -342,20 +344,13 @@ def _pick_stage(ep: Episode, stage: str | None, name: str | None = None) -> str:
     raise SystemExit(f"No final, rough or assembly edit{' ' + name if name else ''} yet for {ep.root.name}. Run: ave assemble {ep.root}")
 
 
-def place(ep: Episode, template: str, props: dict, at: float, dur: float, stage: str | None = None,
-          fps: float | None = None, layer: int | None = None, name: str | None = None) -> dict:
-    """Render a template into <ep>/work/motion/ and add it as an alpha overlay in a NEW version of the doc.
-
-    `at` is OUTPUT time (seconds into the cut). The overlay covers the whole canvas (the clip carries its own
-    transparency), so x=y=0 and w,h = canvas. The source doc's version is never modified.
-    `name` selects a named doc (a session's `final --name s1`, or a short's slug with stage="short"; its canvas is 1080x1920).
-    """
-    stage = _pick_stage(ep, stage, name)
-    doc = editdoc.load_latest(ep, stage, name)  # SystemExit "No <stage> edit yet" if absent; `name` = a session id (rough.s2)
+def build_overlay(ep: Episode, doc: dict, template: str, props: dict, at: float, dur: float,
+                  fps: float | None = None, layer: int | None = None) -> dict:
+    """Render and describe an overlay against an explicit EditDoc without saving it."""
     if at < 0 or dur <= 0:
         raise SpecError("--at must be >= 0 and --dur > 0")
     if at + dur > doc["duration"] + editdoc.EPS:
-        raise SpecError(f"overlay would run {at:g}s to {at + dur:g}s but the {stage} cut is only {doc['duration']:g}s long")
+        raise SpecError(f"overlay would run {at:g}s to {at + dur:g}s but the cut is only {doc['duration']:g}s long")
     cv = doc["canvas"]
     spec = normalize_spec({"template": template, "props": props, "duration": dur,
                            "fps": fps or doc["fps"], "canvas": (cv["w"], cv["h"])})
@@ -374,6 +369,15 @@ def place(ep: Episode, template: str, props: dict, at: float, dur: float, stage:
     ov = {"id": f"m{n}", "file": str(rel), "o0": o0, "o1": round(o0 + spec["duration"], 3), "x": 0, "y": 0,
           "w": cv["w"], "h": cv["h"], "layer": layer, "kind": "motion", "alpha": True,
           "template": template, "props": spec["props"]}
-    overlays.append(ov)
+    return ov
+
+
+def place(ep: Episode, template: str, props: dict, at: float, dur: float, stage: str | None = None,
+          fps: float | None = None, layer: int | None = None, name: str | None = None) -> dict:
+    """Render a template and add it as an alpha overlay in a new edit version."""
+    stage = _pick_stage(ep, stage, name)
+    doc = editdoc.load_latest(ep, stage, name)
+    ov=build_overlay(ep,doc,template,props,at,dur,fps,layer)
+    doc['tracks'].setdefault('overlays',[]).append(ov)
     path = editdoc.save_new_version(ep, doc, name)
-    return {"doc": str(path), "overlay": ov, "file": str(target)}
+    return {"doc": str(path), "overlay": ov, "file": str(ep.root/ov['file'])}

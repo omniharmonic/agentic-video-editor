@@ -2,8 +2,13 @@
 
 The project's own code is MIT licensed (see [LICENSE](LICENSE)). It bundles two fonts, and it can fetch, build, or call several
 other tools and models on your machine. This file says what each one is, where it comes from, and under what terms. Nothing under
-"Fetched, not bundled" is part of this repository or of anything you redistribute from it; you obtain it from its own source under its
-own license.
+"Fetched, not bundled" is committed in this repository; the separate engineering app described below explicitly packages selected inputs under their own terms.
+
+## Standalone engineering app (2026-10-29)
+
+The arm64 engineering app includes CPython, installed Python dependencies, FFmpeg/ffprobe, the patched offline FluidAudio helper and resource bundles, pinned ASR/diarization models, Chromium, Playwright's Node/driver, and the fonts. Its `Contents/Resources/notices/` contains interpreter and dependency metadata/licenses, FFmpeg source inputs and notices, FluidAudio source/patch/notices, reproduction scripts, and exact model cards. `runtime/components.json` and `runtime/driver-files.json` inventory the final signed bytes; external build receipts record the complete bundle inventory.
+
+This is a local ad-hoc signed verification artifact, not distribution clearance. In particular, Parakeet's conversion-card license declaration conflicts with the upstream model attribution terms, and historical conversion provenance remains qualified. Read the packaged `MODEL-TERMS.txt` and model notices. The older CLI setup table below describes separately installed developer tools; it does not supersede the app's exact component inventory.
 
 How to read the **Status** column:
 
@@ -45,7 +50,7 @@ author names, placeholder ids) used to test the response parsers; they contain n
 
 ## Python dependencies (declared in `pyproject.toml`, locked in `uv.lock`)
 
-Installed into your own virtual environment, never redistributed by this repository. Licenses below were read from the installed
+Installed into your own virtual environment for the CLI, and included with metadata/notices when frozen into the engineering app. Licenses below were read from the installed
 package metadata on 2026-10-14 (versions as locked then):
 
 | Package | Extra | License |

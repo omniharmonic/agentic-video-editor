@@ -40,6 +40,11 @@ PRESETS: dict[str, dict] = {
 
 
 def get(name: str) -> dict:
+    if name in ('episode_hd','episode_uhd','episode_draft'):
+        from .resources import home
+        import yaml
+        entry=yaml.safe_load((home()/'config'/'episode-exports.yaml').read_text())[name]
+        return {**PRESETS[entry['base']],**{k:v for k,v in entry.items() if k not in ('base','label')}}
     try:
         return PRESETS[name]
     except KeyError:

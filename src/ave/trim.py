@@ -202,9 +202,9 @@ def _propose_out(words, sents, hits, pol) -> tuple[float | None, float, str]:
     return None, 0.0, "no sign-off or stop-recording phrase in the scanned minutes"
 
 
-def suggest(ep: Episode, session: str | None = None, minutes: float | None = None, home: Path | None = None, save: bool = True) -> dict:
+def suggest(ep: Episode, session: str | None = None, minutes: float | None = None, home: Path | None = None, save: bool = True, policy: dict | None = None) -> dict:
     """Scan the first and last `minutes` of the session and PROPOSE an in/out. Never applies it. Writes work/trim_suggestions.json (a record, not a decision)."""
-    pol = resolve_policy(ep, home=home)
+    pol = policy if policy is not None else resolve_policy(ep, home=home)
     tp = ep.artifact("transcript.json")
     if not tp.exists():
         raise SystemExit(f"No transcript. Run: ave transcribe {ep.root}")

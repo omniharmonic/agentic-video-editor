@@ -26,16 +26,19 @@ dependencies = [
   "soundfile>=0.12",
   "pyyaml>=6",
   "pillow>=10",
+  "pypdf>=6,<7",
 ]
 
 [project.optional-dependencies]
 vision = ["opencv-python-headless>=4.9", "pyobjc-framework-Vision>=10; sys_platform == 'darwin'"]
 audio = ["librosa>=0.10"]
 motion = ["playwright>=1.45"]
-publish = ["google-api-python-client>=2.120", "google-auth-oauthlib>=1.2", "requests>=2.31", "keyring>=25"]
+publish = ["google-api-python-client>=2.120", "google-auth-oauthlib>=1.2", "requests>=2.31", "keyring>=25", "pypdf>=6,<7"]
 assets = ["requests>=2.31"]
-all = ["agentic-video-editor[vision,audio,motion,publish,assets]"]
+desktop = ["pywebview>=5,<7", "cryptography==50.0.2", "keyring>=25", "requests>=2.31"]
+all = ["agentic-video-editor[vision,audio,motion,publish,assets,desktop]"]
 
+# TODO(publish): replace OWNER with the real GitHub owner once the repository URL is known (also in README.md and docs/getting-started.md).
 [project.urls]
 Homepage = "https://github.com/omniharmonic/agentic-video-editor"
 Documentation = "https://github.com/omniharmonic/agentic-video-editor/blob/main/docs/getting-started.md"
@@ -52,6 +55,16 @@ dev = ["pytest>=8", "pytest-xdist>=3.5", "pytest-timeout>=2.3"]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+# The sdist must carry everything the wheel force-includes (config, skills, motion-kit, content), or building the wheel FROM
+# the sdist (plain `uv build`, `pip install x.tar.gz`) fails. tests/test_packaging.py builds both and checks.
+[tool.hatch.build.targets.sdist]
+include = ["/src", "/config", "/skills","/motion-kit", "/content", "/docs", "/scripts", "/tests",
+           "/README.md", "/LICENSE", "/CHANGELOG.md", "/AGENTS.md", "/THIRD_PARTY_NOTICES.md", "/uv.lock", "/pyproject.toml"]
+# .agents/skills and .claude/skills are symlinks to skills/. Hatch's walker visits a real directory once, through whichever
+# path it meets first (".agents" sorts before "skills"), so left in they would swallow the real skills/ folder.
+exclude = [".agents", ".claude"]
+skip-excluded-dirs = true   # without this, exclude only filters files and the walker still enters (and "uses up") the symlinked dirs
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/ave"]
 
@@ -61,12 +74,15 @@ packages = ["src/ave"]
 "skills" = "ave/_data/skills"
 "motion-kit" = "ave/_data/motion-kit"
 "content" = "ave/_data/content"
+"AGENTS.md" = "ave/_data/AGENTS.md"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = [".", "tests"]
 markers = [
   "real_motion: render the title overlay with Chromium instead of the fast stub",
   "apple: needs macOS / Apple frameworks (Vision, VideoToolbox, FluidAudio); skipped elsewhere",
   "resolve: needs a running DaVinci Resolve",
   "network: needs the internet",
+  "legacy_ui: drives a page of the old studio shell, which the Room replaces; excluded from CI",
 ]

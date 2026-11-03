@@ -1,0 +1,54 @@
+[
+  {
+    "note": "UNVERIFIED: response shapes written from Pexels' public API documentation as remembered; never recorded from a live call.",
+    "method": "GET",
+    "url": "api.pexels.com/v1/search",
+    "expect": {"headers": ["Authorization"]},
+    "response": {
+      "page": 1, "per_page": 15, "total_results": 2,
+      "next_page": "https://api.pexels.com/v1/search/?page=2&per_page=15&query=bread",
+      "photos": [
+        {"id": 2284, "width": 4000, "height": 6000,
+         "url": "https://www.pexels.com/photo/bread-crust-on-a-wooden-board-2284/",
+         "photographer": "A. Baker", "photographer_url": "https://www.pexels.com/@abaker", "photographer_id": 901,
+         "avg_color": "#8A6A4A", "liked": false, "alt": "A loaf of bread with a dark crust on a wooden board",
+         "src": {"original": "https://images.pexels.com/photos/2284/pexels-photo-2284.jpeg",
+                 "large2x": "https://images.pexels.com/photos/2284/pexels-photo-2284.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+                 "large": "https://images.pexels.com/photos/2284/pexels-photo-2284.jpeg?auto=compress&cs=tinysrgb&h=650&w=940",
+                 "medium": "https://images.pexels.com/photos/2284/pexels-photo-2284.jpeg?auto=compress&cs=tinysrgb&h=350",
+                 "small": "https://images.pexels.com/photos/2284/pexels-photo-2284.jpeg?auto=compress&cs=tinysrgb&h=130",
+                 "portrait": "https://images.pexels.com/photos/2284/pexels-photo-2284.jpeg?h=1200&w=800",
+                 "landscape": "https://images.pexels.com/photos/2284/pexels-photo-2284.jpeg?h=627&w=1200",
+                 "tiny": "https://images.pexels.com/photos/2284/pexels-photo-2284.jpeg?h=200&w=280"}},
+        {"id": 3301, "width": 6000, "height": 4000,
+         "url": "https://www.pexels.com/photo/hands-kneading-dough-3301/",
+         "photographer": "B. Miller", "photographer_url": "https://www.pexels.com/@bmiller", "photographer_id": 902,
+         "avg_color": "#C9B28F", "liked": false, "alt": "",
+         "src": {"original": "https://images.pexels.com/photos/3301/pexels-photo-3301.jpeg",
+                 "large2x": "https://images.pexels.com/photos/3301/x2.jpeg", "large": "https://images.pexels.com/photos/3301/l.jpeg",
+                 "medium": "https://images.pexels.com/photos/3301/m.jpeg", "small": "https://images.pexels.com/photos/3301/s.jpeg",
+                 "portrait": "p", "landscape": "l", "tiny": "t"}}
+      ]
+    }
+  },
+  {
+    "method": "GET",
+    "url": "api.pexels.com/videos/search",
+    "expect": {"headers": ["Authorization"]},
+    "response": {
+      "page": 1, "per_page": 15, "total_results": 1, "url": "https://www.pexels.com/search/videos/bread/",
+      "videos": [
+        {"id": 8801, "width": 1920, "height": 1080,
+         "url": "https://www.pexels.com/video/steam-rising-from-fresh-bread-8801/",
+         "image": "https://images.pexels.com/videos/8801/pictures/preview-0.jpeg", "duration": 14,
+         "user": {"id": 77, "name": "C. Oven", "url": "https://www.pexels.com/@coven"},
+         "video_files": [
+           {"id": 1, "quality": "hd", "file_type": "video/mp4", "width": 1920, "height": 1080, "fps": 25.0,
+            "link": "https://videos.pexels.com/video-files/8801/8801-hd_1920_1080_25fps.mp4"},
+           {"id": 2, "quality": "sd", "file_type": "video/mp4", "width": 640, "height": 360, "fps": 25.0,
+            "link": "https://videos.pexels.com/video-files/8801/8801-sd_640_360_25fps.mp4"}],
+         "video_pictures": [{"id": 1, "nr": 0, "picture": "https://images.pexels.com/videos/8801/pictures/preview-0.jpeg"}]}
+      ]
+    }
+  }
+]

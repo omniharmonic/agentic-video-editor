@@ -1,8 +1,14 @@
 # Roadmap and status
 
-Last updated 2026-10-14. This file is the single place that says what is built, what is weak, what is unverified, and what we are working on next.
+Last updated 2026-10-28. This file is the single place that says what is built, what is weak, what is unverified, and what we are working on next.
 Detailed evidence lives in [field-notes/](field-notes/) (working notes from the first real episode); designs are in
 [superpowers/](superpowers/) and [proposals/](proposals/). Every open item names how we will know it is done. A reading guide to all docs: [README.md](README.md).
+
+## Local creative studio iteration (2026-10-28)
+
+The local studio now has a production Desk, bounded text intake, optional native desktop shell, stdio MCP for external agents, and offline editorial/media bundle exchange with explicit conflict recovery. Sofia's book-launch workflow adds a bright visual planner, phone profile/post previews, a pipeline board/table, and exact-media manual publishing packs. Details and the handoff: [shared-studio.md](shared-studio.md), [manual-publishing.md](manual-publishing.md), and the feature comparison/mobile roadmap.
+
+These additions are synthetic/local validation, not live production certification. The macOS Finder artifact is an unsigned launcher for the local installation; standalone signing/notarization, Tomas's device, actual Tailscale transfer, live Canva export and first platform posts are still unverified. Raw episode/Resolve sharing is not implemented. The MCP surface covers orientation and draft text; media jobs use the existing CLI and skills. Do not infer that the complete vision is finished from these additions.
 
 ## Status at a glance
 
@@ -18,7 +24,7 @@ on real material, a live Resolve, or a real account. Treat everything not "verif
 | Cut planning, assembly, rough cut (cleanup with masks) | Verified | Cleanup numbers are untuned defaults (W6) |
 | Resolve handoff: single timeline, layered handoff, chunked and resumable | Verified in live Resolve 21.0.x | Free Resolve needs the in-app bridge started by hand each launch |
 | Final cut (music, motion, captions, loudness, exact-match SRT) | Verified for one session of the real episode | The other session's final is not rendered (hours at 4K) |
-| Shorts (reframe, captions, layouts) | Verified on four trial shorts | Creator feedback is folded in; more material needed |
+| Shorts (reframe, captions, layouts incl. two-up stack and audiogram) | Four trial shorts on the real episode; three were re-cut under the feedback rules | More material needed; creator sign-off pending |
 | Clips: recall-first proposals, completeness, review ledger, taste profile, previews, `ave ui` | Verified on the real episode | Awaiting the creator's keep/maybe/skip decisions at scale |
 | Opening and closing sequences | Built; smoke build on the real cut | No real music or sting; creator decisions pending |
 | Release package (`ave package`) | Built, synthetic only | A dry run on the real episode found nothing to package yet |
@@ -26,9 +32,16 @@ on real material, a live Resolve, or a real account. Treat everything not "verif
 | Content kit (quote posts, carousels, thumbnails) | Built; in-house renderer exercised on real quotes | Canva renderer: built, never run live |
 | Review proxies, subtitle import, alpha overlays in Resolve | Built, unverified in real Resolve | Each has a short manual check (see W7, W10 and the unverified list) |
 | Third camera (wide), room tone, pacing | Built, synthetic or partly real | Not yet heard or seen on a real third camera; the creator has not signed off the feel of pacing |
-| Windows or Linux transcription, voice library, bleed-free filler detection, applying tighten cuts automatically, live posting to any platform | Not built | See "Later" and "Not built" below |
+| Zoom dwell limiter (no in-out-in punch-ins; 8 s dwell; `src/ave/zoomstate.py`) | Built; measured on a scratch copy of the real s2 cut ([field note](field-notes/2026-10-14-punch-in-dwell.md)) | No creator sign-off: the feel has not been re-judged |
+| Word-cut check and tail pad (`src/ave/cutwords.py`, `checks.word_cuts`) | Built; measured on scratch `rough.s2.v4`: cuts inside a word 0, hot edges 18 -> 14 | A residual clipped "okay." remains; a human must listen. Not verified |
+| Shorts completeness gate (`src/ave/completeness.py`), word-gap cuts | Built; gate run on the top 14 clips of both sessions, all 28 pass ([field note](field-notes/2026-10-14-clip-completeness.md)) | Three trial shorts re-rendered on scratch; no creator sign-off |
+| Title opening on shorts (overlay or card; `src/ave/opening.py`, template `short-title`) | Built; three real trial shorts re-rendered with both modes ([field note](field-notes/2026-10-14-shorts-feedback.md)) | Awaiting the creator's choice of mode. (`opening.py` is the short opening; episode opening/closing is `sequence.py`.) |
+| Quote reel (`ave motion quote-reel`, `src/ave/quote_reel.py`) | Built; one 72 s reel rendered on the real episode, no audio | No creator verdict |
+| Public release and CI (`.github/workflows/ci.yml`: ubuntu py3.11 and 3.12, macOS py3.12, tests, demo, wheel install) | Built; CI matrix ported from the public repo. This private repo still carries `OWNER` placeholders | The matrix has not been observed green from this repo; no release tagged |
+| Content studio (`ave studio`: calendar, asset library, licensed B-roll, platform adapters, scheduler, CLI, skills, recipes, template pack; [guide](studio.md), spec) | Built, fakes only | All workstreams (WS0 to WS7) built and integrated; an end-to-end test runs blog post to quote cards to posts to sync to approval to a fake-clock tick that posts exactly once. **No adapter has ever posted to a live account** (every one is `verified: false`); provider and platform numbers are documentation-derived; the UI previews are approximate; the one-camera video path is proven on a synthetic fixture only; the template pack has not been looked at by the creator. Short clips: B-roll placement (`ave broll place`), `ave shorts recut|retitle` and `ave studio ingest shorts` are built and measured on synthetic media only (never on real footage). Next: the per-platform burn-in in [studio.md](studio.md) (Bluesky, Facebook Page, Threads, Instagram) |
+| Portable (non-Apple) speaker diarization, voice library, bleed-free filler detection, applying tighten cuts automatically, live posting to any platform | Not built | See "Later" and "Not built" below |
 
-**Known limits, short version:** Apple Silicon macOS only today; free Resolve exposes scripting only through its in-app bridge and free 21.1+ cannot run Python
+**Known limits, short version:** speaker-labelled transcription (FluidAudio) and Apple Vision face-centred crops need Apple Silicon macOS; the pipeline, `ave demo` and the test suite run on Linux too (CI); burned-in captions need an FFmpeg with libass (`brew install ffmpeg-full`); free Resolve exposes scripting only through its in-app bridge and free 21.1+ cannot run Python
 scripts; native multicam angle switching is not scriptable, so timelines are flat and editable; a real recording always finds bugs fixtures do not (four so far
 before round 2). The full list is under "Known limits" below.
 
@@ -39,7 +52,7 @@ sync** with long offsets (all four cameras, 24 to 80 ppm), per-session **assembl
 (chunked, resumable). Built and tested on a smaller real clip plus synthetic fixtures: final cut (music, motion, captions, loudness, exact-match SRT), clips + review page,
 vertical shorts, approval-gated publishing (mocked HTTP only), motion kit, B-roll/music assets.
 
-**Opening and closing sequences (workstream I, built; synthetic-fixture tests plus a smoke build on the real first-episode cut, no music).** `ave sequence plan|preview|build|status` (+ human-only `approve`), `config/sequences.default.yaml`
+**Opening and closing sequences (workstream I, built; synthetic-fixture tests plus a smoke build on the real episode 00 cut, no music).** `ave sequence plan|preview|build|status` (+ human-only `approve`), `config/sequences.default.yaml`
 (per-show overridable), `config/final.default.yaml` `sequences: {opening, closing}`, skill `ave-intro-outro`, reference `docs/sequences.md`. Opening: optional cold open (clip, quoted passage or range, captioned, ducked bed), title card, host card with titles, optional
 sting/bed. Closing: thanks/CTA cards, credits roll (hosts, guests, editor, license-log asset credits, links), held end card for YouTube end screens, tail room tone. `ave final` joins opening + body + closing
 (stream-copy picture, float audio with 0.2 s equal-power fades, one loudness pass, measured), planned SRT shifted by the opening, Resolve handoff places them as clips. **Not yet done:** the creator's decisions (cold open, links, editor credit, brand fonts), real music/sting
@@ -48,7 +61,7 @@ sting/bed. Closing: thanks/CTA cards, credits roll (hosts, guests, editor, licen
 ## Active: weak points we know about (work these next, in this order)
 | # | Weak point | Why it matters | Done when |
 |---|---|---|---|
-| W1 (built, awaiting ear) | **Pacing.** Long turns leave long holds (103 holds over 14 s in session 1; assembly averages 62 s per shot). Masks only fire at cut points. | A conversation shown from one camera for a minute is dull; the creator wants rhythmic coverage with reaction shots. | A pacing pass inserts listener reaction cutaways (2-4 s) at sentence boundaries when a hold exceeds the policy limit; zero unflagged holds over the limit; the creator signs off the feel on a real session. `should_cut_to_listener` gets real defaults, tuned by the creator. **Status:** built (T12): cleanup `pacing:` pass + `config/cutplan.default.yaml` interjection policy. Real session copies: holds over 14 s 103 -> 55 (S1), 23 -> 10 (S2); none over 18 s except one ASR-bound hold; cuts/min rose 11.8 -> 13.7 because the cutaway masks already cut 10-12 a minute. Open: the creator signs off the feel and tunes `max_hold_s` / `masks.*`. |
+| W1 (built, awaiting ear) | **Pacing.** Long turns leave long holds (103 holds over 14 s in session 1; assembly averages 62 s per shot). Masks only fire at cut points. | A conversation shown from one camera for a minute is dull; the creator wants rhythmic coverage with reaction shots. | A pacing pass inserts listener reaction cutaways (2-4 s; a punch-in fallback is a sustained reframe held to the end of the hold, not a blip, since the zoom dwell limiter) at sentence boundaries when a hold exceeds the policy limit; zero unflagged holds over the limit; the creator signs off the feel on a real session. `should_cut_to_listener` gets real defaults, tuned by the creator. **Status:** built (T12): cleanup `pacing:` pass + `config/cutplan.default.yaml` interjection policy. Real session copies: holds over 14 s 103 -> 55 (S1), 23 -> 10 (S2); none over 18 s except one ASR-bound hold; cuts/min rose 11.8 -> 13.7 because the cutaway masks already cut 10-12 a minute. Open: the creator signs off the feel and tunes `max_hold_s` / `masks.*`. |
 | W2 (built) | **Real start/end.** Recordings open with setup chatter ("okay, we're recording... take one"); the assembly starts at t=0 of the first camera frame. | Every episode needs a human-approved in/out. | A `trim` suggestion (scan the first and last minutes of the transcript for slate talk, the welcome, the sign-off) proposes in/out per session; the human approves; assembly honors `episode.json` trim. **Status:** built (T12): `ave trim suggest|set|show|clear`, `config/trim.default.yaml`, assemble honours `episode.json` `trim`, `ave resume` asks. Real session 1: proposes in 188.9 s / out 7022.8 s; needs the creator's approval. |
 | W3 (built) | **Sync wobble.** Camera A in session 1 leaves a 41 ms residual against a straight drift line. | About one frame of potential lip-sync error mid-take. | Piecewise-linear offset through the measured points when the residual exceeds 20 ms; residual under 10 ms at every sample point; end-to-end test. **Status:** built (S): when the straight-line residual exceeds 20 ms `sync.json` also stores `sync_map` (`[[file_t, offset], ...]`, the measured points) and `editdoc.src_time` / `episode_time` interpolate through it (extrapolating with the fitted line; `clock_rate` gives the local stretch). `assemble` copies it onto `sources[k]`; compile, cleanup's envelope, cutplan, handoff, shorts and review packs all go through the one function (no duplicated formula left). Files without `sync_map` are unchanged. Evidence: `tests/test_sync.py::test_piecewise_map_follows_a_wobbling_clock_within_10ms_at_every_sample_point` (45 ms wobble, 9 points: under 10 ms from the true clock at every sample point) and the round-trips in `tests/test_editdoc.py`. `ave sync` warns only for a mis-locked-looking segment (>1500 ppm off the line) or a residual the map could not fix. Not yet re-run on the real episode: re-sync camera A of session 1 and compare. |
 | W4 (partly done) | **Captions, final cut, clips, shorts, mock publish have not run on the real episode.** | Real footage keeps finding bugs our fixtures could not (4 so far). | Each stage run on the real project with its learnings logged and fixed. |
@@ -62,10 +75,10 @@ sting/bed. Closing: thanks/CTA cards, credits roll (hosts, guests, editor, licen
 | W9 (built) | **Legacy `ave build-timeline`** still reads only `cutlist.json`. | Two code paths for Resolve. | Removed or made an alias of `ave handoff`. **Status:** built (S): `ave build-timeline` prints a deprecation notice and runs `ave handoff --stage assembly` (making the assembly from `cutlist.json` first if needed; `--name` is the label); `scripts/resolve_build_timeline.py` deleted. Evidence: `tests/test_build_timeline_alias.py` (handoff's plan of the assembly equals the cut list's Resolve numbers shot for shot, audio placement within a frame; alias and handoff write identical plans). |
 
 ## Round 2 status (2026-10-14)
-- Built and merged (1127 tests): recall-first clips with a decision ledger and per-show taste profile (`ave learn taste`), complete-statement boundaries (`src/ave/segment.py`) and tighten suggestions (`src/ave/tighten.py`), `--top N/--min-score`, in-context clip previews (`ave clips previews`), the redesigned `ave ui`, `ave sequence` (opening/closing/credits), CO-HOST byline + bundled Newsreader/Inter fonts, Canva handshake (unverified live), `ave package`, shorts layouts (stack, audiogram).
-- Run on the real episode: final cut s2 (v9: -16.6 LUFS, exact SRT, lower thirds); four trial shorts; session 1 final NOT rendered yet (hours at 4K).
+- Built and merged (1281 tests collected on 2026-10-19; mostly synthetic media): recall-first clips with a decision ledger and per-show taste profile (`ave learn taste`), complete-statement boundaries (`src/ave/segment.py`) and tighten suggestions (`src/ave/tighten.py`), `--top N/--min-score`, in-context clip previews (`ave clips previews`), the redesigned `ave ui`, `ave sequence` (opening/closing/credits), CO-HOST byline + bundled Newsreader/Inter fonts, Canva handshake (unverified live), `ave package`, shorts layouts (stack, audiogram; the two-up stack is built).
+- Run on the real episode: final cut s2 (v9: -16.6 LUFS, exact SRT, lower thirds); four trial shorts (three re-cut after feedback); session 1 final NOT rendered yet (hours at 4K).
 - Needs the creator: listen to the final s2 master; judge the shorts drafts; approve clips (UI); decide opening/closing sequences (`ave sequence approve` is a human act); live Resolve checks for proxies, subtitles and the alpha swatch; Canva sign-in in this session, Brand Kit and Brand Templates.
-- Not built: voice library, bleed-free filler detection from isolated mics, portable (non-Apple) transcription, applying tighten cuts to a select automatically, live posting to any platform.
+- Not built: voice library, bleed-free filler detection from isolated mics, portable (non-Apple) speaker diarization, applying tighten cuts to a select automatically, live posting to any platform.
 
 ## Release package (P2, built 2026-10-14)
 `ave package <ep>` assembles `<exports>/package/<date>/`: the latest final render, SRT + VTT, podcast MP3/M4A with ID3 chapters and a measured -16 LUFS check, approved 1280x720 thumbnails (an oversize PNG
@@ -79,7 +92,8 @@ file, the drive's copy speed, and the post-copy voice on real quotes are unteste
 ## Unverified: do not assume these work
 - Live posting to any platform (everything was run against mocks; platform limits in `config/platforms.yaml` and `config/shorts.yaml` come from documentation).
 - Resolve alpha import of ProRes 4444 overlays (`ave motion swatch`, one check in Resolve).
-- Brand fonts are bundled (variable Newsreader and Inter, SIL OFL, `motion-kit/brand/fonts/SOURCES.md`); caption burn-in (libass) with variable fonts and renders on another machine are not verified.
+- Brand fonts are bundled (variable Newsreader and Inter, SIL OFL, `motion-kit/brand/fonts/SOURCES.md`); caption burn-in (libass) with variable fonts and renders on another machine are not verified. Captions need an FFmpeg with libass (`ffmpeg-full` on macOS; `ave doctor` flags it).
+- Cuts that clip a word tail even after the pad (listen); the creator has not heard the word-cut check's result.
 - `handoff --no-master` for stereo/speaker-per-channel sources (warns; not exercised).
 - Dead-channel handling on a real file (the real master turned out to be speaker-per-channel instead).
 - Provider terms, Content ID and AI-music licensing notes in `docs/asset-licensing.md`.
@@ -92,15 +106,15 @@ file, the drive's copy speed, and the post-copy voice on real quotes are unteste
 
 ## Later
 1. Voice library: persist speaker embeddings across episodes (per-channel files may not need it; keep for single-mic shows).
-2. Two-up (stack) vertical layout; gaze-aware crops.
+2. Gaze-aware crops (the two-up stack layout is built).
 3. Direct Instagram/X adapters if app review is worth it; TikTok.
 4. Generative B-roll/motion through user-approved APIs; licensed music sourcing.
-5. Windows/Linux transcription (FluidAudio is Apple-only; sherpa-onnx + pyannote ONNX is the portable path).
+5. Portable speaker diarization (FluidAudio is Apple-only; whisper.cpp transcribes anywhere but has no speakers; sherpa-onnx + pyannote ONNX is the portable path). Windows is untested (try WSL).
 6. Cleanup using each host's isolated mic channel (bleed-free filler detection and cut snapping).
 7. A combined episode timeline (sessions joined) once the creator decides which sessions are in.
 
 ## Known limits
-Free Resolve exposes scripting only through the in-app bridge (started by hand each launch); free 21.1+ cannot run Python scripts; native multicam angle switching is not scriptable, so we build flat editable timelines;
+Apple-only pieces: FluidAudio diarization, Apple Vision face detection, VideoToolbox decode, Resolve handoff (tested on macOS only). Free Resolve exposes scripting only through the in-app bridge (started by hand each launch); free 21.1+ cannot run Python scripts; native multicam angle switching is not scriptable, so we build flat editable timelines;
 Resolve gates timeline deletion behind a human confirmation, so failed handoffs keep a resumable partial timeline.
 
 ## How we work this list

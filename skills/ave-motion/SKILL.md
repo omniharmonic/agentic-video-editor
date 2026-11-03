@@ -20,7 +20,7 @@ ave motion list      # templates, prop limits, and any brand fonts still missing
 ## 2. LOOK before you place (mandatory)
 
 ```bash
-ave motion still --template lower-third --props '{"name":"Ines Calder","title":"Soil ecologist"}' \
+ave motion still --template lower-third --props '{"name":"Maren Okafor","title":"Soil ecologist"}' \
     --t 2.0 --safe-area --preview --out /tmp/lt.png
 ```
 
@@ -32,7 +32,7 @@ the template allows is rejected with the limit in the message; shorten the copy 
 ## 3. Place it
 
 ```bash
-ave motion place <episode> --template lower-third --props '{"name":"Ines Calder","title":"Soil ecologist"}' \
+ave motion place <episode> --template lower-third --props '{"name":"Maren Okafor","title":"Soil ecologist"}' \
     --at 12.0 --dur 5 [--stage final|rough|assembly]
 ```
 

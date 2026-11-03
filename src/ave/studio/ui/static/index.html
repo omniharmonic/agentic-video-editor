@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Studio</title>
+<script src="/static/theme-init.js"></script>
+<link rel="stylesheet" href="/static/panels.css">
+<link rel="stylesheet" href="/static/studio.css">
+<link rel="stylesheet" href="/static/production.css">
+<link rel="stylesheet" href="/static/workbench.css">
+<link rel="stylesheet" href="/static/composer.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%231d4f7a'/%3E%3Crect x='6' y='7' width='9' height='11' fill='%23e9eef2'/%3E%3Crect x='17' y='7' width='9' height='11' fill='none' stroke='%23e9eef2' stroke-width='1.6' stroke-dasharray='2.4 2'/%3E%3Crect x='6' y='20' width='9' height='5' fill='none' stroke='%23e9eef2' stroke-width='1.6' stroke-dasharray='2.4 2'/%3E%3Crect x='17' y='20' width='9' height='5' fill='%23e9eef2'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/static/media-workshop.css">
+<link rel="stylesheet" href="/static/video-workshop.css">
+<link rel="stylesheet" href="/static/episode-workshop.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <div class="brand"><span class="mark" aria-hidden="true"></span><span class="brand-name" id="studio-title">Studio</span></div>
+  <nav id="nav" aria-label="Studio pages">
+    <div class="nav-group"><span class="nav-group-label">Create</span>
+      <a href="#/workbench" data-p="workbench">Sources</a>
+      <a href="#/ideas" data-p="ideas">Ideas<span class="count" data-count="stages.idea" hidden></span></a>
+      <a href="#/pipeline" data-p="pipeline">Production</a>
+    </div>
+    <div class="nav-group"><span class="nav-group-label">Plan</span>
+      <a href="#/campaigns" data-p="campaigns">Campaigns</a>
+      <a href="#/grid" data-p="grid">Feed planner</a>
+      <a href="#/calendar" data-p="calendar">Calendar</a>
+      <a href="#/phone" data-p="phone">Phone preview</a>
+    </div>
+    <div class="nav-group"><span class="nav-group-label">Publish</span>
+      <a href="#/review" data-p="review">Review</a>
+      <a href="#/feedback" data-p="feedback">Feedback<span class="count" data-count="open_feedback" hidden></span></a>
+    </div>
+    <div class="nav-group"><span class="nav-group-label">Workspace</span>
+      <a href="#/library" data-p="library">Library</a>
+      <a href="#/collaboration" data-p="collaboration">Collaborate</a>
+      <a href="#/connections" data-p="accounts">Connections</a>
+      <a href="#/alerts" data-p="alerts">Alerts<span class="count" data-count="open_alerts" hidden></span></a>
+    </div>
+  </nav>
+  <div class="top-tools">
+    <details id="modes" class="modes"><summary aria-label="Posting mode per account"></summary><ul class="mode-list"></ul></details>
+    <button id="help-btn" class="quiet" type="button" aria-haspopup="dialog">Shortcuts</button>
+    <button id="theme" class="quiet" type="button" aria-label="Colour theme"></button>
+  </div>
+</header>
+<div class="workspace-bar"><button id="nav-toggle" type="button" aria-controls="nav" aria-expanded="false">Menu</button><span id="page-title">Production</span><span class="workspace-local">Local workspace</span></div>
+<button id="nav-backdrop" class="nav-backdrop" aria-label="Close menu" hidden></button>
+<p id="connection" class="connection" role="status" hidden></p>
+<main id="main" tabindex="-1"><p class="loading">Loading the studio</p></main>
+<div id="live" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+<div id="note" class="note" aria-hidden="true"></div>
+<dialog id="help" aria-labelledby="help-h">
+  <h2 id="help-h">Keyboard</h2>
+  <p class="keys-note">These work when you are not typing in a field. Everything here also has a button.</p>
+  <h3>Calendar and grid</h3>
+  <dl class="keys">
+    <dt><kbd>Arrow keys</kbd></dt><dd>Move between days in the calendar, or between posts in the grid</dd>
+    <dt><kbd>Enter</kbd></dt><dd>Preview the focused post beside the calendar. <kbd>o</kbd> opens it in the editor instead</dd>
+    <dt><kbd>t</kbd></dt><dd>Jump to today. <kbd>PageUp</kbd> and <kbd>PageDown</kbd> change the period</dd>
+  </dl>
+  <h3>Moving and rescheduling</h3>
+  <dl class="keys">
+    <dt><kbd>m</kbd></dt><dd>Pick up the focused post to move it</dd>
+    <dt><kbd>Arrow keys</kbd> while holding</dt><dd>One slot at a time; with <kbd>Shift</kbd> one day (calendar) or one row (grid)</dd>
+    <dt><kbd>Enter</kbd> while holding</dt><dd>Drop it here. <kbd>Esc</kbd> cancels</dd>
+    <dt><kbd>r</kbd></dt><dd>Change time: pick a date and time, or one of its next free slots</dd>
+    <dt><kbd>n</kbd></dt><dd>Move it to its next free slot, now</dd>
+    <dt><kbd>u</kbd></dt><dd>Move it to Unscheduled</dd>
+    <dt><kbd>z</kbd></dt><dd>Undo the last move or reschedule</dd>
+  </dl>
+  <h3>Several posts at once</h3>
+  <dl class="keys">
+    <dt><kbd>x</kbd></dt><dd>Select or unselect the focused post. <kbd>Shift</kbd>-click does the same</dd>
+    <dt><kbd>r</kbd> or <kbd>n</kbd></dt><dd>With posts selected, these act on all of them</dd>
+    <dt><kbd>Esc</kbd></dt><dd>Close the preview; with nothing open, clear the selection</dd>
+  </dl>
+  <h3>Review and editor</h3>
+  <dl class="keys">
+    <dt><kbd>j</kbd> and <kbd>k</kbd></dt><dd>Next and previous post in Review</dd>
+    <dt><kbd>s</kbd></dt><dd>Send the post back to Claude with a note</dd>
+    <dt><kbd>?</kbd></dt><dd>This list</dd>
+  </dl>
+  <form method="dialog"><button class="primary" autofocus>Close</button></form>
+</dialog>
+<script type="module" src="/static/app.js"></script>
+</body>
+</html>

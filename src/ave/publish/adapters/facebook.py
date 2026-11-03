@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from .. import safety
-from .base import (PublishError, Publisher, Uncertain, effective_format, limit_problems, parse_schedule, probe_video)
+from .base import (PublishError, Publisher, Uncertain, effective_format, limit_problems, parse_schedule, platform_schedule, probe_video)
 
 log = safety.get_logger("ave.publish.facebook")
 TIMEOUT = 120
@@ -23,8 +23,9 @@ TIMEOUT = 120
 class FacebookPublisher(Publisher):
     name = "facebook"
 
-    def __init__(self, session: Any = None, **kw):
+    def __init__(self, session: Any = None, secret_ns: str | None = None, **kw):
         super().__init__(**kw)
+        self.secret_ns = secret_ns        # studio accounts: secret names get an `@<account>` suffix (spec 2.5, E4)
         self._session = session
         self.f = self.cfg.get("facebook", {})
         self.ver = self.f.get("graph_version", "v21.0")
@@ -36,11 +37,14 @@ class FacebookPublisher(Publisher):
             self._session = requests.Session()
         return self._session
 
+    def _secret(self, base: str) -> str:
+        return f"{base}@{self.secret_ns}" if self.secret_ns else base
+
     def _token(self) -> str:
-        return safety.get_secret("facebook_page_token") or ""
+        return safety.get_secret(self._secret("facebook_page_token")) or ""
 
     def _page(self) -> str:
-        return safety.get_secret("facebook_page_id") or ""
+        return safety.get_secret(self._secret("facebook_page_id")) or ""
 
     def ready_problems(self) -> list[str]:
         out = []
@@ -59,7 +63,7 @@ class FacebookPublisher(Publisher):
         if (item.get("media_type") or "video") != "video":
             return ["facebook: this adapter publishes video only (Page reels and videos); photo and carousel posts are not implemented"]
         p: list[str] = []
-        if len(item.get("description", "") + item.get("caption", "")) > self.f.get("description_max_chars", 5000):
+        if len(self._desc(item)) > self.f.get("description_max_chars", 5000):
             p.append("facebook: description/caption too long")
         p += self.check_schedule(item, self.f.get("schedule_min_minutes", 10), self.f.get("schedule_max_days", 75))
         try:
@@ -90,6 +94,12 @@ class FacebookPublisher(Publisher):
         if code >= 400 or "error" in data:
             err = data.get("error", {}) if isinstance(data, dict) else {}
             msg = safety.redact(f"facebook {phase} HTTP {code}: {err.get('message', data)} (code {err.get('code')})")
+            from ...platforms.base import AuthError, QuotaError
+            if code==401 or err.get('code')==190: raise AuthError(msg)
+            if code==429 or err.get('code') in (4,17,32,613):
+                try: wait=float((getattr(r,'headers',{}) or {}).get('Retry-After') or (getattr(r,'headers',{}) or {}).get('retry-after'))
+                except (ValueError,TypeError): wait=None
+                raise QuotaError(msg,wait)
             if final and code >= 500:
                 raise Uncertain(msg)
             raise PublishError(msg + ". Nothing was posted.")
@@ -99,7 +109,7 @@ class FacebookPublisher(Publisher):
         return f"https://{host}/{self.ver}"
 
     def _live(self, item: dict) -> bool:
-        return bool(item.get("schedule")) or item.get("visibility") == "public"
+        return bool(platform_schedule(item)) or item.get("visibility") == "public"
 
     # -- sending
     def publish(self, item: dict, video: Path, progress: Callable[[dict], None]) -> dict:
@@ -110,6 +120,9 @@ class FacebookPublisher(Publisher):
         return (self._reel if fmt == "short" else self._long)(item, video, info, progress)
 
     def _desc(self, item: dict) -> str:
+        if item.get('meta_v') == 3:
+            from ...platforms.base import compose_text
+            return compose_text(item)
         return "\n\n".join(x for x in (item.get("caption"), item.get("description")) if x)
 
     def _reel(self, item, video, info, progress):
@@ -128,14 +141,16 @@ class FacebookPublisher(Publisher):
         progress({"phase": "uploaded"})
         fin = {"upload_phase": "finish", "video_id": vid, "access_token": tok, "description": self._desc(item),
                "title": item["title"]}
-        if item.get("schedule"):
+        if platform_schedule(item):
             fin.update(video_state="SCHEDULED", scheduled_publish_time=int(parse_schedule(item["schedule"]).timestamp()))
         else:
             fin["video_state"] = "PUBLISHED" if self._live(item) else "DRAFT"
         progress({"phase": "finishing"})
-        self._call("reel finish", True, lambda: self.http.post(url, data=fin, timeout=TIMEOUT))
-        return {"id": vid, "kind": "reel", "url": f"https://www.facebook.com/reel/{vid}",
-                "live": self._live(item), "state_requested": fin["video_state"]}
+        ack=self._call("reel finish", True, lambda: self.http.post(url, data=fin, timeout=TIMEOUT))
+        if ack.get('success') is not True: raise Uncertain('facebook finish did not confirm acceptance')
+        from ..receipts import result
+        phase='scheduled' if platform_schedule(item) else 'processing' if self._live(item) else 'draft'
+        return result('facebook',vid,phase=phase,object_kind='video',state_requested=fin['video_state'])
 
     def _long(self, item, video, info, progress):
         tok, page = self._token(), self._page()
@@ -157,25 +172,24 @@ class FacebookPublisher(Publisher):
         progress({"phase": "uploaded"})
         fin = {"upload_phase": "finish", "upload_session_id": sid, "access_token": tok, "title": item["title"],
                "description": self._desc(item)}
-        if item.get("schedule"):
+        if platform_schedule(item):
             fin.update(published="false", scheduled_publish_time=int(parse_schedule(item["schedule"]).timestamp()))
         else:
             fin["published"] = "true" if self._live(item) else "false"
         progress({"phase": "finishing"})
-        self._call("video finish", True, lambda: self.http.post(url, data=fin, timeout=TIMEOUT))
-        return {"id": vid, "kind": "video", "url": f"https://www.facebook.com/{page}/videos/{vid}" if vid else None,
-                "live": self._live(item), "published_requested": fin["published"]}
+        ack=self._call("video finish", True, lambda: self.http.post(url, data=fin, timeout=TIMEOUT))
+        if ack.get('success') is not True: raise Uncertain('facebook finish did not confirm acceptance')
+        from ..receipts import result
+        phase='scheduled' if platform_schedule(item) else 'processing' if self._live(item) else 'draft'
+        return result('facebook',vid,phase=phase,object_kind='video',published_requested=fin['published'])
 
     def recover(self, item: dict, record: dict):
         vid = record.get("video_id")
         if not vid or self.ready_problems():
             return None
-        try:
-            r = self.http.get(f"{self._base()}/{vid}", params={"fields": "status", "access_token": self._token()}, timeout=TIMEOUT)
-            st = (r.json().get("status") or {})
-        except Exception as e:
-            log.warning("facebook recovery lookup failed: %s", safety.redact(e))
-            return None
-        if st.get("video_status") == "ready" or (st.get("publishing_phase") or {}).get("status") == "complete":
-            return {"id": vid, "recovered": True, "url": f"https://www.facebook.com/{vid}"}
+        data=self._call('status refresh',False,lambda:self.http.get(f"{self._base()}/{vid}",params={'fields':'status','access_token':self._token()},timeout=TIMEOUT))
+        st=data.get('status') or {}
+        if (st.get("publishing_phase") or {}).get("status") == "complete":
+            from ..receipts import result
+            return result('facebook',vid,f'https://www.facebook.com/{vid}',recovered=True)
         return None    # still processing or never finished: a human must decide

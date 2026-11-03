@@ -15,12 +15,14 @@ def _ep(a) -> Episode:
 
 
 def cmd_status(a) -> int:
-    print(json.dumps(state.status(_ep(a)), indent=2))
+    from ..progress import resolve_project
+    print(json.dumps(state.status(resolve_project(a.episode)), indent=2))
     return 0
 
 
 def cmd_resume(a) -> int:
-    print(state.briefing(_ep(a)))
+    from ..progress import resolve_project
+    print(state.briefing(resolve_project(a.episode)))
     return 0
 
 
@@ -55,7 +57,7 @@ def cmd_assemble(a) -> int:
 
 
 def register(sub) -> None:
-    s = sub.add_parser("status", help="stage-by-stage state of an episode (JSON)")
+    s = sub.add_parser("status", help="disk-derived state of an episode or content studio (JSON)")
     s.add_argument("episode")
     s.set_defaults(fn=cmd_status)
     s = sub.add_parser("resume", help="plain-text briefing for a fresh session: what is done, what is next")

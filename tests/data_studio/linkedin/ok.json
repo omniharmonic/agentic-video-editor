@@ -1,0 +1,63 @@
+[
+  {
+    "method": "POST",
+    "url": "/rest/images",
+    "early": true,
+    "response": {
+      "value": {
+        "uploadUrl": "https://www.linkedin.com/dms-uploads/sp/C4E10AQ/uploaded-image?ca=vector_feedshare&ct=1&m=1",
+        "image": "urn:li:image:C4E10AQFoyyAjHPMQuQ",
+        "uploadUrlExpiresAt": 1650567510704
+      }
+    },
+    "expect": {
+      "json_keys": [
+        "initializeUploadRequest"
+      ],
+      "headers": [
+        "Linkedin-Version",
+        "X-Restli-Protocol-Version",
+        "Authorization"
+      ]
+    },
+    "_source": "documentation-derived, UNVERIFIED live: https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/posts-api"
+  },
+  {
+    "method": "PUT",
+    "url": "dms-uploads",
+    "response": {},
+    "status": 201,
+    "_source": "documentation-derived, UNVERIFIED live: https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/posts-api"
+  },
+  {
+    "method": "GET",
+    "url": "/rest/images/",
+    "response": {
+      "status": "AVAILABLE"
+    },
+    "_source": "Documentation-derived Images API readiness, synthetic grants, no live verification"
+  },
+  {
+    "method": "POST",
+    "url": "/rest/posts",
+    "final": true,
+    "status": 201,
+    "response": {},
+    "headers": {
+      "x-restli-id": "urn:li:share:7001234567890123456"
+    },
+    "expect": {
+      "json_keys": [
+        "author",
+        "commentary",
+        "visibility",
+        "distribution",
+        "lifecycleState"
+      ],
+      "headers": [
+        "Linkedin-Version"
+      ]
+    },
+    "_source": "documentation-derived, UNVERIFIED live: https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/posts-api"
+  }
+]

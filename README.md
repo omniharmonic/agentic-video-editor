@@ -1,5 +1,28 @@
 # Agentic Video Editor
 
+A local creative studio for source material, podcast editing, social content, review and release. Overview, Pipeline, Calendar and Feed planner connect the work to its platform previews and asset library. A phone preview and full-resolution export support finishing posts in Instagram yourself. External agents supply creative judgment through the CLI, skills and a bounded MCP interface.
+
+## Open the studio
+
+```sh
+uv sync --all-extras
+.venv/bin/ave doctor
+.venv/bin/ave studio init ~/Movies/MyShow/studio --name 'My Show' --tz America/Denver
+.venv/bin/ave desktop ~/Movies/MyShow/studio
+```
+
+Run the desktop command yourself in Terminal; it prints your private review PIN. The native window needs the optional desktop runtime. The browser alternative is `ave studio ui ~/Movies/MyShow/studio --open`. Neither window sends posts.
+
+[Desktop installation](docs/desktop.md) · [Connect Claude, Codex or Hermes](docs/agents.md) · [Collaborate with Tomas, including offline](docs/collaboration.md) · [First shared studio](docs/shared-studio.md)
+
+The desktop launcher is unsigned and tied to your Python installation. Collaboration exchanges drafts and bounded library media, with explicit conflicts; it does not synchronize raw footage or Resolve projects. Platform adapters have synthetic tests, but live publishing, Canva exports and cross-device use still need supervised verification. See the [readiness record](docs/ROADMAP.md).
+
+![Phone preview with fictional book-launch material](docs/images/studio-phone-preview.png)
+
+[Manual publishing and original downloads](docs/manual-publishing.md)
+
+## The editing engine
+
 A toolkit that lets an AI coding agent (Claude Code, Codex, Cursor, Gemini CLI, anything that reads `AGENTS.md`) edit a multicam podcast
 while you stay the director. You drop raw footage in a folder. The agent transcribes it, labels speakers, syncs the cameras, and builds an
 **assembly**, a **rough cut** and a **final cut**, then finds clips for vertical shorts and prepares a release package. It stops and asks you at
@@ -14,12 +37,12 @@ judge the result. Every stage writes a JSON file to disk, so any agent can pick 
 ```bash
 git clone https://github.com/omniharmonic/agentic-video-editor && cd agentic-video-editor
 ./scripts/setup.sh --minimal      # Python env via uv; tells you what to install if FFmpeg or uv are missing
-.venv/bin/ave demo                # builds ./ave-demo and runs the pipeline on generated two-camera footage
+.venv/bin/ave demo                # builds ~/ave-demo (inside a git checkout; ./ave-demo elsewhere) from generated two-camera footage
 ```
 
 `ave demo` generates a 30-second, two-camera, two-speaker episode (coloured frames plus tones, with known answers), then runs the real commands:
 ingest, audio, sync, camera mapping, cut planning, **assembly**, **rough cut**, and a rendered draft. It prints each step, for example
-`camB offset found = 1.000 s (true value 1.000) OK` and `30.0 s -> 27.2 s; 3 cuts`. It takes 10 to 30 seconds, writes only into the demo folder,
+`camB offset found = 1.000 s (true value 1.000) OK` and `30.0 s -> 27.3 s; 3 cuts` (the last digit can vary by a tenth). It takes about 20 seconds (10 to 30 depending on the machine), writes only into the demo folder (never inside the repo),
 and works on Linux as well as macOS. The one stand-in is the transcript: tones are not speech, so the demo uses the generator's known transcript
 and says so.
 
@@ -29,18 +52,19 @@ and says so.
 
 | | Command | You get |
 |---|---|---|
-| **Minimal** | `./scripts/setup.sh --minimal` | Python env + FFmpeg check. `ave demo`, the test suite, and every stage that needs only FFmpeg. |
-| **Full** | `./scripts/setup.sh` | Adds extras (motion graphics, music analysis, publishing), Chromium, the Resolve MCP server, FluidAudio (Apple Silicon) or a Whisper model, and an `ave doctor` report. |
+| **Minimal** | `./scripts/setup.sh --minimal` | Python env + FFmpeg check. `ave demo` and every stage that needs only FFmpeg and the core Python packages. `pytest` runs, but tests for the optional extras below are skipped. |
+| **Full** | `./scripts/setup.sh` | Adds all extras (`uv sync --all-extras`: vision/OpenCV, audio/librosa, motion graphics/Playwright, publishing/keyring + Google client), Chromium, the Resolve MCP server, FluidAudio (Apple Silicon) or a Whisper model, and an `ave doctor` report. |
 
 Setup never uses `sudo` and never installs system packages: if something is missing it prints the exact command. It is safe to re-run. Options:
-`--skip-playwright --skip-resolve --skip-fluidaudio --with-whisper --skip-whisper`. If you prefer pip: `uv pip install .` or `pip install .` gives
+`--skip-playwright --skip-resolve --skip-fluidaudio --with-whisper --skip-whisper`. If you prefer pip (Python 3.11 or newer; macOS system Python 3.9 is too old): `uv pip install .` or `pip install .` gives
 the `ave` command without the setup script (see [Installing as a package](#installing-as-a-package)).
 
 Then start your first real episode: **[docs/getting-started.md](docs/getting-started.md)**.
 
 ```bash
 .venv/bin/ave doctor                              # grouped checklist with the exact fix command for anything missing, and a one-line verdict
-.venv/bin/ave init-episode ~/Editing/ep-001       # creates raw/ work/ edits/ exports/ episode.json PROGRESS.md; never overwrites
+.venv/bin/ave workspace ~/Editing                 # once: the folder (outside this repo) that holds all episodes
+.venv/bin/ave init-episode ep-001                 # a bare name lands in the workspace: ~/Editing/ep-001. Creates raw/ work/ edits/ exports/ episode.json PROGRESS.md AGENTS.md CLAUDE.md; never overwrites
 # put footage in ~/Editing/ep-001/raw/, open an agent session in this repo and say:
 #   "Edit episode ~/Editing/ep-001. Start with the ave-pipeline skill."
 ```
@@ -49,7 +73,8 @@ Then start your first real episode: **[docs/getting-started.md](docs/getting-sta
 
 | Capability | Needs | Works on |
 |---|---|---|
-| Demo, tests, ingest, audio, sync, cut planning, assembly, rough cut, final cut, captions, rendering, loudness, clip selection, packaging, review UI | FFmpeg + Python 3.11+ (via `uv`) | macOS, Linux (CI runs both). Windows: untested, try WSL. |
+| Demo, tests, ingest, audio, sync, cut planning, assembly, rough cut, final cut (SRT sidecar), rendering, loudness, clip selection, packaging, review UI | FFmpeg + Python 3.11+ (via `uv`) | macOS, Linux (CI runs both). Windows: untested, try WSL. |
+| **Burned-in captions and every short** (`ave shorts build`, `ave captions --burn`, `ave final --burn`) | FFmpeg **built with libass**: macOS `brew install ffmpeg-full` (plain `brew install ffmpeg` has no libass; see FAQ), Debian/Ubuntu `apt` builds include it. `ave doctor` lists it under "Required for captions & shorts" and says PARTLY READY without it | macOS, Linux |
 | Transcription + speaker labels, fast | **FluidAudio** (Parakeet ASR, CoreML, built from Swift by `setup.sh`; needs Xcode Command Line Tools) | **macOS, Apple Silicon only** |
 | Transcription, portable fallback | **whisper.cpp** (`whisper-cli` + a ~1.6 GB model, `scripts/fetch-whisper-model.sh`) | anywhere it builds; no speaker labels of its own (speakers come from per-channel recorders or manual mapping) |
 | Face-centred 9:16 crops for shorts | Apple Vision via `pyobjc` (the `vision` extra) | macOS only; elsewhere every camera falls back to a centred crop and is flagged for review |
@@ -124,21 +149,35 @@ ave --version && ave demo
 ```
 
 Downloaded third-party tools (FluidAudio, the Resolve MCP server) go in `vendor/` of a checkout, or `~/.local/share/ave/vendor` for an installed copy
-(override with `AVE_VENDOR`). Other overrides: `AVE_HOME`, `AVE_WORKSPACE`, `AVE_CONFIG_DIR`, `AVE_FLUIDAUDIO`, `AVE_RESOLVE_MCP`, `AVE_WHISPER_MODEL`.
+(override with `AVE_VENDOR`). Other overrides: `AVE_HOME`, `AVE_WORKSPACE`, `AVE_CONFIG_DIR`, `AVE_FLUIDAUDIO`, `AVE_RESOLVE_MCP`, `AVE_WHISPER_MODEL`, and:
+
+| Variable | Effect |
+|---|---|
+| `AVE_USER` | Name recorded for clip decisions and learnings (default: login name) |
+| `AVE_TASTE_DIR` | Where the per-show clip taste profile lives (default: `<workspace>/taste/`, then `~/.config/ave/taste/`) |
+| `AVE_CONTENT_ENABLED` | `1` turns on the opt-in content kit (same as `enabled: true` in `~/.config/ave/content.yaml`) |
+| `AVE_CONTENT_CONFIG` / `AVE_CONTENT_TEMPLATES` | Alternate `content.yaml` / content templates folder |
+| `AVE_MOTION_KIT` | Alternate motion-kit folder (brand fonts, templates) |
+| `AVE_ASSETS_DB` / `AVE_ASSETS_CACHE` | B-roll/music asset index (default `~/.local/share/ave/assets.db`) and download cache (`~/.cache/ave/assets`) |
+| `AVE_FACE_MODEL` | Path to a YuNet face model so the B-roll face check can run (otherwise face presence is recorded as unknown) |
+| `AVE_YOUTUBE_CREDENTIALS` | YouTube OAuth credentials file (alternative to the keychain) |
+| `AVE_AGGREGATOR_CONFIG` | Social aggregator config (default `~/.config/ave/aggregator.yaml`) |
+| `AVE_FACEBOOK_PAGE_TOKEN` / `AVE_FACEBOOK_PAGE_ID` | Facebook Page credentials (alternative to the keychain) |
 
 ## Documentation
 
-[Getting started](docs/getting-started.md) · [Roadmap and status](docs/ROADMAP.md) · [Cleanup policy](docs/cleanup-policy.md) · [Sequences (opening/closing)](docs/sequences.md) ·
+[Getting started](docs/getting-started.md) · [Docs index](docs/README.md) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md) · [Roadmap and status](docs/ROADMAP.md) · [Cleanup policy](docs/cleanup-policy.md) · [Sequences (opening/closing)](docs/sequences.md) ·
 [Motion graphics](docs/motion.md) · [Review UI](docs/ui.md) · [Content](docs/content.md) · [Publishing setup](docs/publishing-setup.md) ·
 [Asset licensing](docs/asset-licensing.md) · [Field notes](docs/field-notes/README.md) · [AGENTS.md](AGENTS.md) (rules and the full pipeline table)
 
 ## Development
 
 ```bash
-uv sync --all-extras
+uv sync --all-extras             # the full suite needs every extra; with --minimal, tests for a missing extra are skipped, not failed
 uv run pytest -q -n auto          # synthetic episodes with known ground truth; no footage, no network; about 6 minutes on 8 cores with xdist; 11 serial
 ```
 
 Tests that need private footage skip themselves (inputs come from `AVE_TEST_REAL_*` variables). Markers `apple`, `resolve`, `network` flag tests CI excludes.
 New commands are plugins: `src/ave/commands/<name>.py` with `register(sub)`. Third-party tools are pinned in `src/ave/config.py`. MIT license.
 
+<!-- TODO(publish): replace OWNER in the clone URL above and in pyproject.toml [project.urls] once the repository exists. -->

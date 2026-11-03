@@ -7,9 +7,10 @@ import shutil
 import subprocess
 from pathlib import Path
 
-import keyring
 import pytest
-from keyring.backend import KeyringBackend
+
+keyring = pytest.importorskip("keyring", reason="needs the publish extra (`uv sync --extra publish`)")
+from keyring.backend import KeyringBackend  # noqa: E402
 
 from ave.episode import Episode
 from ave.publish import safety
@@ -41,9 +42,11 @@ def isolated_secrets(monkeypatch, tmp_path):
     mem = MemKeyring()
     keyring.set_keyring(mem)
     safety._KNOWN_SECRETS.clear()
+    safety.reset_approval_key_cache()
     yield mem
     keyring.set_keyring(old)
     safety._KNOWN_SECRETS.clear()
+    safety.reset_approval_key_cache()
 
 
 def _mk(path: Path, size: str, secs: int, color: str) -> None:
@@ -135,7 +138,8 @@ class RecordingPublisher:
         self.publish_calls += 1
         progress({"upload_id": "u1"})
         if self.behavior == "ok":
-            return {"id": f"{self.name}-1", "url": f"https://x/{self.name}"}
+            from ave.publish.receipts import result
+            return result(self.name,f'{self.name}-1',f'https://x/{self.name}')
         if self.behavior == "refuse":
             raise PublishError("quota exceeded")
         if self.behavior == "crash":
@@ -160,4 +164,4 @@ def queue_item(ep, video, platforms=("youtube",), **kw):
 def approve_item(ep, item_id, publishers=None):
     from ave.publish import queue
     it = queue.load(ep, item_id)
-    return queue.approve(ep, item_id, "ben", it["sha256"][:12], publishers=publishers)
+    return queue.approve(ep, item_id, "maren", it["sha256"][:12], publishers=publishers)

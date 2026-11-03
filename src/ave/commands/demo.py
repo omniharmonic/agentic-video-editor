@@ -17,13 +17,42 @@ import sys
 import time
 from pathlib import Path
 
-from .. import synth
+from .. import synth, workspace
 
 DEFAULT_DIR = "ave-demo"
 
 
 class DemoError(RuntimeError):
     pass
+
+
+def default_dir(cwd: Path | None = None) -> Path:
+    """`./ave-demo`, except inside a git checkout (the README tells you to run the demo from the repo): then ~/ave-demo."""
+    here = (cwd or Path.cwd()).resolve()
+    return Path.home() / DEFAULT_DIR if workspace.in_git_checkout(here) else here / DEFAULT_DIR
+
+
+def _continue_notes() -> list[str]:
+    """What the demo does NOT set up, so the user hears it now rather than from an error three commands later."""
+    from .. import config
+    notes = []
+    model = config.whisper_model()
+    if not (config.fluidaudio_cli() or (config.whisper_cli() and model)):
+        notes.append("Real transcripts need an ASR engine: FluidAudio (scripts/setup.sh) or whisper.cpp plus its ~1.6 GB model "
+                     "(scripts/fetch-whisper-model.sh). `ave transcribe` and `ave final` (which re-transcribes its render) stop without one.")
+    elif config.whisper_cli() and not model:
+        notes.append("whisper-cli is installed but its ~1.6 GB model is missing: run scripts/fetch-whisper-model.sh.")
+    try:
+        import playwright  # noqa: F401
+        have_pw = True
+    except ImportError:
+        have_pw = False
+    if not have_pw:
+        notes.append("Titles, captions burn-in and `ave sequence preview|build` need Playwright: `uv sync --extra motion`, then "
+                     "`playwright install chromium` (about 150 MB).")
+    notes.append("The demo stops at the rough cut and its audio is synthetic tones, so `ave final` and the Resolve hand-off are not "
+                 "meaningful on it; use real footage for those.")
+    return notes
 
 
 def _say(msg: str = "") -> None:
@@ -182,13 +211,16 @@ def run(root: Path, force: bool = False, keep: bool = True) -> dict:
     _say("  work/*.json              what each stage found, with reasons")
     _say(f"\nLook around:   ave resume {root}      ave status {root}")
     _say("On a human checkpoint with real footage you would now review the assembly, then the rough cut (ave handoff sends it to Resolve).")
-    _say("Next: docs/getting-started.md walks through a real episode.")
+    _say("\nBefore you move to real footage:")
+    for n in _continue_notes():
+        _say(f"  - {n}")
+    _say("Next: docs/getting-started.md walks through a real episode (`ave doctor` shows what is still missing).")
     return summary
 
 
 def cmd(a) -> int:
     try:
-        run(Path(a.dir), force=a.force)
+        run(Path(a.dir) if a.dir else default_dir(), force=a.force)
     except DemoError as e:
         print(f"\ndemo stopped: {e}", file=sys.stderr)
         return 1
@@ -201,6 +233,7 @@ def cmd(a) -> int:
 
 def register(sub) -> None:
     s = sub.add_parser("demo", help="run the whole pipeline on generated two-camera footage (needs only ffmpeg; no footage, no network)")
-    s.add_argument("dir", nargs="?", default=DEFAULT_DIR, help=f"where to build the demo episode (default ./{DEFAULT_DIR}; re-runnable)")
+    s.add_argument("dir", nargs="?", default=None,
+                   help=f"where to build the demo episode (default ./{DEFAULT_DIR}, or ~/{DEFAULT_DIR} when run inside a git checkout; re-runnable)")
     s.add_argument("--force", action="store_true", help="delete and rebuild an existing demo episode in that folder")
     s.set_defaults(fn=cmd)

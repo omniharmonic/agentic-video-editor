@@ -1,6 +1,6 @@
 ---
 name: ave-rough-cut
-description: Plan a shot/reverse-shot rough cut from the transcript and build it as an editable timeline in DaVinci Resolve through the MCP. Use after cameras are synced and mapped, when the user asks for a rough cut, an assembly, or to switch between cameras by who is speaking.
+description: Plan the shot/reverse-shot cut list from the transcript (`ave plan-cuts`) and hand the assembly to DaVinci Resolve through the MCP. Use after cameras are synced and mapped, when the user asks to plan cuts, for an assembly, or to switch between cameras by who is speaking. The cleaned-up rough cut itself (dead air, fillers) is `ave cleanup`: use ave-cleanup for that.
 ---
 
 # Rough cut: plan, then build

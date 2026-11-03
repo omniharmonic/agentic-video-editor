@@ -1,0 +1,8 @@
+{
+  "_note": "Fallback frame geometry for the grid previews when /api/studio/grid does not send it. Every number is unverified (spec 7.4); the server's layout block wins.",
+  "profile_grid": {"columns": 3, "cell_aspect": "3:4", "crop": "center_cover", "verified": false},
+  "vertical_grid": {"columns": 3, "cell_aspect": "9:16", "crop": "center_cover", "verified": false},
+  "pin_grid": {"columns": 2, "cell_aspect": "2:3", "crop": "center_cover", "verified": false},
+  "feed": {"columns": 1, "verified": false},
+  "page_timeline": {"columns": 1, "verified": false}
+}

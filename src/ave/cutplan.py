@@ -409,7 +409,7 @@ def _with_margins(utts: list[dict], words: list[dict]) -> list[dict]:
 
 
 def build_cutlist(ep: Episode, policy: CutPolicy | None = None, session: str | None = None, policy_path: Path | str | None = None,
-                  home: Path | None = None) -> dict:
+                  home: Path | None = None, metadata: dict | None = None) -> dict:
     """Plan shots and write the cut list.
 
     `policy`: a CutPolicy; else resolved from `policy_path` > <ep>/policy/cutplan.yaml > ~/.config/ave/cutplan.yaml > config/cutplan.default.yaml.
@@ -427,7 +427,7 @@ def build_cutlist(ep: Episode, policy: CutPolicy | None = None, session: str | N
             raise SystemExit(str(e))
     else:
         policy_source = "given in code"
-    meta = read_json(ep.meta_path)
+    meta = metadata if metadata is not None else read_json(ep.meta_path)
     cameras = meta.get("cameras") or {}
     speakers = meta.get("speakers") or {}
     if not cameras or not speakers:

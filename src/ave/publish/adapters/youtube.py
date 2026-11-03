@@ -16,7 +16,7 @@ from typing import Any, Callable
 
 from .. import safety
 from .base import (Absent, PublishError, Publisher, Uncertain, effective_format, limit_problems, load_platforms,
-                   probe_video)
+                   platform_schedule, probe_video)
 
 SCOPE = "https://www.googleapis.com/auth/youtube.upload"
 READ_SCOPE = "https://www.googleapis.com/auth/youtube.readonly"
@@ -47,15 +47,16 @@ class YouTubePublisher(Publisher):
     name = "youtube"
 
     def __init__(self, service_factory: Callable[[], Any] | None = None, media_factory: Callable[..., Any] | None = None,
-                 **kw):
+                 secret_ns: str | None = None, **kw):
         super().__init__(**kw)
+        self.secret_ns = secret_ns        # studio accounts: secret names get an `@<account>` suffix (spec 2.5, E4)
         self._service_factory = service_factory
         self._media_factory = media_factory
         self.y = self.cfg.get("youtube", {})
 
     # -- credentials
     def _creds_json(self) -> dict | None:
-        raw = safety.get_secret("youtube_credentials")
+        raw = safety.get_secret(f"youtube_credentials@{self.secret_ns}" if self.secret_ns else "youtube_credentials")
         try:
             return json.loads(raw) if raw else None
         except ValueError:
@@ -120,7 +121,7 @@ class YouTubePublisher(Publisher):
         status: dict = {"privacyStatus": item.get("visibility", "private"),
                         "selfDeclaredMadeForKids": bool(item.get("made_for_kids", False)),
                         "containsSyntheticMedia": bool(item.get("ai_disclosure"))}
-        if item.get("schedule"):
+        if platform_schedule(item):
             status["privacyStatus"] = "private"       # the API requires private + publishAt for scheduling
             status["publishAt"] = item["schedule"]
         return {"snippet": {"title": item["title"], "description": item.get("description", ""),
@@ -128,6 +129,7 @@ class YouTubePublisher(Publisher):
 
     def publish(self, item: dict, video: Path, progress: Callable[[dict], None]) -> dict:
         from googleapiclient.errors import HttpError
+        from ...platforms.base import AuthError, QuotaError
         service = self._service()
         body = self._body(item)
         media = (self._media_factory or _media)(str(video))
@@ -143,11 +145,12 @@ class YouTubePublisher(Publisher):
                     continue
                 reason = _http_reason(e)
                 if st == 403 and reason in ("quotaExceeded", "dailyLimitExceeded", "rateLimitExceeded"):
-                    raise PublishError("YouTube API daily quota exhausted (an upload costs ~1600 of the default 10000 "
+                    raise QuotaError("YouTube API daily quota exhausted (an upload costs ~1600 of the default 10000 "
                                        "units). Nothing was posted. Retry after midnight Pacific or request more quota.")
                 if st == 403 and reason == "uploadLimitExceeded":
-                    raise PublishError("YouTube upload limit reached for this channel. Nothing was posted; try later.")
-                if st in (400, 401, 403, 404):
+                    raise QuotaError("YouTube upload limit reached for this channel. Nothing was posted; try later.")
+                if st == 401: raise AuthError(f"YouTube upload authorization expired (HTTP {st})")
+                if st in (400, 403, 404):
                     raise PublishError(f"YouTube rejected the upload (HTTP {st} {reason}). Nothing was posted.")
                 raise Uncertain(f"YouTube upload ended with HTTP {st}; it may or may not exist")
             uri = getattr(req, "resumable_uri", None)
@@ -162,25 +165,23 @@ class YouTubePublisher(Publisher):
             out["warnings"].append(
                 f"UPLOADED BUT FORCED {got.upper()}: requested {want}. Unverified API projects are locked private until "
                 "the YouTube API audit passes (see docs/publishing-setup.md). Change visibility in YouTube Studio.")
+        from ..receipts import result
+        phase='scheduled' if body['status'].get('publishAt') else 'processing' if got in ('public','unlisted') else 'draft'
+        out.update(result('youtube',vid,phase=phase,object_kind='video'))
+        progress(out)
         return out
 
-    def recover(self, item: dict, record: dict):
-        """Look in the channel's uploads playlist for a video with this title created since the attempt started."""
+    def recover(self,item,record):
+        vid=(record.get('receipt') or {}).get('object',{}).get('id')
+        if not vid: return None
         try:
-            svc = self._service()
-            ch = svc.channels().list(part="contentDetails", mine=True).execute()
-            uploads = ch["items"][0]["contentDetails"]["relatedPlaylists"]["uploads"]
-            items = svc.playlistItems().list(part="snippet", playlistId=uploads, maxResults=25).execute().get("items", [])
-        except Exception as e:
-            log.warning("youtube recovery lookup failed: %s", e)
-            return None
-        started = record.get("started", "")
-        for it in items:
-            sn = it.get("snippet", {})
-            if sn.get("title") == item["title"] and sn.get("publishedAt", "") >= _utc_prefix(started):
-                vid = sn.get("resourceId", {}).get("videoId")
-                return {"id": vid, "url": f"https://youtu.be/{vid}", "recovered": True}
-        return Absent("no matching upload in the channel's uploads playlist")
+            rows=self._service().videos().list(part='status,processingDetails',id=vid).execute().get('items',[])
+        except Exception: raise
+        if not rows: return None
+        status=rows[0].get('status') or {}; processing=rows[0].get('processingDetails') or {}
+        from ..receipts import result
+        phase='scheduled' if status.get('publishAt') else 'published' if status.get('privacyStatus') in ('public','unlisted') and processing.get('processingStatus')=='succeeded' else 'draft' if status.get('privacyStatus')=='private' else 'processing'
+        return result('youtube',vid,f'https://youtu.be/{vid}',phase=phase,object_kind='video',recovered=True)
 
 
 def _utc_prefix(local_iso: str) -> str:

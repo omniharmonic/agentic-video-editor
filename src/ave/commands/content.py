@@ -10,7 +10,7 @@ import getpass
 import json
 from pathlib import Path
 
-from .. import state
+from .. import humanpresence, state
 from ..episode import Episode, read_json
 from ..content import manifest as M
 from ..content import settings
@@ -165,24 +165,14 @@ def cmd_canva_status(a) -> int:
 
 def cmd_canva_approve(a) -> int:
     """The human approves the WRITES a job will make in their Canva. Needs a terminal, like `ave publish approve`."""
-    import os
-    import sys
     C = _canva()
+    humanpresence.require_human("Canva write approval", "ave content canva-approve %s %s" % (a.episode, a.job))
     ep = _ep(a)
     job = _canva_guard(lambda: C.load_job(ep, a.job))
     _out({"approving": {k: job[k] for k in ("id", "item", "brand_template_id", "format", "target", "export", "fields", "warnings")},
           "will_write": [{"n": s["n"], "tool": s["tool"], "note": s.get("note", "")} for s in job["steps"] if s["writes"]],
           "fields_sha256": job["fields_sha256"]})
-    unattended = os.environ.get("AVE_ALLOW_UNATTENDED_APPROVAL") == "1"      # tests/CI only; agents must never set it
-    if a.confirm and not unattended:
-        raise SystemExit("--confirm is disabled: approval must be typed by the human at a terminal. Ask them to run:  "
-                         "! ave content canva-approve %s %s" % (a.episode, a.job))
-    confirm = a.confirm if unattended else None
-    if not confirm:
-        if not (sys.stdin.isatty() and sys.stdout.isatty()):
-            raise SystemExit("approval needs a human at a terminal. Ask them to run (the leading ! runs it in this session):\n"
-                             "  ! ave content canva-approve %s %s" % (a.episode, a.job))
-        confirm = input("Type the first 8 characters of fields_sha256 above to allow these Canva writes: ").strip()
+    confirm = input("Type the first 8 characters of fields_sha256 above to allow these Canva writes: ").strip()
     done = _canva_guard(lambda: C.approve_job(ep, a.job, a.by or getpass.getuser(), confirm))
     _out({"id": done["id"], "status": done["status"], "approval": done["approval"]})
     return 0
@@ -354,7 +344,6 @@ def register(sub) -> None:
     proj(s, False)
     s.add_argument("job")
     s.add_argument("--by")
-    s.add_argument("--confirm", help="disabled unless AVE_ALLOW_UNATTENDED_APPROVAL=1 (tests only)")
     s.set_defaults(fn=cmd_canva_approve)
 
     s = cs.add_parser("canva-log", help="record one Canva MCP call the agent made for a job (write calls are refused before approval)")

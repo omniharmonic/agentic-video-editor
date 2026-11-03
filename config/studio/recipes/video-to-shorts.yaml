@@ -1,0 +1,51 @@
+name: video-to-shorts
+title: Video to shorts
+summary: >
+  A single-camera video becomes an episode (the one-camera shim, fixture-proven in tests/studio/test_ingest.py: the planner is unchanged), clips are
+  proposed, the human keeps some, vertical captioned shorts are exported and adopted into the studio.
+inputs:
+  - {name: file, required: true, path: true, description: "The video file (mp4, mov, ...)"}
+  - {name: episode, required: true, description: "Folder name of the episode this creates (beside the studio)"}
+steps:
+  - id: ingest
+    kind: mechanical
+    title: Create the episode and probe it (single-camera shim writes cameras and sync.json)
+    command: "ave studio ingest video {file} --name {episode} --studio {studio}"
+    done_when: {episode_file: "work/sync.json"}
+  - id: transcribe
+    kind: mechanical
+    title: Transcribe with speakers
+    command: "ave transcribe {episode} --speakers 1"
+    done_when: {episode_file: "work/transcript.json"}
+  - id: edit
+    kind: agent
+    skill: ave-pipeline
+    title: Map the speakers to the camera, plan cuts, assemble and clean up
+    checklist:
+      - "`ave studio ingest video <episode folder>` re-runs the shim and maps the transcript's speakers to camera A."
+      - "`ave plan-cuts`, `ave assemble`, `ave cleanup`; read the cleanup report and flag what needs a human."
+    done_when: {episode_file: "work/clips.json"}
+  - id: choose
+    kind: human
+    title: Keep, maybe or skip each clip
+    prompt: "Open `ave ui` for the episode and decide on the clips."
+    command: "ave ui {episode}"
+    done_when: {episode_file: "work/learning/clip_decisions.jsonl"}
+  - id: shorts
+    kind: agent
+    skill: ave-shorts
+    title: Build and export shorts
+    checklist:
+      - "`ave shorts build`, `preview` (LOOK at the stills), `export`."
+    done_when: {episode_file: "exports/shorts"}
+  - id: adopt
+    kind: mechanical
+    title: Adopt the queue items into the studio
+    command: "ave studio adopt {episode} --studio {studio}"
+    done_when: {posts: {origin: episode, min: 1}}
+  - id: review
+    kind: human
+    title: Review and approve
+    prompt: "Approve each item whose bytes you watched."
+    command: "ave studio ui {studio}"
+    done_when: {variants: {status: [approved, scheduled], min: 1}}

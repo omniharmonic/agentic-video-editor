@@ -1,0 +1,21 @@
+id: stat-card
+title: Stat card
+kind: image
+description: >
+  One number, large, and what it measures. Use only a figure the human gave you with its source (their own sales, a published study), and name the source
+  in the line beneath. A number you cannot source does not get a card.
+formats: [1x1, 4x5, 9x16]
+styles: [ink, paper, clay]
+default_platforms: [instagram, facebook, x, linkedin]
+renderers:
+  motion-kit: {template: card}
+slots:
+  type: object
+  required: [stat, title]
+  additionalProperties: false
+  properties:
+    stat:   {type: string, minLength: 1, maxLength: 12, description: "The figure as printed (73%, 4 hours, 1 in 3)."}
+    title:  {type: string, minLength: 3, maxLength: 90, description: "What the figure measures, in a sentence."}
+    source: {type: string, maxLength: 80, default: "", x-byline: true, description: "Where the figure comes from. Say so whenever it is not the business's own."}
+    kicker: {type: string, maxLength: 28, default: ""}
+    show:   {type: string, maxLength: 40, default: ""}

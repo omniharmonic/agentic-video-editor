@@ -40,9 +40,9 @@ JOB_VERSION = 1
 EXPORT_EXT = {"png": ".png", "jpg": ".jpg", "mp4": ".mp4"}
 _ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,120}$")
 
-# MCP tool names as listed in the proposal (docs/proposals/agentic-content-pipeline.md section 9). UNVERIFIED against the live connector:
-# the session that built this was not signed in to Canva (docs/field-notes/2026-10-14-canva-discovery.md). The agent confirms each
-# name and argument schema with ToolSearch before the first call and records any difference with `canva-log`.
+# MCP tool names and arguments, checked against the live connector schemas on 2026-10-30. A full job has not run live yet: the
+# account had no autofillable Brand Template. The agent still confirms each schema with ToolSearch before the first call and
+# records any difference with `canva-log`.
 TOOLS = {"dataset": "get-brand-template-dataset", "autofill": "autofill-design", "resize": "resize-design", "export": "export-design"}
 WRITE_STEPS = ("autofill", "resize", "export")
 
@@ -204,7 +204,7 @@ def build_job(ep: Episode, doc: dict, item: dict, reg: R.Registry, cfg: dict, *,
         native = item["format"]
     bid = _brand_template_id(t, item["format"], item["template"])
     steps = [{"n": 1, "op": "dataset", "tool": TOOLS["dataset"], "writes": False,
-              "args": {"brand_template_id": bid}, "check": f"every autofill field name exists in the dataset with type text: {sorted(fields)}"},
+              "args": {"template_id": bid}, "check": f"every autofill field name exists in the dataset with type text: {sorted(fields)}"},
              {"n": 2, "op": "autofill", "tool": TOOLS["autofill"], "writes": True,
               "args": {"brand_template_id": bid, "data": fields, "title": f"ave {ep.root.name} {item['id']}"},
               "note": "creates a NEW design in the creator's Canva; the template itself is never edited"}]
@@ -214,7 +214,7 @@ def build_job(ep: Episode, doc: dict, item: dict, reg: R.Registry, cfg: dict, *,
                       "args": {"design_id": "<from step 2>", "width": w, "height": h},
                       "note": f"the Brand Template is authored at {native}{f' ({cw}x{ch})' if cw else ''}; the item needs {item['format']} ({w}x{h})"})
     steps.append({"n": len(steps) + 1, "op": "export", "tool": TOOLS["export"], "writes": True,
-                  "args": {"design_id": "<from the previous write step>", "format": export_format},
+                  "args": {"design_id": "<from the previous write step>", "format": {"type": export_format}},
                   "note": "download the returned URL IMMEDIATELY (it expires in 24 h) to the job's `download_to` path; never store the URL"})
     fields_sha = _fields_sha({"fields": fields, "template": bid, "format": item["format"], "export": export_format})
     job_id = f"{item['id']}-{fields_sha[:8]}"
@@ -385,10 +385,10 @@ def run_job(client: CanvaClient, ep: Episode, job_id: str, *, limiter: RateLimit
         op = st["op"]
         try:
             if op == "dataset":
-                ds = client.dataset(st["args"]["brand_template_id"])
+                ds = client.dataset(st["args"]["template_id"])
                 missing = [f for f, v in job["fields"].items() if f not in ds or ds[f] != v["type"]]
                 if missing:
-                    raise CanvaError(f"Brand Template {st['args']['brand_template_id']} lacks text field(s) {missing} (it has {sorted(ds)})")
+                    raise CanvaError(f"Brand Template {st['args']['template_id']} lacks text field(s) {missing} (it has {sorted(ds)})")
                 log_call(ep, job_id, st["tool"], True, f"fields ok: {sorted(job['fields'])}")
             elif op == "autofill":
                 limiter.check("autofill")
@@ -402,7 +402,7 @@ def run_job(client: CanvaClient, ep: Episode, job_id: str, *, limiter: RateLimit
                 log_call(ep, job_id, st["tool"], True, f"resized to {st['args']['width']}x{st['args']['height']}", design_id)
             elif op == "export":
                 limiter.check("export")
-                r = client.export(design_id, st["args"]["format"])
+                r = client.export(design_id, st["args"]["format"]["type"])
                 limiter.record("export")
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 client.download(r["url"], dest)                       # immediately: the URL is never stored

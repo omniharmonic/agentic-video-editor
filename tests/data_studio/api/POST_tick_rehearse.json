@@ -1,0 +1,21 @@
+{
+  "method": "POST",
+  "path": "/api/studio/tick/rehearse",
+  "status": 200,
+  "request": {},
+  "response": {
+    "mode": "dry-run",
+    "paused": false,
+    "now": "2026-10-19T18:30:00Z",
+    "would_post": [],
+    "blocked": [
+      {
+        "post": "p_20261102_k3f9",
+        "variant": "v_ig",
+        "reasons": [
+          "account ig-main is not live"
+        ]
+      }
+    ]
+  }
+}

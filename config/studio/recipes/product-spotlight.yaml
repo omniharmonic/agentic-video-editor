@@ -1,0 +1,33 @@
+name: product-spotlight
+title: Product spotlight from a library photo
+summary: A photo already in the library (with its license on record) becomes a spotlight card and posts with the offer, price or date stated plainly.
+inputs:
+  - {name: asset, required: true, description: "Library asset id of the product photo (a_...)"}
+steps:
+  - id: check
+    kind: mechanical
+    title: Verify the library's license trail and hashes
+    command: "ave studio library verify --studio {studio}"
+    done_when: {library: {min: 1}}
+  - id: render
+    kind: agent
+    skill: ave-studio-visuals
+    title: Render the spotlight card
+    checklist:
+      - "Slots: title, sub (price or offer, plain), detail (date or place), image = the library file path of {asset}."
+      - "`ave studio render <post> --template product-spotlight --slots FILE`; the image's license is checked through the library."
+      - "Look at the card; confirm the price and dates against what the human told you."
+    done_when: {library: {source: render, min: 1}}
+  - id: variants
+    kind: agent
+    skill: ave-studio-calendar
+    title: Add variants and sync
+    checklist:
+      - "One variant per account; alt text; the voice critic; `ave studio queue sync`."
+    done_when: {variants: {status: [in_review, approved, scheduled], min: 1}}
+  - id: review
+    kind: human
+    title: Approve
+    prompt: "Check the price, the date and the photo, then approve."
+    command: "ave studio ui {studio}"
+    done_when: {variants: {status: [approved, scheduled], min: 1}}

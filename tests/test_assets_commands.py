@@ -55,15 +55,15 @@ def test_stock_search_flags_cliche_tags_on_results_and_persists_candidates(synth
 
 def test_stock_get_needs_prior_search_and_a_named_approver(synth_episode, capsys, fake_providers):
     with pytest.raises(SystemExit, match="stock-search"):
-        run(capsys, "stock-get", synth_episode.root, "pexels", "3195394", "--approved-by", "ben")
+        run(capsys, "stock-get", synth_episode.root, "pexels", "3195394", "--approved-by", "maren")
     run(capsys, "stock-search", synth_episode.root, "hands clay", "--provider", "pexels")
     with pytest.raises(SystemExit, match="approved_by"):
         run(capsys, "stock-get", synth_episode.root, "pexels", "3195394", "--approved-by", " ")
     assert licenses.log_for(synth_episode).entries() == []
-    rc, out = run(capsys, "stock-get", synth_episode.root, "pexels", "3195394", "--approved-by", "ben", "--query", "hands clay")
+    rc, out = run(capsys, "stock-get", synth_episode.root, "pexels", "3195394", "--approved-by", "maren", "--query", "hands clay")
     assert rc == 0 and (synth_episode.root / out["file"]).read_bytes() == b"PEXELS" * 20
     e = licenses.log_for(synth_episode).entries()
-    assert len(e) == 1 and e[0]["approved_by"] == "ben" and e[0]["license"] == "Pexels License"
+    assert len(e) == 1 and e[0]["approved_by"] == "maren" and e[0]["license"] == "Pexels License"
 
 
 def _final_doc_with(ep, music_file=None, broll_file=None):
@@ -84,14 +84,14 @@ def test_license_check_fails_for_unlogged_assets_then_passes_after_logging(synth
     track.parent.mkdir(parents=True)
     sf.write(track, np.zeros(4800, dtype=np.float32), 48000)
     run(capsys, "stock-search", ep.root, "hands clay", "--provider", "pexels")
-    run(capsys, "stock-get", ep.root, "pexels", "3195394", "--approved-by", "ben")
+    run(capsys, "stock-get", ep.root, "pexels", "3195394", "--approved-by", "maren")
     _final_doc_with(ep, music_file="work/assets/downloads/song.wav", broll_file="work/assets/downloads/pexels-3195394.mp4")
     rc, out = run(capsys, "license-check", ep.root)
     assert rc == 1 and out["ok"] is False
     assert [m["file"] for m in out["missing"]] == ["work/assets/downloads/song.wav"]
     assert [c["file"] for c in out["covered"]] == ["work/assets/downloads/pexels-3195394.mp4"]
     rc, _ = run(capsys, "log-license", ep.root, "--file", "work/assets/downloads/song.wav", "--source", "licensed-library", "--license", "Paid standard license",
-                "--license-text", "Standard license, podcast use, invoice #123", "--url", "https://example.com/track/1", "--approved-by", "ben",
+                "--license-text", "Standard license, podcast use, invoice #123", "--url", "https://example.com/track/1", "--approved-by", "maren",
                 "--attribution", "Music: Example Artist", "--attribution-required")
     rc, out = run(capsys, "license-check", ep.root)
     assert rc == 0 and out["ok"] is True and out["missing"] == []
@@ -102,7 +102,7 @@ def test_license_check_fails_for_unlogged_assets_then_passes_after_logging(synth
 def test_license_check_detects_a_swapped_file_by_hash(synth_episode, capsys, fake_providers):
     ep = synth_episode
     run(capsys, "stock-search", ep.root, "hands clay", "--provider", "pexels")
-    run(capsys, "stock-get", ep.root, "pexels", "3195394", "--approved-by", "ben")
+    run(capsys, "stock-get", ep.root, "pexels", "3195394", "--approved-by", "maren")
     f = ep.root / "work/assets/downloads/pexels-3195394.mp4"
     _final_doc_with(ep, broll_file="work/assets/downloads/pexels-3195394.mp4")
     assert run(capsys, "license-check", ep.root)[0] == 0
@@ -114,8 +114,8 @@ def test_license_check_detects_a_swapped_file_by_hash(synth_episode, capsys, fak
 def test_license_check_flags_a_tampered_log(synth_episode, capsys, fake_providers):
     ep = synth_episode
     run(capsys, "stock-search", ep.root, "hands clay", "--provider", "both")
-    run(capsys, "stock-get", ep.root, "pexels", "3195394", "--approved-by", "ben")
-    run(capsys, "stock-get", ep.root, "pixabay", "125", "--approved-by", "ben")
+    run(capsys, "stock-get", ep.root, "pexels", "3195394", "--approved-by", "maren")
+    run(capsys, "stock-get", ep.root, "pixabay", "125", "--approved-by", "maren")
     _final_doc_with(ep, broll_file="work/assets/downloads/pexels-3195394.mp4")
     path = licenses.log_for(ep).path
     lines = path.read_text().splitlines()

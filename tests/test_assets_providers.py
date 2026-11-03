@@ -112,13 +112,13 @@ def test_download_writes_file_and_complete_license_entry(tmp_path):
     p = pixabay(http, tmp_path)
     cand = p.search("river forest")[0]
     log = licenses.LicenseLog(tmp_path / "ep" / "work" / "assets" / "licenses.jsonl")
-    out = providers.download(p, cand, tmp_path / "ep", log, query="river forest", approved_by="ben")
+    out = providers.download(p, cand, tmp_path / "ep", log, query="river forest", approved_by="maren")
     f = tmp_path / "ep" / out["file"]
     assert f.read_bytes() == b"VIDEO-BYTES" * 100 and not list(f.parent.glob("*.part"))
     e = log.entries()[0]
     for k in ("source", "asset_id", "url", "download_url", "license", "license_url", "license_text", "at", "query", "approved_by", "sha256", "file"):
         assert e[k], k
-    assert e["source"] == "pixabay" and e["query"] == "river forest" and e["approved_by"] == "ben"
+    assert e["source"] == "pixabay" and e["query"] == "river forest" and e["approved_by"] == "maren"
     assert e["sha256"] == licenses.sha256_file(f)
     assert e["author"] == "forest_fan"
     assert "PBKEY" not in json.dumps(e)
@@ -130,9 +130,9 @@ def test_download_is_idempotent_and_logs_once(tmp_path):
     p = pexels(http, tmp_path)
     cand = p.search("hands")[0]
     log = licenses.LicenseLog(tmp_path / "ep" / "work" / "assets" / "licenses.jsonl")
-    providers.download(p, cand, tmp_path / "ep", log, query="hands", approved_by="ben")
+    providers.download(p, cand, tmp_path / "ep", log, query="hands", approved_by="maren")
     n = len(http.calls)
-    providers.download(p, cand, tmp_path / "ep", log, query="hands", approved_by="ben")
+    providers.download(p, cand, tmp_path / "ep", log, query="hands", approved_by="maren")
     assert len(http.calls) == n and len(log.entries()) == 1
 
 
@@ -145,7 +145,7 @@ def test_download_requires_named_approver_and_logs_nothing_on_failure(tmp_path):
     with pytest.raises(ValueError, match="approved_by"):
         providers.download(p, cand, tmp_path / "ep", log, query="hands", approved_by="")
     with pytest.raises(Exception):
-        providers.download(p, cand, tmp_path / "ep", log, query="hands", approved_by="ben")
+        providers.download(p, cand, tmp_path / "ep", log, query="hands", approved_by="maren")
     assert log.entries() == []
     assert not list((tmp_path / "ep").rglob("*.mp4")) and not list((tmp_path / "ep").rglob("*.part"))
 
@@ -156,7 +156,7 @@ def test_pexels_entry_notes_attribution_and_restrictions(tmp_path):
     p = pexels(http, tmp_path)
     cand = p.search("hands")[0]
     log = licenses.LicenseLog(tmp_path / "ep" / "work" / "assets" / "licenses.jsonl")
-    providers.download(p, cand, tmp_path / "ep", log, query="hands", approved_by="ben")
+    providers.download(p, cand, tmp_path / "ep", log, query="hands", approved_by="maren")
     e = log.entries()[0]
     assert e["attribution"]["required"] is False and "Ada Example" in e["attribution"]["text"] and "Pexels" in e["attribution"]["text"]
     assert any("identifiable" in r.lower() for r in e["restrictions"])

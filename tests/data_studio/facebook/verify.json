@@ -1,0 +1,11 @@
+[
+  {
+    "method": "GET",
+    "url": "/100000000000001",
+    "response": {
+      "id": "100000000000001",
+      "name": "Acme Bakery"
+    },
+    "_source": "documentation-derived, UNVERIFIED live: https://developers.facebook.com/docs/graph-api/reference/page/photos/"
+  }
+]

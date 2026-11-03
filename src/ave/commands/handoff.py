@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -12,6 +13,7 @@ import re
 import shutil
 
 from .. import config, editdoc, handoff, proxies, state
+from ..desktop_runtime import frozen
 from ..episode import Episode, write_json
 
 ORDER = ("final", "rough", "assembly")
@@ -91,7 +93,8 @@ def cmd(a) -> int:
         if not pmap:
             raise SystemExit("--use-proxies: no verified proxies for this edit's footage. Run `ave proxies <episode>` first.")
     srt_copy = ep.captions / (re.sub(r"[\\/:*?\"<>|]+", "-", name) + ".srt")     # the SRT, named after the timeline (W7)
-    plan = handoff.plan(ep, doc, name=name, audio_master=master, project=project, layers=layers, proxies=pmap,
+    shipped = ep.exports / f"{tag}.v{version}.srt"      # `ave final` retranscribes the render: what ships is what Resolve should get
+    plan = handoff.plan(ep, doc, name=name, audio_master=master, project=project, layers=layers, proxies=pmap, srt=shipped if shipped.exists() else None,
                         try_subtitles=bool(getattr(a, "try_subtitles", False)), srt_copy=srt_copy)
     if pmissing:
         plan["warnings"].append(f"{len(pmissing)} footage file(s) have no verified proxy and will play from the original: "
@@ -106,10 +109,13 @@ def cmd(a) -> int:
     if layers and not a.dry_run:
         _ensure_sum_wavs(ep, doc, plan)
     write_json(plan_path, plan)
-    py, mcp = config.resolve_mcp_python(), config.resolve_mcp_dir()
-    if not (py and mcp):
-        raise SystemExit("Resolve MCP server not found. Run scripts/setup.sh (see: ave doctor)")
-    cmd_ = [str(py), str(config.REPO_ROOT / "scripts/resolve_handoff.py"), str(plan_path), "--mcp-src", str(mcp / "src")]
+    if frozen():    # the standalone app carries the MCP server inside its own interpreter
+        cmd_ = [sys.executable, "--resolve-handoff", str(plan_path), "--mcp-src", str(Path(sys._MEIPASS) / "resolve-mcp/src")]
+    else:
+        py, mcp = config.resolve_mcp_python(), config.resolve_mcp_dir()
+        if not (py and mcp):
+            raise SystemExit("Resolve MCP server not found. Run scripts/setup.sh (see: ave doctor)")
+        cmd_ = [str(py), str(config.REPO_ROOT / "scripts/resolve_handoff.py"), str(plan_path), "--mcp-src", str(mcp / "src")]
     if a.dry_run:
         cmd_.append("--dry-run")
     rc = subprocess.run(cmd_).returncode

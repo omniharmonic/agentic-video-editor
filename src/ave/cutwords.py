@@ -15,7 +15,7 @@ import bisect
 from . import editdoc
 
 EPS = 1e-6
-DEFAULT_MARGIN_S = 0.04        # tolerance at each word edge: Parakeet word times are on an 80 ms grid (all 18932 words of the first real episode), so +-40 ms
+DEFAULT_MARGIN_S = 0.04        # tolerance at each word edge: Parakeet word times are on an 80 ms grid (all 18932 words of The Long Table 00), so +-40 ms
 
 
 def boundaries(doc: dict, tracks: tuple[str, ...] = ("dialogue", "video")) -> list[dict]:

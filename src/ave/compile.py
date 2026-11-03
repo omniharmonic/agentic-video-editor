@@ -117,6 +117,8 @@ def _check_files(ep: Episode, doc: dict, *, video: bool, audio: bool, burn: bool
     if audio:
         for m in tr.get("music") or []:
             need[_path(ep, m["file"])] = f"music {m.get('id')}"
+        for o in broll_audio_items(doc):
+            need[_path(ep, o["file"])] = f"B-roll {o.get('id')}"
     if video:
         for o in tr.get("overlays") or []:
             need[_path(ep, o["file"])] = f"overlay {o.get('id')}"
@@ -148,8 +150,11 @@ def _rotation(path: Path) -> int:
 
 
 def _canvas_for(doc: dict, preset: dict) -> tuple[int, int]:
-    """Output picture size: the doc canvas, or (proxy) the same aspect at preset height. Never upscales."""
+    """Preserve authored aspect; proxies shrink, explicit delivery sizes may enlarge."""
     W, H = doc["canvas"]["w"], doc["canvas"]["h"]
+    if preset.get("output_height"):
+        h = preset["output_height"]
+        return _even(W * h / H), _even(h)
     h = preset.get("height")
     if h and h < H:
         return _even(W * h / H), _even(h)
@@ -158,7 +163,16 @@ def _canvas_for(doc: dict, preset: dict) -> tuple[int, int]:
 
 def _plan_video(doc: dict, fps: Fraction, warnings: list[str]) -> list[dict]:
     """Doc video segments -> frame-exact pieces [{src,f0,f1,e0,crop,zoom,ids}], merging pieces that are one continuous take."""
-    segs = sorted(doc["tracks"]["video"], key=lambda s: s["o0"])
+    segs = []
+    for original in sorted(doc["tracks"]["video"], key=lambda s: s["o0"]):
+        source = doc["sources"][original["src"]]
+        e0 = original["e0"]
+        bounds = [e0, *editdoc.clock_boundaries(source, e0, e0 + original["o1"] - original["o0"]),
+                  e0 + original["o1"] - original["o0"]]
+        for lo, hi in zip(bounds, bounds[1:]):
+            segs.append({**original, "e0": lo, "o0": original["o0"] + lo - e0,
+                         "o1": original["o0"] + hi - e0,
+                         "clock_rate": editdoc.clock_rate(source, (lo + hi) / 2)})
     total = ffutil.frame_of(doc["duration"], fps)
     pieces: list[dict] = []
     for i, s in enumerate(segs):
@@ -170,9 +184,10 @@ def _plan_video(doc: dict, fps: Fraction, warnings: list[str]) -> list[dict]:
         # the frame grid may sit up to half a frame after o0; the source must be sampled at the same instant
         e0 = s["e0"] + (f0 / fps - s["o0"]) if i else s["e0"]
         piece = {"src": s["src"], "f0": f0, "f1": f1, "e0": float(e0), "crop": s.get("crop"),
-                 "zoom": float(s.get("zoom") or 1.0), "ids": [s["id"]]}
+                 "zoom": float(s.get("zoom") or 1.0), "clock_rate": s["clock_rate"], "ids": [s["id"]]}
         prev = pieces[-1] if pieces else None
         if (prev and prev["src"] == piece["src"] and prev["crop"] == piece["crop"] and prev["zoom"] == piece["zoom"]
+                and abs(prev["clock_rate"] - piece["clock_rate"]) < 1e-12
                 and abs(prev["e0"] + (piece["f0"] - prev["f0"]) / fps - piece["e0"]) < 1e-4 and prev["f1"] == piece["f0"]):
             prev["f1"] = piece["f1"]
             prev["ids"].append(s["id"])
@@ -187,7 +202,7 @@ def _segment_cmd(piece: dict, doc: dict, fps: Fraction, canvas: tuple[int, int],
     src = doc["sources"][piece["src"]]
     n = piece["f1"] - piece["f0"]
     src_t = editdoc.src_time(src, piece["e0"])
-    k = editdoc.clock_rate(src, piece["e0"])      # the camera clock is slow by k: stretch its picture so long pieces stay locked too
+    k = piece.get("clock_rate", editdoc.clock_rate(src, piece["e0"]))      # the camera clock is slow by k: stretch its picture so long pieces stay locked too
     sw, sh = _display_size(info, rot)
     cx, cy, cw, ch = (piece["crop"] or [0, 0, sw, sh])
     cx, cy = max(0, cx), max(0, cy)
@@ -251,7 +266,7 @@ def _hw_available() -> bool:
 
 
 def compile_video(ep: Episode, doc: dict, out_mp4: str | Path, *, preset: str | dict | None = None, burn_captions: bool = False,
-                  warnings: list[str] | None = None, workdir: Path | None = None) -> Path:
+                  warnings: list[str] | None = None, workdir: Path | None = None, progress=None) -> Path:
     """Picture only (no audio): canvas-size H.264 with exactly round(duration*fps) frames, plus the doc's overlays and,
     if `burn_captions`, its ASS captions. `preset` controls quality and (proxy) size; default is master quality."""
     out_mp4 = Path(out_mp4)
@@ -304,12 +319,16 @@ def compile_video(ep: Episode, doc: dict, out_mp4: str | Path, *, preset: str | 
                     time.sleep(2.0 * (attempt + 1))
 
         workers = max(1, min(6, (os.cpu_count() or 4) // 2))
+        completed=0
+        if progress:progress('Rendering camera segments',completed,len(pieces))
         with ThreadPoolExecutor(max_workers=workers) as pool:
             futs = {pool.submit(encode, i): i for i in range(len(pieces))}
             try:
                 for fu in as_completed(futs):
                     try:
                         fu.result()
+                        completed+=1
+                        if progress:progress('Rendering camera segments',completed,len(pieces))
                     except ffutil.FFmpegError as e:
                         raise RenderError(f"encoding video segment(s) {pieces[futs[fu]]['ids']} failed:\n{e}") from e
             except BaseException:
@@ -325,6 +344,7 @@ def compile_video(ep: Episode, doc: dict, out_mp4: str | Path, *, preset: str | 
         if got != total:
             raise RenderError(f"concatenated picture has {got} frames, expected {total}")
         if has_post:
+            if progress:progress('Applying picture overlays and captions',None,None)
             _post_pass(ep, doc, joined, out_mp4, fps, canvas, pr, burn_captions, wd, warnings)
             got = ffutil.count_video_packets(out_mp4)
             if got != total:
@@ -333,6 +353,60 @@ def compile_video(ep: Episode, doc: dict, out_mp4: str | Path, *, preset: str | 
     finally:
         if own:
             _drop_workdir(wd)
+
+
+# ---- B-roll placements (overlay kind "broll", written by `ave broll place`) ----------------------------------------------
+
+def _kb_expr(kb: dict, n: int, offset: int = 0, total: int | None = None) -> tuple[str, str, str]:
+    """zoompan expressions (zoom, x, y) for a Ken Burns move over n output frames. `on` is the OUTPUT frame number, so the move is
+    linear in time and deterministic (no accumulated rounding). x and y are fractions 0..1 of the free space around the zoomed window."""
+    last = max((total if total is not None else n) - 1, 1);position=f'(on+{offset})' if offset else 'on'
+    z0, z1 = float(kb.get("zoom_from", 1.0)), float(kb.get("zoom_to", 1.12))
+    (x0, y0), (x1, y1) = kb.get("from", (0.5, 0.5)), kb.get("to", (0.5, 0.5))
+    z = f"{z0:.6f}+({z1:.6f}-{z0:.6f})*{position}/{last}"
+    px = f"{float(x0):.6f}+({float(x1):.6f}-{float(x0):.6f})*{position}/{last}"
+    py = f"{float(y0):.6f}+({float(y1):.6f}-{float(y0):.6f})*{position}/{last}"
+    return f"'{z}'", f"'(iw-iw/zoom)*({px})'", f"'(ih-ih/zoom)*({py})'"
+
+
+def _broll_input(o: dict, path: Path, f: tuple[int, int], f0: int, f1: int, dur: float, sx: float, warnings: list[str]
+                 ) -> tuple[list[str], str, int, int]:
+    """(ffmpeg input args, filter chain from the input to the placed picture, x, y) for one B-roll overlay.
+
+    The picture is fitted to its box (`fit`: cover crops to fill, contain letterboxes; a cutaway's box is the whole canvas), starts at
+    `src_in` seconds into a video asset, is conformed to the doc frame rate, and holds its last frame if the asset is shorter than the
+    placement (a cutaway must never flash the speaker back for a frame). A still may carry a Ken Burns move (`ken_burns`)."""
+    ow, oh = max(2, _even(o["w"] * sx)), max(2, _even(o["h"] * sx))
+    x, y = int(round(o.get("x", 0) * sx)), int(round(o.get("y", 0) * sx))
+    fit = o.get("fit", "cover")
+    cs = ":out_color_matrix=bt709:out_range=tv"
+    n = f1 - f0
+    shift = f"PTS-STARTPTS+{f0 * f[1]}/{f[0]}/TB"
+    if fit == "contain":
+        fitf = f"scale={ow}:{oh}:force_original_aspect_ratio=decrease:flags=lanczos,pad={ow}:{oh}:(ow-iw)/2:(oh-ih)/2:color=black,scale={ow}:{oh}{cs}"
+    elif fit == "stretch":
+        fitf = f"scale={ow}:{oh}:flags=lanczos{cs}"
+    else:
+        fitf = f"scale={ow}:{oh}:force_original_aspect_ratio=increase:flags=lanczos,crop={ow}:{oh},scale={ow}:{oh}{cs}"
+    if path.suffix.lower() in IMAGE_EXTS:
+        kb = o.get("ken_burns")
+        if kb:
+            offset=round(float(o.get('animation_offset_s',0))*f[0]/f[1]);total=round(float(o.get('animation_duration_s',dur))*f[0]/f[1])
+            z, px, py = _kb_expr(kb, n,offset,total)
+            pre = (f"format=rgba,scale={2 * ow}:{2 * oh}:force_original_aspect_ratio=increase:flags=lanczos,crop={2 * ow}:{2 * oh},"
+                   f"zoompan=z={z}:x={px}:y={py}:d={n}:s={ow}x{oh}:fps={f[0]}/{f[1]},scale={ow}:{oh}{cs},format=yuva420p,setsar=1,setpts={shift}")
+            return ["-i", str(path)], pre, x, y
+        pre = f"format=rgba,{fitf},format=yuva420p,setsar=1,setpts={shift}"
+        return ["-loop", "1", "-framerate", f"{f[0]}/{f[1]}", "-t", f"{dur + 1:.3f}", "-i", str(path)], pre, x, y
+    src_in = max(0.0, float(o.get("src_in") or 0.0))
+    coarse = int(math.floor(src_in))
+    rel = src_in - coarse
+    info = ffutil.probe(path)
+    if info.get("duration") and src_in + dur > info["duration"] + 1.0 * f[1] / f[0]:
+        _warn(warnings, f"B-roll {o.get('id')}: {path.name} is {info['duration']:.2f} s long but the placement needs {src_in + dur:.2f} s; the last frame is held")
+    pre = (f"trim=start={rel:.6f},setpts=PTS-STARTPTS,format=rgba,{fitf},format=yuva420p,setsar=1,fps={f[0]}/{f[1]},"
+           f"tpad=stop_mode=clone:stop_duration={dur + 1:.3f},trim=duration={dur:.6f},setpts={shift}")
+    return ["-ss", str(coarse), "-i", str(path)], pre, x, y
 
 
 def _post_pass(ep: Episode, doc: dict, video_in: Path, out: Path, fps: Fraction, canvas: tuple[int, int], pr: dict,
@@ -352,6 +426,14 @@ def _post_pass(ep: Episode, doc: dict, video_in: Path, out: Path, fps: Fraction,
         if f1 <= f0:
             _warn(warnings, f"overlay {o.get('id')} is shorter than one frame and was skipped")
             continue
+        if o.get("kind") == "broll":
+            in_args, pre, x, y = _broll_input(o, path, f, f0, f1, dur, sx, warnings)
+            args += in_args
+            window = f"gte(t,{(f0 - 0.25) * f[1] / f[0]:.6f})*lt(t,{(f1 - 0.25) * f[1] / f[0]:.6f})"
+            chains.append(f"[{k}:v]{pre}[ov{k}]")
+            chains.append(f"[{cur}][ov{k}]overlay={x}:{y}:eof_action=pass:format=auto:enable='{window}'[c{k}]")
+            cur = f"c{k}"
+            continue
         if path.suffix.lower() in IMAGE_EXTS:
             args += ["-loop", "1", "-framerate", f"{f[0]}/{f[1]}", "-t", f"{dur + 1:.3f}", "-i", str(path)]
         else:
@@ -365,7 +447,7 @@ def _post_pass(ep: Episode, doc: dict, video_in: Path, out: Path, fps: Fraction,
         # Visible window by TIME, a quarter frame early on both edges so frame k (t = k/fps) is in iff f0 <= k < f1. The frame counter `n`
         # is not reliable here: with three chained overlays FFmpeg 6.x (Ubuntu 24.04) evaluated `n` so that the last layer never showed.
         window = f"gte(t,{(f0 - 0.25) * f[1] / f[0]:.6f})*lt(t,{(f1 - 0.25) * f[1] / f[0]:.6f})"
-        cut = "" if path.suffix.lower() in IMAGE_EXTS else f"trim=duration={dur:.6f},"
+        cut = "" if path.suffix.lower() in IMAGE_EXTS else f"trim=start={float(o.get('animation_offset_s',0)):.6f}:duration={dur:.6f},"
         chains.append(f"[{k}:v]{cut}format=rgba,{scale},format=yuva420p,setpts={shift}[ov{k}]")
         x, y = int(round(o.get("x", 0) * sx)), int(round(o.get("y", 0) * sx))
         chains.append(f"[{cur}][ov{k}]overlay={x}:{y}:eof_action=pass:format=auto:enable='{window}'[c{k}]")
@@ -377,9 +459,16 @@ def _post_pass(ep: Episode, doc: dict, video_in: Path, out: Path, fps: Fraction,
         fonts = config.REPO_ROOT / "motion-kit" / "brand" / "fonts"
         opt = "ass=captions.ass"
         if fonts.is_dir() and any(fonts.glob("*.[ot]tf")):
-            link = wd / "fonts"
-            if not link.exists():
-                link.symlink_to(fonts)
+            # The registered-episode resolver checks the whole granted tree
+            # while workers run; a temporary symlink would interrupt its own
+            # render. Copy the bundled font bytes into this private workdir.
+            local_fonts = wd / "fonts"
+            if not local_fonts.exists():
+                local_fonts.mkdir()
+                for font in fonts.glob('*'):
+                    if font.suffix.lower() not in ('.ttf','.otf'):continue
+                    if font.is_symlink() or not font.is_file():raise RenderError('Bundled caption font is not a regular file')
+                    shutil.copyfile(font,local_fonts/font.name)
             opt += ":fontsdir=fonts"
         else:
             _warn(warnings, "no brand fonts in motion-kit/brand/fonts; captions use system fonts")
@@ -424,7 +513,12 @@ class _Reader:
         if start < 0:
             _warn(self.warnings, f"{self.label}: audio asked for before the start of {self.path.name}; silence is used")
         coarse = a // SR
-        proc = ffutil.run(["-ss", str(coarse), "-i", str(self.path), "-vn", "-map", "0:a:0",
+        # No `-ss` at all for the first second: FFmpeg 9 treats `-ss 0` as a seek and then reads AAC from the container's pre-roll
+        # (1024 samples earlier than a plain read), so reads that began at second 0 and reads after a seek disagreed by one AAC frame.
+        # Caveat: this assumes the audio stream starts at 0 (true for AAC in mp4 after the priming is dropped). A container whose audio
+        # start_time is non-zero would put every read, seeked or not, on that offset; none of the sources AVE ingests have one.
+        seek = ["-ss", str(coarse)] if coarse else []
+        proc = ffutil.run([*seek, "-i", str(self.path), "-vn", "-map", "0:a:0",
                            "-af", f"aresample={SR},atrim=start_sample={a - coarse * SR}:end_sample={b - coarse * SR}",
                            "-ac", str(self.channels), "-f", "f32le", "-"], text=False)
         raw = np.frombuffer(proc.stdout, np.float32)
@@ -513,19 +607,29 @@ class _DialogueSeg:
         self.id = s["id"]
         self.gain = _db(s.get("gain_db", 0.0))
         self.o0 = _samples(s["o0"])
+        self.o1 = _samples(s["o1"])
+        self.fade_in = _samples(s.get("fade_in_s", 0))
+        self.fade_out = _samples(s.get("fade_out_s", 0))
+        self.channel = s.get("channel", "original")
+        self.fade_start = self.o0 - _samples(s.get("fade_in_offset_s", 0))
+        self.fade_end = self.o1 + _samples(s.get("fade_out_remaining_s", 0))
         self.fill = s.get("fill") == "room_tone"
+        self.silence = s.get("fill") == "silence"          # an inserted B-roll's gap in the dialogue: exact zeros, no source is read
         self.reader: _Reader | None = None
         self.room = room
         self.buf: tuple[int, np.ndarray] | None = None
-        if not self.fill:
+        if not self.fill and not self.silence:
             src = doc["sources"][s["src"]]
+            self.source = src
+            self.episode_start = s["e0"]
             self.k = editdoc.clock_rate(src, s["e0"])
             self.src0f = editdoc.src_time(src, s["e0"]) * SR       # fractional file sample where this segment starts
             self.src0 = _samples(editdoc.src_time(src, s["e0"]))
             f = _path(ep, src["file"])
-            if f not in readers:
-                readers[f] = _Reader(f, warnings, f"source {s['src']}", src.get("channel_map"))
-            self.reader = readers[f]
+            key = (f, self.channel)
+            if key not in readers:
+                readers[key] = _Reader(f, warnings, f"source {s['src']}", src.get("channel_map") if self.channel == "original" else None)
+            self.reader = readers[key]
 
     def prepare_fill(self, lo: int, hi: int, around: list[np.ndarray] | None = None) -> None:
         """Build this fill's room tone, level-matched to the audio `around` the gap when it is given."""
@@ -539,6 +643,8 @@ class _DialogueSeg:
 
     def read(self, n0: int, n1: int) -> np.ndarray:
         """Output samples [n0, n1) of this segment (it may extend past its own bounds: those are the crossfade handles)."""
+        if self.silence:
+            return np.zeros((n1 - n0, 2), np.float32)
         if self.fill:
             lo, buf = self.buf
             seg = np.zeros((n1 - n0, 2), np.float32)
@@ -546,14 +652,22 @@ class _DialogueSeg:
             seg[a - n0:b - n0] = buf[a - lo:b - lo]
         else:
             seg = self._read_source(n0, n1)
-        return seg * np.float32(self.gain)
+        if self.channel in ("left", "right"):
+            seg = np.repeat(seg[:, [0 if self.channel == "left" else 1]], 2, axis=1)
+        elif self.channel == "mono":
+            seg = np.repeat(seg.mean(axis=1, keepdims=True), 2, axis=1)
+        gain = np.full(n1 - n0, self.gain)
+        idx = np.arange(n0, n1)
+        if self.fade_in: gain *= np.sin(np.clip((idx - self.fade_start) / self.fade_in, 0, 1) * np.pi / 2)
+        if self.fade_out: gain *= np.sin(np.clip((self.fade_end - idx) / self.fade_out, 0, 1) * np.pi / 2)
+        return seg * gain[:, None].astype(np.float32)
 
     def _read_source(self, n0: int, n1: int) -> np.ndarray:
-        if self.k == 1.0:
+        if self.k == 1.0 and not self.source.get("sync_map"):
             return self.reader.read(self.src0 + (n0 - self.o0), n1 - n0)
         # slow source clock: output sample n is file sample src0 + (n - o0) / k. Read the covering file samples and interpolate
         # at those exact (fractional, absolute) positions, so consecutive blocks join seamlessly.
-        pos = self.src0f + (np.arange(n0, n1) - self.o0) / self.k
+        pos = editdoc.src_time(self.source, self.episode_start + (np.arange(n0, n1) - self.o0) / SR) * SR
         a = int(math.floor(pos[0])) - 1
         blk = self.reader.read(a, int(math.ceil(pos[-1])) + 2 - a)
         x = pos - a
@@ -645,14 +759,31 @@ def _duck_activity(dialogue_wav: Path) -> np.ndarray:
     return env
 
 
+def broll_audio_items(doc: dict) -> list[dict]:
+    """B-roll placements whose own sound is kept (`audio: keep`). B-roll is silent unless a placement says so."""
+    return [o for o in doc["tracks"].get("overlays") or [] if o.get("kind") == "broll" and o.get("audio") == "keep"]
+
+
 def _mix_music(ep: Episode, doc: dict, dialogue_wav: Path, out: Path, warnings: list[str]) -> None:
+    """Lay the music beds and any kept B-roll sound on top of the dialogue master. Both duck under the dialogue (`duck_db`).
+    Never called when the doc has neither, so a doc without them keeps a dialogue master that is bit-identical to the plain one."""
     items = doc["tracks"].get("music") or []
-    env = _duck_activity(dialogue_wav) if any(m.get("duck_db", 0) for m in items) else None
+    broll = broll_audio_items(doc)
+    fpsf = ffutil.fps_fraction(doc["fps"])
+    env = _duck_activity(dialogue_wav) if any(m.get("duck_db", 0) for m in [*items, *broll]) else None
     hop_t = (np.arange(len(env)) + 0.5) * DUCK_HOP if env is not None else None
     readers = {}
     for m in items:
         f = _path(ep, m["file"])
         readers.setdefault(f, _Reader(f, warnings, f"music {m.get('id')}"))
+    for o in broll:
+        f = _path(ep, o["file"])
+        readers.setdefault(f, _Reader(f, warnings, f"B-roll {o.get('id')}"))
+
+    def window(o: dict) -> tuple[int, int]:
+        # B-roll sound starts and ends on the same FRAMES as its picture, so the picture and its sound change together
+        return _samples(ffutil.frame_of(o["o0"], fpsf) / float(fpsf)), _samples(ffutil.frame_of(o["o1"], fpsf) / float(fpsf))
+
     with sf.SoundFile(str(dialogue_wav)) as src, sf.SoundFile(str(out), "w", samplerate=SR, channels=2, subtype="FLOAT", format="WAV") as w:
         pos = 0
         while True:
@@ -672,11 +803,27 @@ def _mix_music(ep: Episode, doc: dict, dialogue_wav: Path, out: Path, warnings: 
                 g = np.full(len(idx), _db(m.get("gain_db", -20.0)), np.float64)
                 fi, fo = _samples(m.get("fade_in_s", 0.0)), _samples(m.get("fade_out_s", 0.0))
                 if fi:
-                    g *= np.sin(np.clip((idx - O0) / fi, 0, 1) * (np.pi / 2))
+                    g *= np.sin(np.clip((idx - O0 + _samples(m.get('fade_in_offset_s',0))) / fi, 0, 1) * (np.pi / 2))
                 if fo:
-                    g *= np.sin(np.clip((O1 - idx) / fo, 0, 1) * (np.pi / 2))
+                    g *= np.sin(np.clip((O1 - idx + _samples(m.get('fade_out_remaining_s',0))) / fo, 0, 1) * (np.pi / 2))
                 if env is not None and m.get("duck_db", 0):
                     g *= 10.0 ** (m["duck_db"] * np.interp(idx, hop_t, env) / 20.0)
+                blk[a - n0:b - n0] += data * g[:, None].astype(np.float32)
+            for o in broll:
+                O0, O1 = window(o)
+                a, b = max(n0, O0), min(n1, O1)
+                if b <= a:
+                    continue
+                data = readers[_path(ep, o["file"])].read(_samples(float(o.get("src_in") or 0.0)) + (a - O0), b - a)
+                idx = np.arange(a, b)
+                g = np.full(len(idx), _db(o.get("gain_db", -6.0)), np.float64)
+                fi, fo = _samples(o.get("fade_in_s", 0.04)), _samples(o.get("fade_out_s", 0.04))
+                if fi:
+                    g *= np.sin(np.clip((idx - O0 + _samples(o.get('fade_in_offset_s',0))) / fi, 0, 1) * (np.pi / 2))
+                if fo:
+                    g *= np.sin(np.clip((O1 - idx + _samples(o.get('fade_out_remaining_s',0))) / fo, 0, 1) * (np.pi / 2))
+                if env is not None and o.get("duck_db", 0):
+                    g *= 10.0 ** (o["duck_db"] * np.interp(idx, hop_t, env) / 20.0)
                 blk[a - n0:b - n0] += data * g[:, None].astype(np.float32)
             w.write(blk)
             pos = n1
@@ -693,7 +840,7 @@ def compile_audio(ep: Episode, doc: dict, out_wav: str | Path, *, warnings: list
     out_wav.parent.mkdir(parents=True, exist_ok=True)
     tmp = out_wav.with_name(out_wav.stem + ".partial.wav")
     try:
-        if doc["tracks"].get("music"):
+        if doc["tracks"].get("music") or broll_audio_items(doc):
             dlg = out_wav.with_name(out_wav.stem + ".dialogue.wav")
             try:
                 _dialogue_master(ep, doc, dlg, warnings)
@@ -816,18 +963,34 @@ def _verify(out: Path, doc: dict, pr: dict, fps: Fraction, canvas: tuple[int, in
 
 
 def render(ep: Episode, doc: dict, out: str | Path, preset: str = "master", burn_captions: bool = True,
-           overwrite: bool = False, keep_intermediates: bool = False, start_limit_db: float = -2.0) -> dict:
+           overwrite: bool = False, keep_intermediates: bool = False, start_limit_db: float = -2.0, progress=None) -> dict:
     """Compile `doc` to `out` and VERIFY the file. Returns the report; raises (and leaves no partial file) on failure.
 
     Report: {ok, out, duration, expected_duration, fps, lufs, true_peak_db, lra, preset, segments, warnings[]}.
     """
     out = Path(out)
     pr = _preset(preset)
-    problems = editdoc.validate(doc)
-    if pr["kind"] == "audio":      # an audio-only render does not need (or look at) the picture track
-        problems = [p for p in problems if not p.startswith("video")]
+    validation_doc = doc
+    if pr["kind"] == "audio" and "media_mode" not in doc:
+        # Legacy audio-preset export selected audio tracks even without picture.
+        # Validate an explicit audio projection; never rewrite historical bytes.
+        validation_doc = editdoc.clone(doc)
+        validation_doc["media_mode"] = {"version": 1, "kind": "audio"}
+        validation_doc["tracks"]["video"] = []
+        validation_doc["tracks"]["overlays"] = []
+        validation_doc["captions"] = {"burn": False}
+    problems = editdoc.validate(validation_doc)
+    if editdoc.effective_mode(doc) == "audio" and pr["kind"] != "audio":
+        raise ValueError("Audio edit has no picture; choose an audio export.")
     if problems:
         raise ValueError("invalid EditDoc:\n  - " + "\n  - ".join(problems))
+    broll = None
+    if any(o.get("kind") == "broll" and o.get("library") for o in doc["tracks"].get("overlays") or []):
+        from .broll import place
+        try:
+            broll = place.require_licensed(ep, doc)         # an unlicensed or unattested placed asset blocks the render, naming it
+        except SystemExit as e:
+            raise RenderError(str(e.code)) from e
     if out.exists() and not overwrite:
         raise FileExistsError(f"{out} already exists; pass overwrite=True (CLI: --overwrite) or choose another --out")
     warnings: list[str] = []
@@ -845,17 +1008,21 @@ def render(ep: Episode, doc: dict, out: str | Path, preset: str = "master", burn
     n_samples = _samples(doc["duration"])
     canvas = _canvas_for(doc, pr) if video else (doc["canvas"]["w"], doc["canvas"]["h"])
     try:
+        if progress:progress('Compiling dialogue and music',None,None)
         master = compile_audio(ep, doc, wd / "master.wav", warnings=warnings)
-        pic = compile_video(ep, doc, wd / "picture.mp4", preset=pr, burn_captions=burn, warnings=warnings, workdir=wd / "v") if video else None
+        pic = compile_video(ep, doc, wd / "picture.mp4", preset=pr, burn_captions=burn, warnings=warnings, workdir=wd / "v",progress=progress) if video else None
         limit_db = start_limit_db     # sample-peak limiter ceiling = tp + limit_db; the loop below lowers it if the ENCODED file overshoots
         for attempt in range(3):                      # measure the ENCODED file; if the codec overshot, limit harder and re-encode
+            if progress:progress(f'Measuring and normalizing programme audio · peak check {attempt+1} of 3',None,None)
             norm = _normalize(master, wd / "norm.wav", pr, n_samples, warnings, limit_db=limit_db)
+            if progress:progress(f'Encoding programme audio · peak check {attempt+1} of 3',None,None)
             if video:
                 ffutil.run(["-y", "-i", str(pic), "-i", str(norm), "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy",
                             *_encode_audio_args(pr), "-ar", str(SR), "-movflags", "+faststart", str(partial)])
             else:
                 ffutil.run(["-y", "-i", str(norm), *_encode_audio_args(pr), "-ar", str(SR), str(partial)])
             info = _verify(partial, doc, pr, fps, canvas)
+            if progress:progress(f'Verifying encoded programme and loudness · peak check {attempt+1} of 3',None,None)
             loud = ffutil.measure_loudness(partial)
             if loud["true_peak_db"] <= TRUE_PEAK_LIMIT_DB:
                 break
@@ -881,4 +1048,6 @@ def render(ep: Episode, doc: dict, out: str | Path, preset: str = "master", burn
         "segments": {"video": len(doc["tracks"]["video"]), "dialogue": len(doc["tracks"]["dialogue"]),
                      "music": len(doc["tracks"].get("music") or []), "overlays": len(doc["tracks"].get("overlays") or [])},
         "captions_burned": burn, "warnings": warnings,
+        **({"broll": {"assets": broll["assets"], "derived_from": broll["derived_from"], "attributions": broll["attributions"],
+                      "optional_attributions": broll["optional_attributions"]}} if broll else {}),
     }

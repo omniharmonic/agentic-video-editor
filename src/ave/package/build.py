@@ -69,6 +69,14 @@ def parse_include(spec: str | None) -> set[str]:
     return want
 
 
+def _chapter_sets(fin: dict | None, chap: dict, extras: list[dict]) -> dict[str, dict]:
+    """Chapter list per file in audio/: one chapters.txt for a single final, chapters.<session>.txt when there are several."""
+    if not extras:
+        return {"chapters.txt": chap}
+    name = fin["primary"]["name"]
+    return {(f"chapters.{name}.txt" if name else "chapters.txt"): chap, **{f"chapters.{v['name']}.txt": v["chapters"] for v in extras}}
+
+
 def vtt_from_srt(srt: Path) -> str:
     cues = capmod.parse_srt(srt)
     ts = lambda t: capmod._srt_ts(t).replace(",", ".")
@@ -138,6 +146,7 @@ def plan(ep: Episode, *, include: set[str] | None = None, audio_fmt: str | None 
     fin = K.find_final(ep)
     doc = duration = None
     chap = {"chapters": [], "source": None, "draft_titles": False, "note": ""}
+    extras: list[dict] = []     # the other finals of a multi-session episode: each gets its own captions, audio and chapters
     credits = {"lines": [], "missing": [], "assets": 0}
     video_entry = None
     if fin:
@@ -149,7 +158,12 @@ def plan(ep: Episode, *, include: set[str] | None = None, audio_fmt: str | None 
             notes.append(f"could not probe {prim['path'].name}: {e}")
             duration = (doc or {}).get("duration")
         credits = K.credits_for(ep, doc)
-        chap = C.build(ep, doc, duration or 0.0, policy) if duration else chap
+        extras = [v for k, v in sorted(fin["all"].items(), key=lambda kv: str(kv[0])) if v is not prim]
+        chap = C.build(ep, doc, duration or 0.0, policy, name=prim["name"], shared=not extras) if duration else chap
+        for v in extras:
+            v["doc"] = K.final_doc(ep, v)
+            v["duration"] = ffutil.probe(v["path"])["duration"]
+            v["chapters"] = C.build(ep, v["doc"], v["duration"], policy, name=v["name"], shared=False)
     if "video" in include:
         if fin:
             others = [v for k, v in fin["all"].items() if v is not fin["primary"]]
@@ -181,7 +195,19 @@ def plan(ep: Episode, *, include: set[str] | None = None, audio_fmt: str | None 
             entries.append(K.entry(id="captions.vtt", role="captions_vtt", src=None, dest=f"captions/{srt.stem}.vtt", approval={"status": "unrecorded"},
                                    source={"stage": "final", "version": fin["primary"]["version"], "derived_from": ep.rel(srt)},
                                    extra={"gen": "vtt", "gen_src": srt, "text": vtt_from_srt(srt)}))
-            check("captions", "Captions (SRT + VTT)", "ok", srt.name, True)
+            lacking = []
+            for v in extras:
+                s_srt = K.find_srt(ep, v, v["doc"])
+                if not s_srt:
+                    lacking.append(v["path"].name)
+                    continue
+                entries.append(K.entry(id=f"captions.{v['name']}.srt", role="captions_srt", src=s_srt, dest=f"captions/{s_srt.name}",
+                                       approval={"status": "unrecorded"}, source={"stage": "final", "version": v["version"], "file": ep.rel(s_srt)}))
+                entries.append(K.entry(id=f"captions.{v['name']}.vtt", role="captions_vtt", src=None, dest=f"captions/{s_srt.stem}.vtt", approval={"status": "unrecorded"},
+                                       source={"stage": "final", "version": v["version"], "derived_from": ep.rel(s_srt)},
+                                       extra={"gen": "vtt", "gen_src": s_srt, "text": vtt_from_srt(s_srt)}))
+            check("captions", "Captions (SRT + VTT)", "warn" if lacking else "ok",
+                  ", ".join(e["dest"].rsplit("/", 1)[1] for e in entries if e["role"] == "captions_srt") + (f"; no SRT for {', '.join(lacking)}" if lacking else ""), True)
         else:
             check("captions", "Captions (SRT + VTT)", "missing", "no SRT for the final" + ("" if fin else " (there is no final cut yet)"), True)
     if "audio" in include:
@@ -197,6 +223,11 @@ def plan(ep: Episode, *, include: set[str] | None = None, audio_fmt: str | None 
                                        approval={"status": "unrecorded"}, source={"stage": "final", "version": fin["primary"]["version"],
                                                                                   "derived_from": ep.rel(fin["primary"]["path"])},
                                        extra={"gen": "audio", "format": f, "video_src": fin["primary"]["path"], "estimate": A.estimate_bytes(duration or 0.0, f, policy), "duration": duration}))
+                for v in extras:
+                    entries.append(K.entry(id=f"podcast.{v['name']}.{f}", role="podcast_audio", src=None, dest=f"audio/{v['path'].stem}{A.EXT[f]}",
+                                           approval={"status": "unrecorded"}, source={"stage": "final", "version": v["version"], "derived_from": ep.rel(v["path"])},
+                                           extra={"gen": "audio", "format": f, "video_src": v["path"], "estimate": A.estimate_bytes(v["duration"], f, policy),
+                                                  "duration": v["duration"], "chapters": v["chapters"]}))
             if any(e["role"] == "podcast_audio" for e in entries):
                 check("podcast_audio", "Podcast audio with chapters", "ok", f"{'/'.join(fmts)} at {policy['audio']['target_lufs']} LUFS (measured after encoding)", True)
     if fin and ({"audio", "copy"} & include):
@@ -207,6 +238,10 @@ def plan(ep: Episode, *, include: set[str] | None = None, audio_fmt: str | None 
                   ("" if ok_yt else f"; YouTube needs {policy['chapters']['youtube_min_chapters']}+"))
         else:
             check("chapters", "Chapters", "missing", chap["note"] or "no chapters")
+        for v in extras:
+            c = v["chapters"]
+            check(f"chapters.{v['name']}", f"Chapters ({v['name']})", "warn" if c["draft_titles"] or not c["chapters"] else "ok",
+                  f"{len(c['chapters'])} from {c['source']}" if c["chapters"] else c["note"] or "no chapters")
     if fin and credits.get("assets"):
         if credits["missing"]:
             check("licenses", "License credits", "warn", f"{len(credits['missing'])} of {credits['assets']} music/B-roll files have no license-log entry: " +
@@ -314,7 +349,7 @@ def plan(ep: Episode, *, include: set[str] | None = None, audio_fmt: str | None 
     order = {"missing": 0, "warn": 1, "draft": 2, "ok": 3}
     return {"episode": ep.root.name, "title": meta.get("title") or ep.root.name, "include": sorted(include), "policy": policy, "entries": entries,
             "checklist": checklist, "complete": not required_missing, "required_missing": [c["key"] for c in required_missing],
-            "blocks": blocks, "chapters": chap, "credits": credits, "duration": duration, "notes": notes, "audio_formats": fmts,
+            "blocks": blocks, "chapters": chap, "chapter_sets": _chapter_sets(fin, chap, extras), "credits": credits, "duration": duration, "notes": notes, "audio_formats": fmts,
             "meta": meta, "order": order}
 
 
@@ -364,7 +399,7 @@ def fingerprint(pl: dict) -> str:
             rows.append([e["dest"], "audio", x["format"], _stat_key(x["video_src"])])
         else:
             rows.append([e["dest"], str(e["src"]), _stat_key(e["src"])])
-    return sha256_bytes(json.dumps([sorted(pl["include"]), pl["audio_formats"], rows], sort_keys=True).encode())
+    return sha256_bytes(json.dumps([sorted(pl["include"]), pl["audio_formats"], rows, {k: v["chapters"] for k, v in pl["chapter_sets"].items()}], sort_keys=True).encode())
 
 
 def _stat_key(p) -> list | None:
@@ -497,7 +532,8 @@ def _assemble(ep: Episode, pl: dict, vol: dict, out: Path, date: str, version: i
     files: list[dict] = []
     checklist = [dict(c) for c in pl["checklist"]]
     audio_report = None
-    chapters = pl["chapters"]["chapters"]
+    audio_lines: list[str] = []
+    audio_ok = True
     meta = pl["meta"]
 
     def record(e: dict, dest_rel: str | None, sha: str | None, size: int, copied: bool, flag: str | None = None, **more) -> None:
@@ -524,14 +560,19 @@ def _assemble(ep: Episode, pl: dict, vol: dict, out: Path, date: str, version: i
             names = [s["name"] for s in (meta.get("speakers") or {}).values() if isinstance(s, dict) and s.get("name")]
             tags = {"title": meta.get("title") or ep.root.name, "artist": ", ".join(names),
                     "album": meta.get("show") or "", "date": time.strftime("%Y"), "comment": "Chapters from " + (pl["chapters"]["source"] or "none")}
-            rep = A.build(Path(x["video_src"]), dst, x["format"], chapters, tags, policy)
-            audio_report = rep
+            own = x.get("chapters") or pl["chapters"]
+            tags["comment"] = "Chapters from " + (own["source"] or "none")
+            rep = A.build(Path(x["video_src"]), dst, x["format"], own["chapters"], tags, policy)
+            audio_report = audio_report or rep
+            line = (f"{dst.name}: {x['format']}, {rep['duration']:.0f}s, {rep['loudness']['lufs']} LUFS (target {rep['loudness']['target_lufs']}), "
+                    f"true peak {rep['loudness']['true_peak_db']} dB, {rep['chapters']} chapter(s)") + \
+                   ("" if not rep["warnings"] else "; " + "; ".join(rep["warnings"]))
+            audio_lines.append(line)
+            audio_ok = audio_ok and rep["loudness"]["ok"]
             for c in checklist:
                 if c["key"] == "podcast_audio":
-                    c["state"] = "ok" if rep["loudness"]["ok"] else "warn"
-                    c["detail"] = (f"{x['format']}, {rep['duration']:.0f}s, {rep['loudness']['lufs']} LUFS (target {rep['loudness']['target_lufs']}), "
-                                   f"true peak {rep['loudness']['true_peak_db']} dB, {rep['chapters']} chapter(s)") + \
-                                  ("" if not rep["warnings"] else "; " + "; ".join(rep["warnings"]))
+                    c["state"] = "ok" if audio_ok else "warn"
+                    c["detail"] = " | ".join(audio_lines)
             record(e, e["dest"], sha256_path(dst), dst.stat().st_size, True, loudness=rep["loudness"], chapters=rep["chapters"], duration_s=rep["duration"])
         elif x.get("text") is not None:
             dst.parent.mkdir(parents=True, exist_ok=True)
@@ -549,15 +590,17 @@ def _assemble(ep: Episode, pl: dict, vol: dict, out: Path, date: str, version: i
             sha = _copy_hash(Path(e["src"]), dst)
             record(e, e["dest"], sha, dst.stat().st_size, True)
     # chapters list (youtube block) -------------------------------------------------------------
-    if chapters:
-        blk, _ = C.youtube_block(chapters, policy)
+    for fname, c_set in pl["chapter_sets"].items():
+        if not c_set["chapters"]:
+            continue
+        blk, _ = C.youtube_block(c_set["chapters"], policy)
         b = (blk + "\n").encode("utf-8")
         (out / "audio").mkdir(exist_ok=True)
-        (out / "audio" / "chapters.txt").write_bytes(b)
-        files.append({"id": "chapters.txt", "role": "chapters", "path": "audio/chapters.txt", "package_path": "audio/chapters.txt", "reference": None,
-                      "copied": True, "flag": "machine-drafted titles" if pl["chapters"]["draft_titles"] else None, "bytes": len(b), "sha256": sha256_bytes(b),
+        (out / "audio" / fname).write_bytes(b)
+        files.append({"id": fname, "role": "chapters", "path": f"audio/{fname}", "package_path": f"audio/{fname}", "reference": None,
+                      "copied": True, "flag": "machine-drafted titles" if c_set["draft_titles"] else None, "bytes": len(b), "sha256": sha256_bytes(b),
                       "duration_s": None, "width": None, "height": None, "draft": False, "draft_reasons": [], "approval": {"status": "draft"},
-                      "source": {"stage": "chapters", "from": pl["chapters"]["source"]}, "license": {}, "alt_text": None, "platforms": ["youtube"], "generated": True})
+                      "source": {"stage": "chapters", "from": c_set["source"]}, "license": {}, "alt_text": None, "platforms": ["youtube"], "generated": True})
     drafts = [f for f in files if f["draft"]]
     if drafts:
         (out / "drafts").mkdir(exist_ok=True)
@@ -581,7 +624,7 @@ def _assemble(ep: Episode, pl: dict, vol: dict, out: Path, date: str, version: i
     manifest = {"version": 1, "kind": "release-package", "episode": ep.root.name, "title": pl["title"], "show": meta.get("show"), "date": date,
                 "package_version": version, "created": now_iso(), "fingerprint": fp, "complete": not required_missing,
                 "missing_required": required_missing, "checklist": checklist, "credits": pl["credits"]["lines"],
-                "chapters": {"source": pl["chapters"]["source"], "draft_titles": pl["chapters"]["draft_titles"], "items": chapters},
+                "chapters": {"source": pl["chapters"]["source"], "draft_titles": pl["chapters"]["draft_titles"], "items": pl["chapters"]["chapters"]},
                 "audio": audio_report and {k: audio_report[k] for k in ("format", "duration", "loudness", "chapters", "warnings")},
                 "volume": {"free_bytes": vol["free_bytes"], "reserve_bytes": vol["reserve_bytes"], "copied_everything": totals["referenced"] == 0,
                            "note": "copied files only: ExFAT has no hardlinks or symlinks, so nothing is linked"},

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hmac
 import json
+import sys
 import mimetypes
 import re
 import secrets
@@ -32,6 +33,10 @@ FILE_CSP = "default-src 'none'; img-src 'self'; media-src 'self'; style-src 'uns
 
 
 class UiServer(ThreadingHTTPServer):
+    def handle_error(self, request, client_address):
+        if not isinstance(sys.exc_info()[1], (BrokenPipeError, ConnectionResetError)):   # a browser dropping a video range is normal
+            super().handle_error(request, client_address)
+
     daemon_threads = True
     allow_reuse_address = False
 
@@ -104,6 +109,11 @@ class Handler(BaseHTTPRequestHandler):
                 return False, False
         return True, in_query
 
+    def static_resolver(self, path: str) -> Path | None:
+        """The file to serve for a static URL path, or None. A subclass serves a whole directory tree by overriding this (studio UI)."""
+        name = STATIC_FILES.get(path)
+        return STATIC / name if name else None
+
     # ---- verbs
     def do_HEAD(self):
         self.do_GET()
@@ -116,8 +126,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if in_query and not path.startswith("/api/"):       # first visit: park the token in a cookie, drop it from the URL
                 return self._redirect(path)
-            if path in STATIC_FILES:
-                f = STATIC / STATIC_FILES[path]
+            f = self.static_resolver(path)
+            if f is not None:
                 return self._send(200, f.read_bytes(), (mimetypes.guess_type(f.name)[0] or "text/plain") + "; charset=utf-8")
             if path.startswith("/files/"):
                 return self._file(unquote(path[len("/files/"):]))
@@ -137,9 +147,13 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if not path.startswith("/api/"):
                 raise ApiError(404, "not found")
-            n = int(self.headers.get("Content-Length") or 0)
-            if n > MAX_BODY:
-                raise ApiError(413, "body too large")
+            try:
+                n = int(self.headers.get("Content-Length") or 0)
+            except ValueError:
+                raise ApiError(400, "bad Content-Length") from None
+            if n < 0 or n > MAX_BODY:
+                self.close_connection = True                    # the body (if any) is never read
+                raise ApiError(400, "Content-Length must be between 0 and %d" % MAX_BODY)
             raw = self.rfile.read(n) if n else b"{}"
             try:
                 body = json.loads(raw or b"{}")
@@ -162,6 +176,8 @@ class Handler(BaseHTTPRequestHandler):
             return a.clips(qs)
         if r.startswith("clips/"):
             return a.clip_detail(r.split("/", 1)[1])
+        if r == "review":
+            return a.review(qs)
         if r == "trim":
             return a.trim()
         if r == "content":
@@ -179,6 +195,10 @@ class Handler(BaseHTTPRequestHandler):
     def _route_post(self, r: str, body: dict):
         a = self.server.app
         parts = r.split("/")
+        if r == "review/note":
+            return a.review_note(body)
+        if len(parts) == 3 and parts[0] == "review" and parts[2] == "withdraw":
+            return a.review_withdraw(parts[1])
         if len(parts) == 3 and parts[0] == "clips" and parts[2] == "decide":
             return a.decide_clip(parts[1], body)
         if r == "trim/set":
@@ -205,7 +225,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
 
-    def _file(self, rel: str) -> None:
+    def _file(self, rel: str, *, csp: str = FILE_CSP) -> None:
         p = resolve_inside(self.server.app.ep, rel)
         size = p.stat().st_size
         ctype = mimetypes.guess_type(p.name)[0] or "application/octet-stream"
@@ -232,7 +252,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
-        self.send_header("Content-Security-Policy", FILE_CSP)
+        self.send_header("Content-Security-Policy", csp)
         self.end_headers()
         if self.command == "HEAD" or not length:
             return

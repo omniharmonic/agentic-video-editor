@@ -1,0 +1,23 @@
+id: product-spotlight
+title: Product spotlight
+kind: image
+description: >
+  A photograph from the studio library across the top, the product's name beneath it, then one line (price or what it is) and one detail (dates, size).
+  The photo is an `x-asset`: it must already be in the library (`ave studio library add`) with its license on record, and the render is licensed
+  through it. Nothing on the card is a claim you have not been given.
+formats: [1x1, 4x5, 2x3]
+styles: [ink, paper, clay]
+default_platforms: [instagram, facebook, pinterest]
+renderers:
+  motion-kit: {template: spotlight}
+slots:
+  type: object
+  required: [title, image]
+  additionalProperties: false
+  properties:
+    title:  {type: string, minLength: 3, maxLength: 60, description: "The product's name."}
+    sub:    {type: string, maxLength: 70, default: "", x-byline: true, description: "One line: the price, or what it is."}
+    detail: {type: string, maxLength: 60, default: "", x-byline: true, description: "Dates, size, availability. Optional."}
+    image:  {type: string, minLength: 3, maxLength: 400, x-asset: true, description: "Path of a library file (library/assets/xx/<sha>.jpg). Needs a license entry."}
+    image_focus_x: {type: number, minimum: 0, maximum: 1, default: 0.5, description: "Which part of a wide photo stays in the frame"}
+    show:   {type: string, maxLength: 40, default: ""}

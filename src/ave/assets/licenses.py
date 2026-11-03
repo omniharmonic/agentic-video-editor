@@ -17,6 +17,7 @@ import os
 import re
 import time
 from pathlib import Path
+from .._verification_cancel import check as _check_verification_cancelled
 
 GENESIS = "0" * 64
 REQUIRED = ("source", "url", "license", "license_url", "license_text", "sha256", "approved_by", "file")
@@ -73,10 +74,16 @@ def redact(value):
 
 
 def sha256_file(path: Path | str) -> str:
+    _check_verification_cancelled()
     h = hashlib.sha256()
     with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(1 << 20), b""):
+        while True:
+            _check_verification_cancelled()
+            chunk = f.read(1024 * 1024)
+            if not chunk:
+                break
             h.update(chunk)
+    _check_verification_cancelled()
     return h.hexdigest()
 
 

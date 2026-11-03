@@ -37,3 +37,7 @@ node_modules/
 # macOS/editor backups
 *-E
 *.bak
+ave-demo/
+
+# the Room's loopback token file
+.ave/local/

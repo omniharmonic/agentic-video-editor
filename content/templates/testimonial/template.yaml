@@ -1,0 +1,21 @@
+id: testimonial
+title: Testimonial
+kind: image
+description: >
+  A customer's words, set exactly as written and attributed to them. The words must be verbatim from a text the customer or the human supplied (a
+  review saved as Markdown, ingested with `ave studio ingest blog`): the same word-for-word check as a pull quote, so nothing is polished or
+  invented. Get the customer's consent to use their name before this goes out.
+formats: [1x1, 4x5, 9x16, 2x3]
+styles: [ink, paper, clay]
+default_platforms: [instagram, facebook, pinterest]
+renderers:
+  motion-kit: {template: quote-post}
+slots:
+  type: object
+  required: [quote, attribution]
+  additionalProperties: false
+  properties:
+    quote:       {type: string, minLength: 12, maxLength: 240, x-verbatim: true, description: "The customer's words, without quotation marks. Verbatim from the supplied text."}
+    attribution: {type: string, minLength: 2, maxLength: 60, x-byline: true, description: "The customer's name as they agreed to have it printed."}
+    title:       {type: string, maxLength: 60, default: "", x-byline: true, description: "Line beneath the name (Regular since 2022). Optional."}
+    show:        {type: string, maxLength: 40, default: ""}

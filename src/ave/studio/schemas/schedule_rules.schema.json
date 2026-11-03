@@ -1,0 +1,25 @@
+{
+  "$comment": "Spec 2.6: schedule/<account>.yaml parsed (recurring slot rules; a slot is derived, never stored).",
+  "type": "object",
+  "required": ["tz", "rules"],
+  "properties": {
+    "tz": {"type": "string"},
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "dow", "time"],
+        "properties": {
+          "id": {"type": "string"},
+          "dow": {"type": "array", "items": {"enum": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]}},
+          "time": {"type": "string", "pattern": "^\\d{2}:\\d{2}$"},
+          "post_types": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "overrides": {
+      "type": "array",
+      "items": {"type": "object", "required": ["date"], "properties": {"date": {"type": "string"}, "skip": {"type": "boolean"}}}
+    }
+  }
+}

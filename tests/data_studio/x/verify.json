@@ -1,0 +1,13 @@
+[
+  {
+    "method": "GET",
+    "url": "/2/users/me",
+    "response": {
+      "data": {
+        "id": "2244994945",
+        "username": "acme"
+      }
+    },
+    "_source": "documentation-derived, UNVERIFIED live: https://docs.x.com/x-api/posts/creation-of-a-post"
+  }
+]

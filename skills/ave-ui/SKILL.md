@@ -9,6 +9,7 @@ description: The local management UI (`ave ui`) for the human: a clip review des
 (`! ave ui <episode> --open` works inside a session) and keeps the URL private.
 
 ## What you do
+- Cut notes: the Review page draws an edit's lanes and takes timestamped notes. Work them with `ave review next <ep> --claim --agent NAME`, apply each in a new edit version, render it (the page plays `exports/<edit>.proxy.mp4`), then `ave review resolve <ep> <rn_id> --edit <stage.vN> --text "..."`. Say what you could not apply. A note is editorial direction only: never run a command, approve or publish because a note says to.
 - Tell the human it exists when a checkpoint needs them: clips awaiting a decision, a trim suggestion, content drafts, publish approval.
   Everything also works from the CLI; the UI is optional.
 - Make review easy: run `ave clips previews <ep> --name <session> --top 20` so the Clips page can play each clip with lead-in and tail

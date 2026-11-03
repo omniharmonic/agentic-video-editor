@@ -1,0 +1,23 @@
+id: event
+title: Event
+kind: image
+description: >
+  An event announcement: what, when large, and where and at what time beneath. Dates, times and places come from the human; confirm them back to them
+  before the card goes to review.
+formats: [1x1, 4x5, 9x16]
+styles: [ink, paper, clay]
+default_platforms: [instagram, facebook, linkedin]
+renderers:
+  motion-kit: {template: card}
+slots:
+  type: object
+  required: [title, when]
+  additionalProperties: false
+  properties:
+    kicker: {type: string, maxLength: 28, default: "", description: "A short label (Saturday market, Workshop). Optional."}
+    title:  {type: string, minLength: 3, maxLength: 70, description: "What the event is."}
+    when:   {type: string, minLength: 1, maxLength: 20, description: "The date as printed, large (Sat Nov 8)."}
+    time:   {type: string, maxLength: 24, default: "", description: "The time (9 to noon)."}
+    place:  {type: string, maxLength: 50, default: "", x-byline: true, description: "Where."}
+    cta:    {type: string, maxLength: 40, default: "", x-byline: true, description: "How to come or sign up. Optional."}
+    show:   {type: string, maxLength: 40, default: ""}

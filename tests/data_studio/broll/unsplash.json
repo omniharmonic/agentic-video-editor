@@ -1,0 +1,35 @@
+[
+  {
+    "note": "UNVERIFIED: response shape written from Unsplash's public API documentation as remembered; never recorded from a live call.",
+    "method": "GET",
+    "url": "api.unsplash.com/search/photos",
+    "expect": {"headers": ["Authorization"]},
+    "response": {
+      "total": 133, "total_pages": 7,
+      "results": [
+        {"id": "Dwu85P9SOIk", "slug": "loaf-of-bread-Dwu85P9SOIk", "width": 5472, "height": 3648, "color": "#a68c73",
+         "description": null, "alt_description": "brown bread on a wooden table",
+         "urls": {"raw": "https://images.unsplash.com/photo-1?ixid=raw", "full": "https://images.unsplash.com/photo-1?q=85&fm=jpg",
+                  "regular": "https://images.unsplash.com/photo-1?w=1080", "small": "https://images.unsplash.com/photo-1?w=400",
+                  "thumb": "https://images.unsplash.com/photo-1?w=200"},
+         "links": {"self": "https://api.unsplash.com/photos/Dwu85P9SOIk", "html": "https://unsplash.com/photos/Dwu85P9SOIk",
+                   "download": "https://unsplash.com/photos/Dwu85P9SOIk/download",
+                   "download_location": "https://api.unsplash.com/photos/Dwu85P9SOIk/download"},
+         "tags": [{"type": "search", "title": "bread"}, {"type": "search", "title": "bakery"}],
+         "user": {"id": "u1", "username": "dough", "name": "D. Ough",
+                  "links": {"html": "https://unsplash.com/@dough", "photos": "https://api.unsplash.com/users/dough/photos"}}},
+        {"id": "ab12", "slug": "x", "width": 3000, "height": 4500, "alt_description": null, "description": "Flour on a table",
+         "urls": {"raw": "https://images.unsplash.com/photo-2?ixid=raw", "regular": "https://images.unsplash.com/photo-2?w=1080",
+                  "small": "https://images.unsplash.com/photo-2?w=400"},
+         "links": {"html": "https://unsplash.com/photos/ab12", "download_location": "https://api.unsplash.com/photos/ab12/download"},
+         "tags": [], "user": {"name": "F. Lour", "links": {"html": "https://unsplash.com/@flour"}}}
+      ]
+    }
+  },
+  {
+    "method": "GET",
+    "url": "api.unsplash.com/photos/Dwu85P9SOIk/download",
+    "expect": {"headers": ["Authorization"]},
+    "response": {"url": "https://images.unsplash.com/photo-1?ixid=dl"}
+  }
+]

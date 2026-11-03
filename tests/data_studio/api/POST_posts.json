@@ -1,0 +1,45 @@
+{
+  "method": "POST",
+  "path": "/api/studio/posts",
+  "status": 201,
+  "request": {
+    "idea": "Behind the counter: a baker's morning",
+    "copy": {
+      "base": ""
+    },
+    "campaign": "c_fall-launch"
+  },
+  "response": {
+    "post": {
+      "v": 1,
+      "kind": "studio.post",
+      "id": "p_20261019_z9y8",
+      "rev": 1,
+      "stage": "idea",
+      "campaign": "c_fall-launch",
+      "idea": {
+        "text": "Behind the counter: a baker's morning",
+        "origin": null,
+        "reason": "evergreen, matches the October theme",
+        "confidence": 0.7
+      },
+      "copy": {
+        "base": "",
+        "link": "https://acme.example/starter",
+        "first_comment": "",
+        "hashtags": [
+          "sourdough"
+        ],
+        "cta": ""
+      },
+      "media": [],
+      "variants": [],
+      "disclosure": {
+        "ai_generated": false
+      },
+      "created": "2026-10-19T10:15:00-0600",
+      "updated": "2026-10-19T11:02:00-0600",
+      "by": "claude"
+    }
+  }
+}

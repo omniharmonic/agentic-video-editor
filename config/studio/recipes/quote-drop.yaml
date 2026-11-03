@@ -1,0 +1,32 @@
+name: quote-drop
+title: One verbatim quote, one card, one post
+summary: >
+  The fastest path. A single passage from a saved piece of writing becomes a quote card and a post on one account.
+inputs:
+  - {name: file, required: true, path: true, description: "Markdown file the quote comes from"}
+  - {name: passage, required: true, description: "Passage id from `ave studio ingest blog` (for example p003)"}
+steps:
+  - id: ingest
+    kind: mechanical
+    title: Ingest the writing
+    command: "ave studio ingest blog {file} --studio {studio}"
+    done_when: {file: "work/content/writing.json"}
+  - id: post
+    kind: agent
+    skill: ave-studio-ideas
+    title: Create the post from the passage and render the card
+    checklist:
+      - "`ave studio post new --idea ... --from-blog {file} --passages {passage}` then `ave studio render <post>`."
+      - "Look at the card. Add one variant and alt text, then run the voice critic."
+    done_when: {posts: {has_media: true, min: 1}}
+  - id: sync
+    kind: mechanical
+    title: Create the queue item
+    command: "ave studio queue sync --studio {studio}"
+    done_when: {variants: {status: [in_review, approved, scheduled], min: 1}}
+  - id: review
+    kind: human
+    title: Approve
+    prompt: "Look at the card as it will go out and approve it if it is right."
+    command: "ave studio ui {studio}"
+    done_when: {variants: {status: [approved, scheduled], min: 1}}

@@ -5,6 +5,8 @@ description: Generate, check and burn captions (SRT sidecar + styled ASS) for a 
 
 # Captions
 
+Burning (`--burn`) needs an FFmpeg with libass (macOS: `brew install ffmpeg-full`; `ave doctor` checks). SRT/ASS files do not.
+
 Captions are computed from `work/transcript.json` mapped through the edit's dialogue segments (removed words vanish,
 room-tone fills are never captioned), segmented by the rules in `config/captions.styles.yaml`, written as plain files and
 burned by ffmpeg. Resolve is not involved.

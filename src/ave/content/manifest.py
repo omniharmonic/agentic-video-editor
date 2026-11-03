@@ -104,6 +104,12 @@ def _validate_item(item: dict, doc: dict, reg: R.Registry | None) -> list[str]:
             bad(m)
     elif not item.get("template"):
         bad("template is required")
+    if item.get("template") == "visual-canvas":
+        try:
+            from .visual import validate as validate_visual
+            validate_visual(item.get("visual"), doc["sources"].get(item.get("source")))
+        except (ValueError, TypeError, KeyError) as exc:
+            bad(str(exc))
     src = item.get("source")
     if src is not None and src not in doc["sources"]:
         bad(f"unknown source {src!r} (have: {', '.join(doc['sources']) or 'none'})")
@@ -229,19 +235,30 @@ def latest_path(ep: Episode, doc_id: str = "main") -> Path | None:
     return path_for(ep, v[-1], doc_id) if v else None
 
 
-def save_new_version(ep: Episode, doc: dict, reg: R.Registry | None = None) -> Path:
-    """Write the doc as the next version. Refuses an invalid doc; never overwrites an existing version."""
+def save_new_version(ep: Episode, doc: dict, reg: R.Registry | None = None, *, expected_version: int | None = None) -> Path:
+    """Shared on-disk version allocation; existing ContentDoc callers remain compatible."""
+    import fcntl
+    import os
     problems = validate(doc, reg)
-    if problems:
-        raise ValueError("invalid ContentDoc:\n  - " + "\n  - ".join(problems))
-    v = (list_versions(ep, doc["id"]) or [0])[-1] + 1
-    path = path_for(ep, v, doc["id"])
-    if path.exists():
-        raise FileExistsError(path)
-    doc = copy.deepcopy(doc)
-    doc["saved"] = {"version": v, "at": now()}
-    write_json(path, doc)
-    return path
+    if problems: raise ValueError("invalid ContentDoc: " + "; ".join(problems))
+    directory = content_dir(ep)
+    from ..studio.production import safe_path
+    safe_path(ep, directory / ".versions.lock")
+    directory.mkdir(parents=True, exist_ok=True)
+    lockpath = directory / '.versions.lock'
+    safe_path(ep, lockpath)
+    with os.fdopen(os.open(lockpath, os.O_CREAT | os.O_RDWR | getattr(os, 'O_NOFOLLOW', 0), 0o600), 'a') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        previous = (list_versions(ep, doc['id']) or [0])[-1]
+        if expected_version is not None and previous != expected_version:
+            raise ValueError('Design changed; reload its latest revision before saving')
+        path = path_for(ep, previous + 1, doc['id'])
+        safe_path(ep, path)
+        if path.exists(): raise FileExistsError(path)
+        saved = copy.deepcopy(doc)
+        saved['saved'] = {'version': previous + 1, 'at': now()}
+        write_json(path, saved)
+        return path
 
 
 def load(path: Path | str) -> dict:

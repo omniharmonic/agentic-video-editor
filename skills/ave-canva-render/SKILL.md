@@ -47,6 +47,9 @@ ave content render <ep> --renderer canva [--item ID] [--export png|jpg|mp4]
 5. Next is the normal flow: `ave content review`, the human decides, `ave content queue`, `! ave publish approve`. Tell the human the Canva design id/link so they can tweak and re-export;
    a changed export is a new hash and needs a new import and approval.
 
+## Fit is your job (found on real work)
+Autofill succeeds even when the text does not fit. The Substack Episode Card's `headline` holds about 16 characters over two lines: a three-line headline ran through the names and over the speaker's face. Keep the subject on the right of `hero_image`, write to the template's length, export, and LOOK before you call it done.
+
 ## Failure: fall back, on the record
 
 `ave content canva-fail <ep> <job> --reason "..."` marks the job failed and writes `provenance.canva.fallback` on the item. Then `ave content render <ep> --item <id>` renders it in-house.

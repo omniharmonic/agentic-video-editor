@@ -32,18 +32,23 @@ def test_full_flow_dry_run_default_then_yes(ep, wide, capsys, fakes, monkeypatch
     item = json.loads(out)[0]
     assert rc == 0 and item["status"] == "awaiting_approval"
     iid = item["id"]
-    # approve non-interactively without a hash confirmation is refused
-    with pytest.raises(SystemExit, match="needs a human"):
+    # approving without a human terminal is refused, with the exact line for the human
+    with pytest.raises(SystemExit, match="ave publish approve"):
         main(["publish", "approve", str(ep.root), iid])
-    # an agent must not be able to approve its own post: --confirm-sha is dead without the explicit unattended opt-in
-    monkeypatch.delenv("AVE_ALLOW_UNATTENDED_APPROVAL", raising=False)
-    with pytest.raises(SystemExit, match="--confirm-sha is disabled"):
+    # there is no flag or env switch that skips the terminal
+    with pytest.raises(SystemExit):
         main(["publish", "approve", str(ep.root), iid, "--confirm-sha", item["sha256"][:10]])
-    assert queue.load(ep, iid)["status"] == "awaiting_approval"        # the refused attempt changed nothing
-    monkeypatch.setenv("AVE_ALLOW_UNATTENDED_APPROVAL", "1")      # CI/test opt-in only
+    monkeypatch.setenv("AVE_ALLOW_UNATTENDED_APPROVAL", "1")      # no longer means anything
+    with pytest.raises(SystemExit, match="human act"):
+        main(["publish", "approve", str(ep.root), iid])
+    assert queue.load(ep, iid)["status"] == "awaiting_approval"        # the refused attempts changed nothing
+    from ave import humanpresence
+    monkeypatch.setattr(humanpresence, "is_human_terminal", lambda: True)
+    monkeypatch.setattr("builtins.input", lambda prompt="": "deadbeefdead")
     with pytest.raises(SystemExit, match="does not match"):
-        main(["publish", "approve", str(ep.root), iid, "--confirm-sha", "deadbeefdead"])
-    rc, out, _ = run_cli(capsys, "publish", "approve", str(ep.root), iid, "--by", "ben", "--confirm-sha", item["sha256"][:10])
+        main(["publish", "approve", str(ep.root), iid])
+    monkeypatch.setattr("builtins.input", lambda prompt="": item["sha256"][:10])
+    rc, out, _ = run_cli(capsys, "publish", "approve", str(ep.root), iid, "--by", "maren")
     assert rc == 0 and "approved" in out
     # default run is a dry run
     rc, out, err = run_cli(capsys, "publish", "run", str(ep.root), iid)

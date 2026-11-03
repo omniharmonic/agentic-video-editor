@@ -1,0 +1,51 @@
+name: episode-to-campaign
+title: Finished episode to a two-week campaign
+summary: >
+  Approved clips, pull quotes and the episode's package copy become a campaign: posts per account on a cadence, proposed as slots for the human to accept.
+inputs:
+  - {name: episode, required: true, path: true, description: "An episode folder with approved clips and/or a release package"}
+  - {name: name, required: false, default: "Episode campaign", description: "Campaign name"}
+steps:
+  - id: survey
+    kind: mechanical
+    title: See what the episode already offers
+    command: "ave studio ingest episode {episode} --studio {studio}"
+    done_when: {file: "work/survey.json"}
+  - id: campaign
+    kind: mechanical
+    title: Create the campaign envelope
+    command: "ave studio campaign new \"{name}\" --weeks 2 --studio {studio}"
+    done_when: {glob: "campaigns/c_*.json", min: 1}
+  - id: write
+    kind: agent
+    skill: ave-studio-ideas
+    title: One post per approved clip or quote, in the studio voice
+    checklist:
+      - "Only approved clips; quotes verbatim. Add each post to the campaign (`ave studio campaign add-post`)."
+      - "Run the voice critic on every caption; vary the opening line and the platform."
+    done_when: {posts: {min: 4}}
+  - id: visuals
+    kind: agent
+    skill: ave-studio-visuals
+    title: Cards, covers and alt text
+    checklist:
+      - "`ave studio render <post>`; look at every image; `ave studio deliverables <post>` to see what each platform gets."
+    done_when: {posts: {has_media: true, min: 4}}
+  - id: sync
+    kind: mechanical
+    title: Create the queue items
+    command: "ave studio queue sync --studio {studio}"
+    done_when: {variants: {status: [in_review, approved, scheduled], min: 1}}
+  - id: plan
+    kind: agent
+    skill: ave-studio-calendar
+    title: Propose the two-week schedule
+    checklist:
+      - "`ave studio schedule plan --campaign C --weeks 2`; read `unplaced` and add rules if slots ran out."
+    done_when: {glob: "schedule/proposals/sp_*.json", min: 1}
+  - id: review
+    kind: human
+    title: Approve and accept the schedule
+    prompt: "Review each post, approve, and accept (or reshape) the proposed times."
+    command: "ave studio ui {studio}"
+    done_when: {variants: {status: [approved, scheduled], min: 1}}

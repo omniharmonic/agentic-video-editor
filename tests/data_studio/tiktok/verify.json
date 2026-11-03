@@ -1,0 +1,22 @@
+[
+  {
+    "method": "POST",
+    "url": "/post/publish/creator_info/query/",
+    "response": {
+      "data": {
+        "creator_username": "acme",
+        "privacy_level_options": [
+          "SELF_ONLY",
+          "PUBLIC_TO_EVERYONE"
+        ],
+        "max_video_post_duration_sec": 600
+      },
+      "error": {
+        "code": "ok",
+        "message": "",
+        "log_id": "202610191600000000"
+      }
+    },
+    "_source": "documentation-derived, UNVERIFIED live: https://developers.tiktok.com/doc/content-posting-api-reference-upload-video"
+  }
+]

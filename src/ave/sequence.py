@@ -17,6 +17,7 @@ WHY it is built this way (read before changing):
 """
 
 from __future__ import annotations
+from .atomic import publish as publish_atomic
 
 import copy
 import hashlib
@@ -271,7 +272,7 @@ def _find_clip(ep: Episode, clip_id: str) -> dict:
     raise SequenceError(f"cold open clip {clip_id!r} is not in work/clips.json (ids: {', '.join(c['id'] for c in data['clips'][:12])}...)")
 
 
-def resolve_cold_open(ep: Episode, pick: dict, fps: float) -> dict:
+def resolve_cold_open(ep: Episode, pick: dict, fps: float, *, base_doc: dict | None = None, base_identity: dict | None = None) -> dict:
     """{doc, source, approval[], warnings[]}. `pick` is episode.json sequences.cold_open: one of clip / quote / range / edit,
     optional `trim: [a, b]` (seconds inside a clip or edit)."""
     kinds = [k for k in ("clip", "quote", "range", "edit") if pick.get(k)]
@@ -279,6 +280,8 @@ def resolve_cold_open(ep: Episode, pick: dict, fps: float) -> dict:
         raise SequenceError("episode.json sequences.cold_open needs exactly one of clip / quote / range / edit "
                             f"(got {kinds or 'none'})")
     kind, warns, approval = kinds[0], [], ["the cold open is the human's choice (it plays before the title and gives away a moment)"]
+    if base_doc is not None and kind != 'range':
+        raise SequenceError('An exact native source requires an output-time range')
     if kind in ("clip", "edit"):
         if kind == "clip":
             c = _find_clip(ep, str(pick["clip"]))
@@ -307,10 +310,14 @@ def resolve_cold_open(ep: Episode, pick: dict, fps: float) -> dict:
     else:
         spec = pick[kind]
         stage, name = spec.get("stage", "rough"), spec.get("name")
-        if not editdoc.list_versions(ep, stage, name):
-            raise SequenceError(f"cold open {kind}: no {stage}{'.' + name if name else ''} edit to cut from")
-        ver = editdoc.list_versions(ep, stage, name)[-1]
-        base = editdoc.load(editdoc.path_for(ep, stage, ver, name))
+        if base_doc is not None:
+            if not base_identity or (stage,name)!=(base_identity.get('stage'),base_identity.get('name')):raise SequenceError('Cold open must use the exact selected edit')
+            ver=base_identity['version'];base=base_doc
+        else:
+            if not editdoc.list_versions(ep, stage, name):
+                raise SequenceError(f"cold open {kind}: no {stage}{'.' + name if name else ''} edit to cut from")
+            ver = editdoc.list_versions(ep, stage, name)[-1]
+            base = editdoc.load(editdoc.path_for(ep, stage, ver, name))
         if kind == "range":
             o0, o1 = float(spec["o0"]), float(spec["o1"])
         else:
@@ -331,8 +338,9 @@ def resolve_cold_open(ep: Episode, pick: dict, fps: float) -> dict:
             o1 = min(base["duration"], words[hit[1]]["end"] + float(spec.get("pad_after_s", 0.35)))
         if not 0 <= o0 < o1 <= base["duration"] + 1e-3:
             raise SequenceError(f"cold open range {o0:.2f}-{o1:.2f} s is outside the {stage} cut (0-{base['duration']:.2f} s)")
-        doc = _whole_frames_slice(base, o0, o1, fps)
+        doc = editdoc.slice_doc(base,o0,o1,stage='select') if editdoc.effective_mode(base)=='audio' else _whole_frames_slice(base, o0, o1, fps)
         src = {"kind": kind, "stage": stage, "name": name, "version": ver, "range": [round(o0, 3), round(o1, 3)]}
+        if base_identity is not None:src['edit_sha256']=base_identity['sha256']
         if kind == "quote":
             src["text"] = spec["text"]
     try:
@@ -373,7 +381,9 @@ def _kit_hash(template: str) -> str:
     return h.hexdigest()[:10]
 
 
-def _asset(ep: Episode, rel: str, role: str, used_in: list[str]) -> dict:
+def _asset(ep: Episode, rel: str, role: str, used_in: list[str], verified_assets=None) -> dict:
+    if verified_assets is not None and rel in verified_assets:
+        return {**copy.deepcopy(verified_assets[rel]),'file':rel,'role':role,'used_in':used_in}
     p = Path(rel) if Path(rel).is_absolute() else ep.root / rel
     a: dict = {"file": rel, "role": role, "used_in": used_in}
     if not p.is_file():
@@ -399,10 +409,10 @@ def credit_line(a: dict) -> str:
     return f"{title}{who}{lic}"
 
 
-def _music_cfg(ep: Episode, cfg: dict | None, role: str, item_id: str, assets: list, errors: list, warnings: list) -> dict | None:
+def _music_cfg(ep: Episode, cfg: dict | None, role: str, item_id: str, assets: list, errors: list, warnings: list, verified_assets=None) -> dict | None:
     if not cfg or not cfg.get("file"):
         return None
-    a = _asset(ep, str(cfg["file"]), role, [item_id])
+    a = _asset(ep, str(cfg["file"]), role, [item_id],verified_assets)
     assets.append(a)
     if a["status"] == "missing-file":
         errors.append(f"{role}: file {cfg['file']} does not exist")
@@ -412,14 +422,23 @@ def _music_cfg(ep: Episode, cfg: dict | None, role: str, item_id: str, assets: l
 
 
 def plan(ep: Episode, name: str | None = None, policy: Path | str | None = None, home: Path | None = None, doc: dict | None = None,
-         write: bool = True, _want: dict | None = None) -> dict:
+         write: bool = True, _want: dict | None = None, *, metadata: dict | None = None,
+         policy_data: dict | None = None, base_identity: dict | None = None, verified_assets=None) -> dict:
     """What would be built, with the source of every piece of text. Writes work/sequence.json (unless write=False).
 
     `doc` is the cut being finished (ave final passes the final EditDoc it is building); otherwise the latest final, rough or assembly."""
-    pol = resolve_policy(ep, policy, home)
+    if metadata is not None and (doc is None or base_identity is None or write):raise ValueError('Explicit sequence plans require an exact edit and do not write legacy plan files')
+    if verified_assets is not None and metadata is None:raise ValueError('Verified library assets require an explicit native sequence plan')
+    pol = _check_policy(copy.deepcopy(policy_data)) if policy_data is not None else resolve_policy(ep, policy, home)
     stage, bdoc = ("(given)", doc) if doc is not None else base_doc(ep, name)
-    meta = _meta(ep)
+    editdoc.require_monotonic(bdoc, "Podcast sequences")
+    meta = copy.deepcopy(metadata) if metadata is not None else _meta(ep)
     ident = identity(meta, pol)
+    if metadata is not None:
+        # Explicit app fields are plan inputs, not values read from episode.json.
+        for entry in ident.values():
+            if isinstance(entry,dict) and isinstance(entry.get('source'),str):
+                entry['source']=entry['source'].replace('episode.json','sequence plan')
     fps, cv = float(bdoc["fps"]), bdoc["canvas"]
     errors: list[str] = []
     warnings: list[str] = list(ident["warnings"])
@@ -459,7 +478,7 @@ def plan(ep: Episode, name: str | None = None, policy: Path | str | None = None,
         co_on = False
     if co_on and pick:
         try:
-            cold = resolve_cold_open(ep, pick, fps)
+            cold = resolve_cold_open(ep, pick, fps, base_doc=bdoc if metadata is not None else None, base_identity=base_identity)
         except SequenceError as e:
             errors.append(str(e))
     if cold:
@@ -474,7 +493,7 @@ def plan(ep: Episode, name: str | None = None, policy: Path | str | None = None,
                       "duration": d + _secs(tail, fps), "o0": 0.0, "o1": d + _secs(tail, fps), "hook_s": d, "source": cold["source"],
                       "captioned": bool(co_pol["captions"]), "kit": None, "text": text, "needs_approval": cold["approval"]})
         t = d + _secs(tail, fps)
-        music_co = _music_cfg(ep, co_pol.get("music"), "cold-open music", "cold_open", assets, errors, warnings)
+        music_co = _music_cfg(ep, co_pol.get("music"), "cold-open music", "cold_open", assets, errors, warnings,verified_assets)
     else:
         music_co = None
     if op["title_card"]["enabled"]:
@@ -511,12 +530,12 @@ def plan(ep: Episode, name: str | None = None, policy: Path | str | None = None,
             t = it["o1"]
     sting = None
     if op["sting"].get("file"):
-        a = _asset(ep, str(op["sting"]["file"]), "opening sting", ["title_card"])
+        a = _asset(ep, str(op["sting"]["file"]), "opening sting", ["title_card"],verified_assets)
         assets.append(a)
         if a["status"] != "licensed":
             errors.append(f"opening sting {op['sting']['file']}: " + ("does not exist" if a["status"] == "missing-file" else "has no license-log entry"))
         sting = dict(op["sting"])
-    bed = _music_cfg(ep, op.get("music"), "opening music", "title_card", assets, errors, warnings)
+    bed = _music_cfg(ep, op.get("music"), "opening music", "title_card", assets, errors, warnings,verified_assets)
     open_total = items[-1]["o1"] if items else 0.0
     out["opening"] = {"enabled": bool(items), "items": items, "duration": open_total, "frames": sum(i["frames"] for i in items),
                       "music": {"cold_open": music_co, "bed": bed, "sting": sting}}
@@ -570,14 +589,19 @@ def plan(ep: Episode, name: str | None = None, policy: Path | str | None = None,
             sections.append({"heading": s["editor_role"], "lines": edit_lines})
         # asset credits: everything the CUT uses (music, B-roll) plus what the sequences themselves use
         used = [(m["file"], "music") for m in bdoc["tracks"].get("music") or []]
-        used += [(o["file"], "broll") for o in bdoc["tracks"].get("overlays") or [] if o.get("kind") == "broll"]
+        used += [(o["file"], "broll") for o in bdoc["tracks"].get("overlays") or [] if o.get("kind") == "broll" and not o.get("library")]
         cut_assets = []
         seen = {a["file"] for a in assets}
         for f, role in used:
             if f not in seen:
                 seen.add(f)
-                cut_assets.append(_asset(ep, f, role, ["credits"]))
-        cmusic = _music_cfg(ep, cl.get("music"), "closing music", "credits", assets, errors, warnings)
+                cut_assets.append(_asset(ep, f, role, ["credits"],verified_assets))
+        from .broll import place as _place      # B-roll from a studio library is licensed THERE (the render re-checks it); its credit line rides on the placement
+        for o in _place.library_overlays(bdoc):
+            if o["file"] not in seen:
+                seen.add(o["file"])
+                cut_assets.append(_place.credit_asset(o, ["credits"]))
+        cmusic = _music_cfg(ep, cl.get("music"), "closing music", "credits", assets, errors, warnings,verified_assets)
         all_assets = cut_assets + [a for a in assets if a["status"] != "missing-file"]
         clines, seen_lines = [], set()
         for a in all_assets:
@@ -613,7 +637,7 @@ def plan(ep: Episode, name: str | None = None, policy: Path | str | None = None,
                            "lead_in_s": s["lead_in_s"], "duration": None, "frames": None, "o0": None, "o1": None,
                            "needs_approval": [f"{k}: {v['value']!r} ({v['source']})" for k, v in ctext.items() if v.get("approve")]})
     else:
-        cmusic = _music_cfg(ep, cl.get("music"), "closing music", "credits", assets, errors, warnings)
+        cmusic = _music_cfg(ep, cl.get("music"), "closing music", "credits", assets, errors, warnings,verified_assets)
     if cl["end_card"]["enabled"]:
         s = cl["end_card"]
         elines = (s["lines"] or [])[:3]
@@ -654,7 +678,7 @@ def plan(ep: Episode, name: str | None = None, policy: Path | str | None = None,
         out[which]["hash"] = _sha(basis)
     needs = [{"item": i["id"], "sequence": w, "reasons": i["needs_approval"]} for w in WHICH for i in out[w]["items"] if i.get("needs_approval")]
     out["approval"] = {"required": needs, "hash": _sha({w: out[w]["hash"] for w in WHICH}), "approved": False, "approved_by": None, "approved_at": None}
-    ap = read_approval(ep, name)
+    ap = read_approval(ep, name) if metadata is None else None
     if ap and ap.get("hash") == out["approval"]["hash"]:
         out["approval"].update(approved=True, approved_by=ap.get("by"), approved_at=ap.get("at"))
     elif ap:
@@ -793,14 +817,19 @@ def _edge_mask(w: int, h: int, frac: float = 0.13):
     return Image.fromarray((np.tile(col[:, None], (1, w)) * 255).astype("uint8"), "L")
 
 
-def render_credits(ep: Episode, item: dict, fps: float, canvas: dict) -> tuple[str, int]:
-    """The credits roll: the motion-kit column rendered once (Chromium, transparent), scrolled by ffmpeg at a whole number of pixels per
-    frame (perfectly even), edge-faded, encoded to ProRes 4444 alpha. Returns (path relative to the episode root, frame count)."""
+def render_credits(ep: Episode, item: dict, fps: float, canvas: dict, *, timing_canvas: dict | None = None) -> tuple[str, int]:
+    """Rasterize credits at delivery geometry while retaining authored scroll timing.
+
+    Default geometry uses an even whole-pixel step; resized output scales that
+    travel and may quantize fractional pixels. Returns the exact frame count.
+    """
     W, H = canvas["w"], canvas["h"]
-    scale = min(W, H) / 1080
+    timing_canvas = timing_canvas or canvas
+    scale = min(timing_canvas["w"], timing_canvas["h"]) / 1080
     step = max(1, round(item["px_per_frame"] * scale))
     spec = _spec(item, fps, canvas, 1.0)
-    h_key = hashlib.sha256((json.dumps({**spec, "canvas": [W, H]}, sort_keys=True) + item["kit"] + f"{step}|{item['min_s']}|{item['max_s']}|{item['lead_in_s']}").encode()).hexdigest()[:10]
+    timing_key = "" if timing_canvas == canvas else json.dumps(timing_canvas, sort_keys=True)
+    h_key = hashlib.sha256((json.dumps({**spec, "canvas": [W, H]}, sort_keys=True) + item["kit"] + f"{step}|{item['min_s']}|{item['max_s']}|{item['lead_in_s']}" + timing_key).encode()).hexdigest()[:10]
     out = ep.work / "sequence" / "cards" / f"credits-roll-{h_key}.mov"
     meta_f = out.with_suffix(".json")
     if out.exists() and meta_f.exists():
@@ -814,13 +843,23 @@ def render_credits(ep: Episode, item: dict, fps: float, canvas: dict) -> tuple[s
         page.set_viewport_size({"width": W, "height": max(hc, H)})
         col.write_bytes(page.screenshot(type="png", omit_background=True, clip={"x": 0, "y": 0, "width": W, "height": hc}))
     lead = int(round(item["lead_in_s"] * _fpsf(fps)))
-    travel = H + hc
+    timing_hc = hc
+    if timing_canvas != canvas:
+        # Measure the authored layout, without rendering a low-resolution movie.
+        # Output geometry must not change the reviewed roll's frame relationships.
+        with motion._page(_spec(item, fps, timing_canvas, 1.0), SEQ_KIT / item["template"]) as page:
+            timing_hc = int(math.ceil(page.evaluate("document.getElementById('roll').scrollHeight")))
+        if timing_hc > MAX_COLUMN_PX:
+            raise SequenceError(f"the authored credits column is {timing_hc}px tall (limit {MAX_COLUMN_PX})")
+    travel = timing_canvas["h"] + timing_hc
     frames = lead + int(math.ceil(travel / step))
     min_f, max_f = _frames(item["min_s"], fps), _frames(item["max_s"], fps)
     if frames > max_f:
         step = int(math.ceil(travel / max(1, max_f - lead)))        # faster, still a whole number of pixels
         frames = lead + int(math.ceil(travel / step))
     frames = max(frames, min_f)
+    if timing_canvas != canvas:
+        step *= (H + hc) / travel
     mask = out.with_suffix(".mask.png")
     _edge_mask(W, H).save(mask)
     fr = ffutil.fps_fraction(fps)
@@ -837,14 +876,16 @@ def render_credits(ep: Episode, item: dict, fps: float, canvas: dict) -> tuple[s
     tmp.replace(out)
     col.unlink(missing_ok=True)
     mask.unlink(missing_ok=True)
-    write_json(meta_f, {"frames": frames, "step_px": step, "column_px": hc})
+    write_json(meta_f, {"frames": frames, "step_px": step, "column_px": hc,
+                        "canvas": canvas, "timing_canvas": timing_canvas, "timing_column_px": timing_hc})
     return ep.rel(out), frames
 
 
 def _music_item(mid: str, cfg: dict, o0: float, o1: float, duck: float | None = None, fade_out: float | None = None) -> dict:
     return {"id": mid, "file": cfg["file"], "o0": round(o0, 4), "o1": round(o1, 4), "in": float(cfg.get("in", 0.0)),
             "gain_db": float(cfg.get("gain_db", -20.0)), "duck_db": float(duck if duck is not None else cfg.get("duck_db", 0.0)),
-            "fade_in_s": float(cfg.get("fade_in_s", 0.5)), "fade_out_s": float(fade_out if fade_out is not None else cfg.get("fade_out_s", 1.0))}
+            "fade_in_s": float(cfg.get("fade_in_s", 0.5)), "fade_out_s": float(fade_out if fade_out is not None else cfg.get("fade_out_s", 1.0)),
+            **({'source_limit_s':cfg['source_limit_s']} if 'source_limit_s' in cfg else {})}
 
 
 def _compose(ep: Episode, which: str, pl: dict, ref: dict, cold: dict | None, pol: dict, cards: dict[str, str], plate: str,
@@ -911,23 +952,26 @@ def _captions_for(ep: Episode, doc: dict, style_name: str = "podcast") -> tuple[
 
 
 def build(ep: Episode, name: str | None = None, preset: str = "master", policy=None, home=None, which: tuple[str, ...] = WHICH,
-          burn: bool = False, force: bool = False, pl: dict | None = None, style: str = "podcast", progress=None, record: bool = True) -> dict:
+          burn: bool = False, force: bool = False, pl: dict | None = None, style: str = "podcast", progress=None, record: bool = True,
+          *, output_dir: Path | None = None, policy_data: dict | None = None, cold_words: list | None = None) -> dict:
     """Render the opening / closing to <work>/sequence/<tag>/<which>.<preset>.mp4 (video+audio at the cut's spec) and record them in
     work/sequence.json. A sequence whose plan hash and preset are unchanged is reused unless `force`."""
     pl = pl or plan(ep, name, policy, home, write=True)
     if pl["errors"]:
         raise SequenceError("the sequence plan has errors; fix them first (ave sequence plan):\n  - " + "\n  - ".join(pl["errors"]))
-    pol = resolve_policy(ep, policy, home)
+    pol = _check_policy(copy.deepcopy(policy_data)) if policy_data is not None else resolve_policy(ep, policy, home)
     pr = presets.get(preset)
     if pr["kind"] != "video":
         raise SequenceError(f"preset {preset!r} is audio-only")
     bdoc = pl.get("_bdoc") or base_doc(ep, name)[1]
     ref = bdoc
-    fps, canvas = float(bdoc["fps"]), bdoc["canvas"]
+    fps, source_canvas = float(bdoc["fps"]), bdoc["canvas"]
+    W, H = comp._canvas_for(bdoc, pr)
+    canvas = {"w": W, "h": H}
     gain = None
-    d = seq_dir(ep, name)
+    d = output_dir if output_dir is not None else seq_dir(ep, name)
     d.mkdir(parents=True, exist_ok=True)
-    built: dict = dict(read_json(plan_path(ep, name)).get("built") or {}) if plan_path(ep, name).exists() else {}
+    built: dict = dict(read_json(plan_path(ep, name)).get("built") or {}) if output_dir is None and plan_path(ep, name).exists() else {}
     report: dict = {"preset": preset, "built": {}, "warnings": []}
     for w in which:
         sec = pl[w]
@@ -938,6 +982,7 @@ def build(ep: Episode, name: str | None = None, preset: str = "master", policy=N
         if gain is None:
             gain = body_gain_db(ep, bdoc, pr)
         if (prev and not force and prev.get("hash") == sec["hash"] and prev.get("preset") == preset and prev.get("burn") == burn
+                and (prev.get("w"), prev.get("h")) == (canvas["w"], canvas["h"])
                 and abs(prev.get("gain_db", 1e9) - gain) < 0.01 and out.exists()):
             report["built"][w] = {**prev, "reused": True}
             continue
@@ -952,7 +997,7 @@ def build(ep: Episode, name: str | None = None, preset: str = "master", policy=N
             if it["kind"] in ("title_card", "host_intro", "thanks", "cta", "end_card"):
                 cards[it["id"]] = render_card(ep, it, fps, canvas)
             elif it["kind"] == "credits":
-                cards[it["id"]], fr = render_credits(ep, it, fps, canvas)
+                cards[it["id"]], fr = render_credits(ep, it, fps, canvas, timing_canvas=source_canvas)
                 it["frames"], it["duration"] = fr, _secs(fr, fps)
         if w == "closing":
             _finalize_closing_times(pl, fps, canvas, credits_frames=next(i["frames"] for i in sec["items"] if i["kind"] == "credits")
@@ -966,9 +1011,14 @@ def build(ep: Episode, name: str | None = None, preset: str = "master", policy=N
         plate = make_plate(ep, canvas, fps, total_s, pol["plate"]["color"])
         silence = None if (rd["tracks"].get("room_tone") and pol["audio"]["room_tone"]) else make_silence(ep, total_s)
         doc = _compose(ep, w, pl, rd, cold, pol, cards, plate, silence, canvas, fps)
+        for music in doc['tracks']['music']:
+            if 'source_limit_s' in music and music['o1']-music['o0']>music['source_limit_s']+1e-6:
+                raise SequenceError(f"{w} music selection is shorter than the rendered sequence; choose a longer licensed range")
         cold_srt = None
         if w == "opening" and cold and any(i["kind"] == "cold_open" and i["captioned"] for i in sec["items"]):
-            cues, st = _captions_for(ep, doc, style)
+            if cold_words is None:cues, st = _captions_for(ep, doc, style)
+            else:
+                st=captions.get_style(style,ep=ep);cues=captions.cues_from_words(cold_words,st)
             if cues:
                 srt = captions.write_srt(cues, d / "opening.cold.srt")
                 doc["captions"] = {"srt": ep.rel(srt), "ass": None, "burn": False}
@@ -980,11 +1030,11 @@ def build(ep: Episode, name: str | None = None, preset: str = "master", policy=N
         if problems:
             raise SequenceError(f"internal: the {w} EditDoc is invalid:\n  - " + "\n  - ".join(problems))
         write_json(d / f"{w}.doc.json", doc)
-        rr = comp.render(ep, doc, out, preset={**pr, "fixed_gain_db": gain}, burn_captions=burn, overwrite=True)
+        rr = comp.render(ep, doc, out, preset={**pr, "fixed_gain_db": gain}, burn_captions=burn, overwrite=output_dir is None)
         info = {"file": ep.rel(out), "preset": preset, "burn": burn, "hash": sec["hash"], "duration": rr["duration"], "frames": sum(i["frames"] for i in sec["items"]),
-                "fps": rr["fps"], "w": canvas["w"], "h": canvas["h"], "lufs": rr["lufs"], "true_peak_db": rr["true_peak_db"], "gain_db": round(gain, 3),
+                "fps": rr["fps"], "w": canvas["w"], "h": canvas["h"], "source_canvas": source_canvas, "lufs": rr["lufs"], "true_peak_db": rr["true_peak_db"], "gain_db": round(gain, 3),
                 "items": [{"id": i["id"], "o0": i["o0"], "o1": i["o1"]} for i in sec["items"]], "warnings": rr["warnings"],
-                "cold_open_srt": cold_srt}
+                "cold_open_srt": cold_srt, **({"cold_cues":[{"start":c.start,"end":c.end,"text":c.text,"words":c.words} for c in cues]} if w=="opening" and cold_words is not None and cold_srt else {})}
         built[w] = info
         report["built"][w] = info
         report["warnings"] += [f"{w}: {x}" for x in rr["warnings"]]
@@ -1046,6 +1096,113 @@ def join_audio(parts: list[np.ndarray], fade_s: float) -> tuple[np.ndarray, list
                 th = (np.arange(h) + 0.5) / h * (np.pi / 2)
                 p[:h] *= np.sin(th)[:, None].astype("float32")
     return np.concatenate(parts), joins
+
+
+def join_audio_files(paths: list[Path], out: Path | str, *, fade_s: float) -> dict:
+    """Stream 48 kHz stereo float components with the same non-overlap joins.
+
+    Memory is bounded independently of programme length. The output is published
+    only after the exact sample count is written; an existing output is preserved.
+    """
+    import os,tempfile
+    from .publish.safety import sha256_file
+    if not paths:raise ValueError('Choose at least one audio part')
+    if not math.isfinite(fade_s) or not 0<=fade_s<=1:raise ValueError('Invalid join fade')
+    out=Path(out);out.parent.mkdir(parents=True,exist_ok=True)
+    if out.exists():raise FileExistsError('Joined audio output already exists')
+    infos=[sf.info(str(p)) for p in paths]
+    if any(i.samplerate!=SR or i.channels!=2 or i.frames<=0 for i in infos):raise ValueError('Audio parts must be nonempty 48 kHz stereo files')
+    h=round(fade_s*SR/2);joins=[];pos=0
+    with tempfile.NamedTemporaryFile(dir=out.parent,suffix='.wav',delete=False) as tmp:temporary=Path(tmp.name)
+    try:
+        with sf.SoundFile(temporary,mode='w',samplerate=SR,channels=2,subtype='FLOAT') as target:
+            for index,(path,info) in enumerate(zip(paths,infos)):
+                local=0
+                with sf.SoundFile(path) as source:
+                    while True:
+                        block=source.read(65536,dtype='float32',always_2d=True)
+                        if not len(block):break
+                        indices=np.arange(local,local+len(block))
+                        if h and info.frames>=h and index>0:
+                            mask=indices<h;theta=(indices[mask]+.5)/h*(np.pi/2);block[mask]*=np.sin(theta)[:,None].astype('float32')
+                        if h and info.frames>=h and index+1<len(paths):
+                            mask=indices>=info.frames-h;theta=(indices[mask]-(info.frames-h)+.5)/h*(np.pi/2);block[mask]*=np.cos(theta)[:,None].astype('float32')
+                        target.write(block);local+=len(block)
+                if local!=info.frames:raise SequenceError('Audio part changed during joining')
+                pos+=local
+                if index+1<len(paths):joins.append(pos)
+        if sf.info(str(temporary)).frames!=pos:raise SequenceError('Joined audio sample count changed')
+        try:publish_atomic(temporary,out)
+        except FileExistsError:raise FileExistsError('Joined audio output already exists') from None
+    finally:temporary.unlink(missing_ok=True)
+    return {'file':str(out),'sha256':sha256_file(out),'samples':pos,'sample_rate':SR,'joins_samples':joins}
+
+
+def excerpt_words(ep,doc,a,b,*,tag,index,corrections=()):
+    """Full source words for one distinct selected output occurrence."""
+    from .occurrences import mapped_words,apply_correction
+    from .captions import timing_adjustment_limit
+    mapped=mapped_words(ep,doc)
+    for correction in corrections:mapped=apply_correction(mapped,correction,timing_adjustment_limit(ep))
+    words=[];partial=[]
+    for word in mapped:
+        if word['end']<=a or word['start']>=b:continue
+        if word.get('partial_source_word') or word['start']<a-1e-8 or word['end']>b+1e-8:
+            partial.append({'word':word['w'],'start':word['start'],'end':word['end'],'occurrence_id':word.get('occurrence_id'),'selected_range':[a,b]});continue
+        words.append({**word,'rough_start':word['start'],'component_tag':tag,'component_index':index,'start':word['start']-a,'end':word['end']-a})
+    return words,partial
+
+
+def build_audio_components(ep: Episode, components: list[dict], out: Path | str, *, fade_s: float) -> dict:
+    """Compile selected real audio excerpts/recordings into a sample-exact WAV.
+
+    This is a mechanical primitive; callers selecting third-party recordings must
+    enforce their own existing license and attestation gates before invoking it.
+    Metadata (show names and titles) never becomes invented speech.
+    """
+    import tempfile
+    from .publish.safety import sha256_file
+    if not components:raise ValueError('An enabled audio sequence needs a real audio component')
+    if not 0 <= fade_s <= 1:raise ValueError('Invalid join fade')
+    out=Path(out)
+    if out.exists():raise FileExistsError('Sequence output already exists')
+    out.parent.mkdir(parents=True,exist_ok=True)
+    parts=[];items=[];warnings=[];position=0;words=[];partial_words=[]
+    with tempfile.TemporaryDirectory(dir=out.parent) as temporary:
+        for index,item in enumerate(components):
+            kind=item.get('kind')
+            if kind=='excerpt':
+                doc=item['doc'];a=float(item['o0']);b=float(item['o1'])
+                if editdoc.effective_mode(doc)!='audio':raise ValueError('Audio sequence excerpt requires an audio edit')
+                sliced=editdoc.slice_doc(doc,a,b,stage='select')
+                wav=Path(temporary)/f'part-{index}.wav';comp.compile_audio(ep,sliced,wav,warnings=warnings)
+                samples,sr=sf.read(wav,dtype='float32',always_2d=True)
+                if sr!=SR or len(samples)!=round((b-a)*SR):raise SequenceError('Excerpt sample count differs from selected range')
+                identity={'kind':kind,'output_range':[a,b]}
+                try:
+                    selected,partial=excerpt_words(ep,doc,a,b,tag=item.get('tag'),index=index,corrections=item.get('corrections',[]))
+                    partial_words.extend(partial)
+                    for word in selected:words.append({**word,'start':word['start']+position/SR,'end':word['end']+position/SR})
+                except FileNotFoundError:
+                    warnings.append('Excerpt transcript unavailable; captions need review')
+            elif kind=='recording':
+                start=float(item['start']);duration=float(item['duration'])
+                if not math.isfinite(start) or not math.isfinite(duration) or start<0 or duration<=0:raise ValueError('Invalid audio component range')
+                path=comp._path(ep,item['file']);info=ffutil.probe(path)
+                if not info['has_audio'] or start+duration>(info.get('audio_duration') or info.get('duration') or 0)+1e-6:raise ValueError('Audio component range exceeds its recording')
+                reader=comp._Reader(path,warnings,'sequence recording')
+                samples=reader.read(round(start*SR),round(duration*SR))
+                identity={'kind':kind,'file':item['file'],'sha256':sha256_file(path),'start':start,'duration':duration}
+                warnings.append('Selected recording has no bound transcript; inspect it for spoken captions')
+            else:raise ValueError('Unknown audio sequence component')
+            if not len(samples):raise ValueError('Audio sequence component is empty')
+            parts.append(samples);items.append({**identity,'output_start_sample':position,'samples':len(samples)})
+            position+=len(samples)
+        joined,joins=join_audio(parts,fade_s)
+        partial=Path(temporary)/'joined.wav';sf.write(partial,joined,SR,subtype='FLOAT')
+        partial.replace(out)
+    if partial_words:warnings.append('Excerpt boundaries cut through transcript words; listen and adjust the range before review')
+    return {'file':str(out),'sha256':sha256_file(out),'sample_rate':SR,'samples':len(joined),'joins_samples':joins,'components':items,'words':words,'partial_words':partial_words,'warnings':warnings}
 
 
 def srt_shift(src: Path | str, offset_s: float, out: Path | str) -> Path:
@@ -1124,21 +1281,25 @@ def assemble(ep: Episode, body: Path | str, opening: Path | str | None, closing:
         parts = []
         for k, f in files:
             n = int(round(frames[k] / float(fps) * SR))
-            parts.append(_decode_wav(f, wd / f"{k}.wav", n))
+            decoded=wd/f'{k}.wav'
+            ffutil.run(['-y','-i',str(f),'-vn','-ar',str(SR),'-ac','2','-af',f'apad=whole_len={n},atrim=end_sample={n}','-c:a','pcm_f32le',str(decoded)])
+            if sf.info(str(decoded)).frames!=n:raise SequenceError(f'{k} decoded sample count differs from its frames')
+            parts.append(decoded)
         names = [k for k, _ in files]
         bi = names.index("body")
         if fade_s > 0:           # would the fade soften speech at the body's edges?
             h = int(round(fade_s / 2 * SR))
-            for side, seg in (("start", parts[bi][:h]), ("end", parts[bi][-h:])):
+            with sf.SoundFile(parts[bi]) as body_audio:
+                first=body_audio.read(h,dtype='float32',always_2d=True)
+                body_audio.seek(max(0,len(body_audio)-h));last=body_audio.read(h,dtype='float32',always_2d=True)
+            for side, seg in (("start", first), ("end", last)):
                 if (side == "start" and bi > 0) or (side == "end" and bi < len(parts) - 1):
                     rms = 20 * math.log10(float(np.sqrt((seg ** 2).mean())) + 1e-9)
                     if rms > TAIL_PROBE_DB:
                         warnings.append(f"the body {side}s with sound ({rms:.0f} dBFS in the first/last {fade_s / 2 * 1000:.0f} ms): the join fade will soften it; "
                                         "leave a little room at the cut's edge (ave trim) or lower sequences audio.join_fade_s")
-        audio, joins = join_audio(parts, fade_s)
         master = wd / "master.wav"
-        sf.write(str(master), audio, SR, subtype="FLOAT")
-        n_samples = len(audio)
+        joined=join_audio_files(parts,master,fade_s=fade_s);joins=joined['joins_samples'];n_samples=joined['samples']
         limit_db = -2.0
         partial = out.with_name(out.stem + ".partial" + out.suffix)
         for _ in range(3):

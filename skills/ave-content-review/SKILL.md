@@ -37,7 +37,7 @@ Queued image items show their files and alt texts at approval. STOP and tell the
 ! ave publish approve <ep> <id>          # they type the first 8 chars of the sha256 they reviewed; covers EVERY file and the alt text
 ```
 A carousel's hash covers every slide in order: changing, adding, removing or reordering a slide voids the approval. Then
-`ave publish run <ep> <id>` is a dry run; only with the human's word, `--yes`. Never set `AVE_ALLOW_UNATTENDED_APPROVAL`. Never post,
+`ave publish run <ep> <id>` is a dry run; only with the human's word, `--yes`. There is no unattended-approval switch; do not look for one. Never post,
 spend money, or call Canva without explicit approval in this session. See `skills/ave-publish`.
 
 ## Failure modes

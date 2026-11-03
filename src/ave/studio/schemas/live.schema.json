@@ -1,0 +1,14 @@
+{
+  "$comment": "Spec 2.5: accounts/<id>.live.json. sig = HMAC(approval_key, 'live|<account>|<by>|<at>|on/off|<seq>|<cfg>'); verification is WS2 (platforms/attest.py).",
+  "type": "object",
+  "required": ["account", "live", "by", "at", "seq", "cfg", "sig"],
+  "properties": {
+    "account": {"type": "string"},
+    "live": {"type": "boolean"},
+    "by": {"type": "string", "minLength": 1},
+    "at": {"type": "string"},
+    "seq": {"type": "integer", "minimum": 1},
+    "cfg": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "sig": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

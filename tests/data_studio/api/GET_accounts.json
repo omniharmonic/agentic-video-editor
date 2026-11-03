@@ -1,0 +1,61 @@
+{
+  "method": "GET",
+  "path": "/api/studio/accounts",
+  "status": 200,
+  "response": {
+    "accounts": [
+      {
+        "id": "ig-main",
+        "platform": "instagram",
+        "mode": "graph",
+        "label": "@acmebakery",
+        "tz": "America/Denver",
+        "post_types": [
+          "feed",
+          "carousel",
+          "story",
+          "reel"
+        ],
+        "live": false,
+        "paused": false,
+        "credentials": {
+          "ready": false,
+          "missing": [
+            "instagram_token@ig-main"
+          ]
+        },
+        "quota": {
+          "used_24h": 0,
+          "limit_24h": 2
+        },
+        "last_tick": null,
+        "token_expires": null
+      },
+      {
+        "id": "fb-page",
+        "platform": "facebook",
+        "mode": "graph",
+        "label": "Acme Bakery",
+        "tz": "America/Denver",
+        "post_types": [
+          "feed",
+          "video"
+        ],
+        "live": false,
+        "paused": false,
+        "credentials": {
+          "ready": false,
+          "missing": [
+            "facebook_token@fb-page"
+          ]
+        },
+        "quota": {
+          "used_24h": 0,
+          "limit_24h": 2
+        },
+        "last_tick": null,
+        "token_expires": null
+      }
+    ]
+  }
+}

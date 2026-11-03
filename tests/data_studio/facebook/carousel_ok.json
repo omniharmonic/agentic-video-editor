@@ -1,0 +1,20 @@
+[
+  {
+    "method": "POST",
+    "url": "/100000000000001/photos",
+    "early": true,
+    "response": {
+      "id": "1001"
+    },
+    "_source": "documentation-derived, UNVERIFIED live: https://developers.facebook.com/docs/graph-api/reference/page/photos/"
+  },
+  {
+    "method": "POST",
+    "url": "/100000000000001/feed",
+    "final": true,
+    "response": {
+      "id": "100000000000001_1002"
+    },
+    "_source": "documentation-derived, UNVERIFIED live: https://developers.facebook.com/docs/graph-api/reference/page/photos/"
+  }
+]

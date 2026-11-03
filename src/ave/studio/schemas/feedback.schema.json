@@ -1,0 +1,45 @@
+{
+  "$comment": "Spec 2.7: a line of ledger/feedback.jsonl. Three shapes, told apart by `op`: feedback | claim | resolve.",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["v", "op", "id", "ts", "post", "kind", "by"],
+      "properties": {
+        "v": {"const": 1},
+        "op": {"const": "feedback"},
+        "id": {"type": "string", "pattern": "^fb_\\d{4,}$"},
+        "ts": {"type": "string"},
+        "post": {"type": "string"},
+        "variant": {"type": ["string", "null"]},
+        "rev": {"type": ["integer", "null"]},
+        "asset": {"type": ["string", "null"]},
+        "kind": {"enum": ["rework_copy", "rework_visual", "drop", "retime", "human_edit", "note"]},
+        "note": {"type": ["string", "null"]},
+        "structured": {
+          "type": ["object", "null"],
+          "properties": {
+            "copy": {"type": "object", "required": ["field"], "properties": {"field": {"type": "string"}}},
+            "visual": {"type": "object", "properties": {"problem": {"enum": ["too_busy", "off_brand", "wrong_crop", "low_res", "license", "other"]}}},
+            "retime": {"type": "object"},
+            "drop": {"type": "object", "properties": {"reason": {"enum": ["off message", "duplicate", "timing", "other"]}}}
+          }
+        },
+        "by": {"type": "string"},
+        "source": {"enum": ["ui", "cli"]}
+      }
+    },
+    {
+      "type": "object",
+      "required": ["op", "fb", "by", "ts"],
+      "properties": {"op": {"const": "claim"}, "fb": {"type": "string"}, "by": {"type": "string"}, "ts": {"type": "string"}}
+    },
+    {
+      "type": "object",
+      "required": ["op", "fb", "by", "ts"],
+      "properties": {
+        "op": {"const": "resolve"}, "fb": {"type": "string"}, "by": {"type": "string"}, "ts": {"type": "string"},
+        "rev": {"type": ["integer", "null"]}, "note": {"type": ["string", "null"]}
+      }
+    }
+  ]
+}

@@ -162,7 +162,7 @@ def register(sub) -> None:
 
     s = cs.add_parser("review", help="static review page with thumbnails -> exports/review/index.html")
     s.add_argument("episode")
-    s.add_argument("--drafts", action="store_true", help="also render proxy drafts via ave.compile (if available)")
+    s.add_argument("--drafts", action="store_true", help="also render proxy drafts via ave.compile")
     s.add_argument("--out", help="output folder (default: <episode>/exports/review, or exports/review/<name>)")
     name(s)
     s.set_defaults(fn=cmd_review)

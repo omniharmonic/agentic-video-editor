@@ -13,6 +13,7 @@ Everything else asks this module (usually through `config.REPO_ROOT`, kept as th
 from __future__ import annotations
 
 import os
+import sys
 from functools import lru_cache
 from pathlib import Path
 
@@ -75,4 +76,6 @@ def config_file(name: str) -> Path:
 def user_data_dir() -> Path:
     """Where downloaded third-party tools (vendor/) live when ave is installed rather than checked out."""
     base = os.environ.get("XDG_DATA_HOME")
+    if not base and getattr(sys, "frozen", False):
+        return Path.home() / "Library/Application Support/AVE Studio"
     return (Path(base) if base else Path.home() / ".local/share") / "ave"

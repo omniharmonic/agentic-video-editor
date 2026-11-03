@@ -316,6 +316,7 @@ class Envelope:
     def __init__(self, samples: np.ndarray, sr: int, offset: float, hop_ms: float = 5, frame_ms: float = 10, drift: float = 0.0,
                  sync_map: list | None = None):
         self.x, self.sr, self.offset = samples.astype(np.float64), sr, float(offset)
+        self.path = None;self.sample_count=len(self.x)
         self.k_clock = 1.0 + float(drift)       # file seconds advance 1/k_clock per episode second (editdoc.src_time)
         self.clock = {"start_offset": float(offset), "drift_ppm": float(drift) * 1e6, "sync_map": sync_map}
         hop = max(1, int(sr * hop_ms / 1000))
@@ -333,8 +334,23 @@ class Envelope:
     def from_wav(cls, path: Path, offset: float, hop_ms: float = 5, frame_ms: float = 10, drift: float = 0.0,
                  sync_map: list | None = None) -> "Envelope":
         import soundfile as sf
-        x, sr = sf.read(str(path), dtype="float32", always_2d=True)
-        return cls(x[:, 0], sr, offset, hop_ms, frame_ms, drift, sync_map)
+        obj=cls.__new__(cls);obj.path=Path(path);obj.x=None;obj.offset=float(offset)
+        with sf.SoundFile(str(path)) as source:
+            obj.sr=source.samplerate;obj.sample_count=len(source)
+            hop=max(1,int(obj.sr*hop_ms/1000));win=max(2,int(obj.sr*frame_ms/1000));obj.hop_s=hop/obj.sr
+            total=obj.sample_count//hop+1;obj.db=np.empty(total,dtype=np.float64)
+            # Each block includes the analysis window's overlap. Only the
+            # compact envelope is retained, even for a full recording day.
+            for begin in range(0,total,20000):
+                end=min(total,begin+20000);centers=np.arange(begin,end,dtype=np.int64)*hop
+                lo=np.maximum(centers-win//2,0);hi=np.minimum(centers+win//2,obj.sample_count)
+                first=int(lo[0]);last=int(hi[-1]);source.seek(first)
+                block=source.read(last-first,dtype='float32',always_2d=True)[:,0].astype(np.float64)
+                sq=np.concatenate([[0.0],np.cumsum(block**2)]);rms=np.sqrt((sq[hi-first]-sq[lo-first])/np.maximum(hi-lo,1))
+                obj.db[begin:end]=20*np.log10(rms+1e-9)
+        obj.k_clock=1.0+float(drift);obj.clock={'start_offset':float(offset),'drift_ppm':float(drift)*1e6,'sync_map':sync_map}
+        obj.speech_db=float(np.percentile(obj.db,90));obj.floor_db=float(np.percentile(obj.db,10))
+        return obj
 
     def _file_t(self, e):
         return editdoc.src_time(self.clock, e)
@@ -383,16 +399,21 @@ class Envelope:
         c = int(round(self._file_t(e) * self.sr))
         r = int(radius_s * self.sr)
         a = max(c - r, int(np.ceil(self._file_t(lo) * self.sr)), 0)
-        b = min(c + r, int(np.floor(self._file_t(hi) * self.sr)), len(self.x) - 2)
+        b = min(c + r, int(np.floor(self._file_t(hi) * self.sr)), self.sample_count - 2)
         if b <= a:
             return e
-        s = np.sign(self.x[a:b + 1])
+        if self.path is None:values=self.x[a:b+1]
+        else:
+            import soundfile as sf
+            with sf.SoundFile(str(self.path)) as source:
+                source.seek(a);values=source.read(b-a+1,dtype='float32',always_2d=True)[:,0]
+        s = np.sign(values)
         s[s == 0] = 1.0
         cross = np.nonzero(s[:-1] != s[1:])[0] + a
         if not len(cross):
             return e
         k = int(cross[np.argmin(np.abs(cross - c))])
-        k += int(abs(self.x[k + 1]) < abs(self.x[k]))     # the sample closer to zero
+        k += int(abs(values[k+1-a]) < abs(values[k-a]))     # the sample closer to zero
         return min(max(self._episode_t(k / self.sr), lo), hi)
 
 
@@ -785,7 +806,10 @@ class _Masker:
         end_limit = min(plan[e]["o1"], nxt)
         x = end_limit - t
         why_not = []
-        if hold_before >= m["min_hold_s"] - 1e-9:
+        def cutaway():
+            if hold_before < m["min_hold_s"] - 1e-9:
+                why_not.append(f"shot only on screen {hold_before:.2f}s < min_hold_s {m['min_hold_s']}: no cutaway")
+                return None
             e_start = k["e1"]
             for kind, enabled, cams in (("cutaway", m["cutaway_other_camera"], self._others(left["src"], wide=False)),
                                         ("wide_cutaway", m["cutaway_wide"], self._others(left["src"], wide=True))):
@@ -802,8 +826,16 @@ class _Masker:
                     self.last_cutaway[cam] = t
                     return {"type": kind, "camera": cam, "o0": round(t, 6), "o1": round(t + opt, 6),
                             "reason": f"{cam} covers this moment; cut away for {opt:.2f}s then return (hold before {hold_before:.2f}s >= min_hold_s {m['min_hold_s']})"}
+            return None
+
+        since = t - max(self.last_cutaway.values(), default=-1e9)
+        spaced = since >= m.get("min_cutaway_gap_s", 0)
+        if spaced:
+            done = cutaway()
+            if done:
+                return done
         else:
-            why_not.append(f"shot only on screen {hold_before:.2f}s < min_hold_s {m['min_hold_s']}: no cutaway")
+            why_not.append(f"last cutaway {since:.1f}s ago (min_cutaway_gap_s {m['min_cutaway_gap_s']})")
         if m["punch_in"]:
             base = right.get("base_zoom", 1.0)
             going_in = left["zoom"] < base + m["min_zoom_delta"] / 2
@@ -821,6 +853,10 @@ class _Masker:
                                         reason=f"{right['reason']}; reframed {z:.2f}x masks cut {k['id']}")
                 return {"type": "punch_in", "zoom": z, "o0": round(t, 6), "o1": round(plan[e]["o1"], 6),
                         "reason": f"no usable cutaway ({'; '.join(why_not)}): reframe to {z:.2f}x on the segment after the cut"}
+        if not spaced:
+            done = cutaway()                                 # a closer cutaway beats a visible jump
+            if done:
+                return done
         return {"type": "none", "reason": f"no mask available ({'; '.join(why_not)}): audio crossfade only, needs review"}
 
     def _others(self, cur: str, wide: bool) -> list[str]:
@@ -932,15 +968,25 @@ def _emit_dialogue(dialogue: list[dict], tm: TimeMap, cuts: list[dict]) -> list[
 
 def build_rough(assembly: dict, cuts: list[dict], cov: dict, pol: dict, note: str) -> tuple[dict, TimeMap]:
     """Assembly EditDoc + finished cuts -> rough EditDoc (stage 'rough'), with masks applied to the video track."""
+    editdoc.require_monotonic(assembly, "Podcast cleanup")
     tr = assembly["tracks"]
     tm = TimeMap(keeps_from(tr["dialogue"], cuts))
     doc = editdoc.clone(assembly)
     doc["stage"] = "rough"
     doc["duration"] = round(tm.duration, 6)
-    plan = _video_plan(tr["video"], tm)
-    masker = _Masker(plan, tm, cuts, assembly, cov, pol)
-    masker.run()
-    doc["tracks"]["video"] = _emit_video(masker.plan, tm)
+    if editdoc.effective_mode(assembly) == "audio":
+        # An audio seam has no picture to mask it. Keep the real crossfade and
+        # ask for listening rather than inventing a camera or visual mask.
+        for k in cuts:
+            k["t_out"] = round(tm.to_output_snap(k["e0"]), 6)
+            k["mask"] = {"type": "audio_crossfade", "reason": "Audio-only splice; listen to the seam"}
+            k["review"] = True
+        doc["tracks"]["video"] = []
+    else:
+        plan = _video_plan(tr["video"], tm)
+        masker = _Masker(plan, tm, cuts, assembly, cov, pol)
+        masker.run()
+        doc["tracks"]["video"] = _emit_video(masker.plan, tm)
     doc["tracks"]["dialogue"] = _emit_dialogue(tr["dialogue"], tm, cuts)
     for name in ("music", "overlays"):        # same episode clock as the assembly: re-time through the cuts
         kept = []
@@ -1299,16 +1345,30 @@ def auto_room_tone(ep: Episode, doc: dict, pol: dict) -> tuple[dict | None, str 
     if not wav.exists():
         return None, None
     import soundfile as sf
-    x, sr = sf.read(str(wav), dtype="float32", always_2d=True)
-    x = x[:, 0]
-    dur = len(x) / sr
+    info=sf.info(str(wav));sr=info.samplerate;dur=info.frames/sr
     # stay near the span this edit uses (its dialogue extent), so a long recorder file does not borrow another session's silence
     es = [(s["e0"], s["e0"] + (s["o1"] - s["o0"])) for s in doc["tracks"]["dialogue"] if s["src"] == seg["src"] and not s.get("fill")]
     lo = max(0.0, editdoc.src_time(src, min(a for a, _ in es)) - 30.0) if es else 0.0
     hi = min(dur, editdoc.src_time(src, max(b for _, b in es)) + 30.0) if es else dur
-    hit = pick_room_tone(x, sr, lo, hi, rt)
+    def scan(start,end):
+        # Overlap blocks by the largest candidate and margins so a room-tone
+        # window straddling a block edge is still considered.
+        block_s=max(60.0,rt['max_s']+2*rt['margin_s']+1);overlap=rt['max_s']+2*rt['margin_s'];stride=block_s-overlap
+        best=None;position=start
+        with sf.SoundFile(str(wav)) as source:
+            while position<end:
+                stop=min(end,position+block_s);first=round(position*sr);last=min(info.frames,round(stop*sr));source.seek(first)
+                x=source.read(last-first,dtype='float32',always_2d=True)[:,0]
+                candidate=pick_room_tone(x,sr,0,len(x)/sr,rt)
+                if candidate:
+                    candidate['f0']+=first/sr;candidate['f1']+=first/sr
+                    if best is None or candidate['rms_db']<best['rms_db']:best=candidate
+                if stop>=end:break
+                position+=stride
+        return best
+    hit = scan(lo,hi)
     if hit is None and (lo > 0 or hi < dur):
-        hit = pick_room_tone(x, sr, 0.0, dur, rt)
+        hit = scan(0.0,dur)
     if hit is None:
         return None, (f"no room tone: found no steady quiet stretch of {rt['min_s']:g} s in {src['file']}; selects built from this cut will "
                       "butt-join (set tracks.room_tone by hand to get gaps)")
@@ -1316,16 +1376,27 @@ def auto_room_tone(ep: Episode, doc: dict, pol: dict) -> tuple[dict | None, str 
     return {"src": seg["src"], "e0": round(e0, 3), "e1": round(e1, 3), "rms_db": hit["rms_db"], "auto": True}, None
 
 
-def analyze(ep: Episode, assembly: dict, pol: dict, pacing: bool = True) -> dict:
+def analyze(ep: Episode, assembly: dict, pol: dict, pacing: bool = True, overrides: dict | None = None,
+            restore_cuts: list[str] | None = None) -> dict:
     """Everything except writing: detection -> cuts -> masked rough doc -> pacing. Pure with respect to the episode folder."""
     transcript = read_json(ep.artifact("transcript.json"))
     words = prepare_words(transcript)
     if assembly.get("excluded"):        # a per-session assembly: other sessions' and uncovered speech is not this edit's to judge
         words = restrict_words(words, [(s["ea"], s["eb"]) for s in _intervals(assembly["tracks"]["dialogue"])])
     warnings: list[str] = []
-    cands = apply_overrides(detect_candidates(words, pol), words, load_overrides(ep), warnings)
+    cands = apply_overrides(detect_candidates(words, pol), words, load_overrides(ep) if overrides is None else overrides, warnings)
     env = _env_for(ep, assembly, pol)
     cuts, decisions, w2 = build_cuts(words, cands, env, pol)
+    detected_cuts = copy.deepcopy(cuts)
+    restored = set(restore_cuts or [])
+    if restored - {k['id'] for k in cuts}:
+        raise ValueError('Restore choices no longer match this analysis; review the current cuts')
+    if restored:
+        for decision in decisions:
+            if decision.get('cut') in restored:
+                decision.update(action='keep', cut=None, review=False,
+                                reason='Restored by creator; previous analysis: ' + decision['reason'])
+        cuts = [cut for cut in cuts if cut['id'] not in restored]
     warnings += w2
     cov = _coverage(ep, assembly, warnings)
     doc, tm = build_rough(assembly, cuts, cov, pol, "cleanup of the assembly cut; every decision is in work/cleanup.json")
@@ -1352,7 +1423,7 @@ def analyze(ep: Episode, assembly: dict, pol: dict, pacing: bool = True) -> dict
             warnings.append(rwarn)
     pace_pol = pol if pacing else {**pol, "pacing": {**pol["pacing"], "enabled": False}}
     doc["tracks"]["video"], pace = apply_pacing(doc["tracks"]["video"], words, tm, doc["sources"], cov, pace_pol, _camera_speakers(assembly))
-    pace["enabled"] = bool(pacing and pol["pacing"]["enabled"])
+    pace["enabled"] = bool(doc["tracks"]["video"] and pacing and pol["pacing"]["enabled"])
     warnings += _long_holds(doc["tracks"]["video"], pol, pace["enabled"])
     dwell, zdelta, zmax = zoomstate.policy_limits(pol)
     zoom = zoomstate.validate(doc["tracks"]["video"], dwell, zdelta, zmax)
@@ -1361,8 +1432,55 @@ def analyze(ep: Episode, assembly: dict, pol: dict, pacing: bool = True) -> dict
     warnings += cutcheck["warnings"]
     for k in cuts:
         k.pop("_region", None)
-    return {"words": words, "decisions": decisions, "cuts": cuts, "doc": doc, "timemap": tm, "warnings": warnings, "pacing": pace,
+    return {"words": words, "decisions": decisions, "cuts": cuts, "detected_cuts": detected_cuts, "doc": doc, "timemap": tm, "warnings": warnings, "pacing": pace,
             "zoom": zoom, "cutcheck": cutcheck}
+
+
+def analyze_occurrences(ep: Episode, doc: dict, analysis_wav: Path, pol: dict, *, restore_cuts: list[str] | None = None, progress=None) -> dict:
+    """Analyze a shared Media programme in output time, retaining occurrences.
+
+    `analysis_wav` is a new scratch destination; this function compiles the
+    exact selected doc into it. The caller owns source/license verification.
+    No independent-project marker or dependent track is stripped.
+    """
+    import soundfile as sf
+    from .occurrences import mapped_words
+    from .studio.video_workshop import recut_output
+    if not doc.get('independent_project') and not doc.get('combined_constituents'):raise ValueError('Occurrence analysis requires a shared Media or combined episode programme')
+    if Path(analysis_wav).exists():raise FileExistsError('Analysis destination already exists; choose a fresh scratch file')
+    from .compile import compile_audio
+    from .publish.safety import sha256_file
+    if progress:progress('Preparing programme audio for cleanup')
+    compile_audio(ep,doc,analysis_wav)
+    info=sf.info(analysis_wav)
+    if info.samplerate!=48000 or abs(info.frames/48000-doc['duration'])>1/48000:raise ValueError('Analysis mix does not match the exact programme duration')
+    if doc.get('combined_constituents'):
+        from .captions import map_words_to_output
+        transcript=read_json(ep.artifact('transcript.json'));sha=sha256_file(ep.artifact('transcript.json'));source_sha=doc.get('native_source_hashes',{}).get(transcript.get('source'),sha)
+        mapped=map_words_to_output(transcript['words'],doc,identities={'transcript_sha256':sha,'source_sha256':source_sha})
+    else:mapped=mapped_words(ep,doc)
+    if progress:progress('Analyzing pauses and edit seams')
+    words=prepare_words({'words':mapped});env=Envelope.from_wav(analysis_wav,0,pol['snap']['hop_ms'],pol['snap']['frame_ms'])
+    candidates=detect_candidates(words,pol);cuts,decisions,warnings=build_cuts(words,candidates,env,pol)
+    detected=copy.deepcopy(cuts);restored=set(restore_cuts or [])
+    if restored-{c['id'] for c in cuts}:raise ValueError('Restore choices do not match the exact occurrence analysis')
+    for decision in decisions:
+        if decision.get('cut') in restored:decision.update(action='keep',cut=None,review=False,reason='Restored by creator; previous analysis: '+decision['reason'])
+        hit=[w for w in mapped if w['start']<decision['e1'] and w['end']>decision['e0']]
+        decision['occurrences']=[{'occurrence_id':w.get('occurrence_id'),'word_id':w.get('word_id'),'transcript_sha256':w.get('transcript_sha256')} for w in hit]
+    chosen=[c for c in cuts if c['id'] not in restored]
+    out=recut_output(doc,[{'id':c['id'],'o0':c['e0'],'o1':c['e1'],'xfade_ms':c['xfade_ms']} for c in chosen])
+    for cut in chosen:
+        cut.pop('_region',None);cut['review']=True
+        cut['mask']={'type':'audio_crossfade' if editdoc.effective_mode(doc)=='audio' else 'visual_seam',
+                     'reason':'Listen to this seam' if editdoc.effective_mode(doc)=='audio' else 'Inspect this picture and audio seam'}
+        for decision in decisions:
+            if decision.get('cut')==cut['id']:decision['mask']=cut['mask'];decision['review']=True
+    for cut in detected:cut.pop('_region',None)
+    warnings.append('Occurrence cleanup uses output time; inspect every picture/audio seam before review')
+    if any(o.get('kind')=='broll' and o.get('credit_id') for o in doc['tracks'].get('overlays',[])):warnings.append('B-roll credits follow retained picture pieces; inspect each attribution for readability')
+    return {'doc':out,'analysis_sha256':sha256_file(analysis_wav),'words':mapped,'decisions':decisions,'cuts':chosen,'detected_cuts':detected,'warnings':warnings,
+            'totals':totals(decisions,chosen,doc['duration'],out['duration']),'pacing':{'enabled':False},'cutcheck':None}
 
 
 def check_doc(ep: Episode, doc: dict, pol: dict | None = None) -> dict:
