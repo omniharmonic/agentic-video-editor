@@ -1,6 +1,6 @@
 ---
 name: ave-cleanup
-description: Turn the assembly cut into a rough cut by removing dead air, filler words (um/uh), repeated words and false starts, with every splice hidden by a camera switch, cutaway or punch-in. Use after the human has approved the assembly edit and before captions, music or the final cut, or when the user says "clean it up", "tighten", "remove ums", or "cut the dead air".
+description: Turn the assembly cut into a rough cut by removing dead air, filler words (um/uh), repeated words and false starts, with every splice hidden by a camera switch, cutaway or punch-in. Use after the assembly edit and before captions, music or the final cut, or when the user says "clean it up", "tighten", "remove ums", or "cut the dead air".
 ---
 
 # Cleanup: assembly -> rough cut
@@ -98,9 +98,10 @@ Judge it from the `Pacing:` line and `pacing` in `work/cleanup.json` (do not jus
 
 Every rough cut gets `tracks.room_tone` automatically: the quietest steady 2-4 s stretch of the dialogue source's analysis audio (the L+R sum for a speaker-per-channel master, the live channel for a dead-channel file), searched near the span the edit uses; speech, transients and silent recorder pads are rejected. It is written as `{"src","e0","e1","rms_db","auto":true}` in episode time. Policy keys: `room_tone:` in `config/cleanup.default.yaml` (`enabled`, `min_s`, `max_s`, `steady_db`, `min_floor_db`, `margin_s`). A cleanup warning "no room tone" means no suitable stretch exists; set `tracks.room_tone` by hand and `ave clips build --force` will then give gaps. When the compiler renders a `fill: room_tone` gap it matches the fill to the noise floor measured on both sides, so there is no level jump. Check one gap by ear.
 
-## 4. Checkpoint
+## 4. Review (choices flagged, not pre-approved)
 
-Stop here. Summarize for the human: duration before/after, counts (fillers, repeats, false starts, pauses), the masks used, the pacing numbers (reactions inserted, holds before -> after, cuts per minute), every
+The rough cut is reviewed with your choices flagged, not approved before you make it (AGENTS.md rule 5): record each option you
+chose alone with `decision_record` (pacing on or off, a policy you tuned). Then summarize for the director: duration before/after, counts (fillers, repeats, false starts, pauses), the masks used, the pacing numbers (reactions inserted, holds before -> after, cuts per minute), every
 `needs_review` item with its timestamp, and any `warnings` (including `long hold` and any `STILL OVER THE LIMIT` pacing rows). Do not start captions, music or the final cut until
 they approve the rough cut (`ave status` shows it as waiting). Rendering a preview needs `ave render` (a separate stage).
 

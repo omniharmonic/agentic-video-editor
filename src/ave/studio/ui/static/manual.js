@@ -1,5 +1,6 @@
 // Exact-file delivery and protected human reconciliation share the queue's review.
-import { h } from './panels.js';
+import { h } from '/app/shared/panels.js';
+import { buildPackage, newRequestId, packageHistory, packageState, publicationRequest } from '/app/shared/plan.js';
 
 export function openManualExport(ctx, post, variant = null) {
   const channel=variant?.platform?.replaceAll('_',' ') || 'your channel';
@@ -23,19 +24,18 @@ export function openManualExport(ctx, post, variant = null) {
       !native?h('p.manual-hint','Protected recording requires the native desktop connection. This browser can prepare and download packages; publication recording becomes available when that connection is installed.'):null,
       h('label','Published URL',url),h('label','Publication time',time),h('label','Reported by',actor),h('label','Alternate link explanation',mismatch),h('label','Changes made in the platform app',changed),
       submit,h('button',{type:'button',onclick:()=>target.replaceChildren()},'Cancel'),message);
-    const requestId=crypto.randomUUID().replaceAll('-','');
+    const requestId=newRequestId();
     form.addEventListener('submit',async e=>{e.preventDefault();if(!native)return;submit.disabled=true;try{
-      const result=await native({post_id:post.id,variant_id:pack.variant,package_id:pack.package_id,reviewed_payload_hash:pack.reviewed_payload_hash,
-        posted_url:url.value,posted_at:new Date(time.value).toISOString(),expected_rev:post.rev,request_id:requestId,by:actor.value,changed_in_native:changed.value,url_mismatch_explanation:mismatch.value});
+      const result=await native(publicationRequest({post,pack,url:url.value,at:time.value,by:actor.value,changed:changed.value,mismatch:mismatch.value,requestId}));
       status.replaceChildren(h('p.manual-success',`Published · reported by ${result.by}. The package history below preserves the exact files and your report.`));
       await loadHistory();
     }catch(error){message.textContent=error.message;submit.disabled=false;}});
     target.append(form);url.focus();
   }
   function packageCard(pack, result=null){
-    const media=pack.media||[],form=h('div'),publication=pack.publication||(variant?.result?.package_id===pack.package_id?variant.result:null),published=publication?.state==='published';
+    const media=pack.media||[],form=h('div'),{publication,published,label}=packageState(pack,variant);
     const zip=result?.zip_url || pack.zip_url;
-    return h('article.manual-package',h('div.manual-package-head',h('strong',published?'Published · human reported':pack.reviewed?'Exported · ready to post':'Exported · unreviewed draft'),h('span.st-hint',new Date(pack.created).toLocaleString())),
+    return h('article.manual-package',h('div.manual-package-head',h('strong',label),h('span.st-hint',new Date(pack.created).toLocaleString())),
       h('p',`${media.length} original ${media.length===1?'file':'files'} · revision ${pack.rev} · ${pack.account||channel}`),
       h('a.btn.primary',{href:zip,download:`${pack.package_id}.zip`},'Download full-resolution package'),
       globalThis.aveNative?h('div.manual-actions',h('button',{type:'button',onclick:()=>globalThis.aveNative.sharePackage(pack.package_id).catch(e=>status.textContent=e.message)},'Share / AirDrop…'),h('button',{type:'button',onclick:()=>globalThis.aveNative.revealPackage(pack.package_id).catch(e=>status.textContent=e.message)},'Show in Finder')):null,
@@ -44,10 +44,10 @@ export function openManualExport(ctx, post, variant = null) {
       h('details',h('summary','Files and native steps'),h('ol',media.map(m=>h('li',`${m.position}. ${m.filename}${m.width?` · ${m.width} × ${m.height}`:''}`,globalThis.aveNative?h('button',{type:'button',onclick:()=>globalThis.aveNative.sharePackage(pack.package_id,m.filename).catch(e=>status.textContent=e.message)},'Share original…'):null))),h('ul',(pack.native_instructions||[]).map(x=>h('li',x)))),
       published?h('a',{href:publication.url,target:'_blank',rel:'noopener'},'Open reported publication'):pack.reviewed?h('button',{type:'button',onclick:()=>reportForm(pack,form)},'I posted this'):null,form);
   }
-  async function loadHistory(){try{const r=await ctx.api.get(`posts/${post.id}/export-history?variant=${encodeURIComponent(variant?.id||'')}`);if(alive)history.replaceChildren(h('h3','Package history'),...(r.packages||[]).map(p=>packageCard(p)));}catch(e){if(alive)history.replaceChildren(h('p',e.message));}}
+  async function loadHistory(){try{const r=await packageHistory(ctx.api,post,variant);if(alive)history.replaceChildren(h('h3','Package history'),...(r.packages||[]).map(p=>packageCard(p)));}catch(e){if(alive)history.replaceChildren(h('p',e.message));}}
   const controls=h('div.manual-actions');
   async function build(draft){for(const b of controls.querySelectorAll('button'))b.disabled=true;status.textContent='Preparing original files and captions…';try{
-    const r=await ctx.api.post(`posts/${post.id}/export`,{expected_rev:post.rev,variant:variant?.id||null,draft});if(!alive)return;
+    const r=await buildPackage(ctx.api,post,variant,draft);if(!alive)return;
     if(!r.ok){status.textContent=(r.warnings||['Export unavailable']).join(' ');return;}
     status.replaceChildren(h('p.manual-success','Package prepared. Downloading has not published anything. Find the exact files in Package history below.'));await loadHistory();
   }catch(e){if(alive)status.replaceChildren(h('p',{role:'alert'},e.message),h('p','Your post is unchanged. Return to the composer to resolve review or save changes.'));}

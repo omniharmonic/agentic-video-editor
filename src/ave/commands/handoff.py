@@ -19,25 +19,55 @@ from ..episode import Episode, write_json
 ORDER = ("final", "rough", "assembly")
 
 
-def _pick(ep: Episode, stage: str | None, name: str | None = None) -> tuple[str, int, dict]:
+def _pick(ep: Episode, stage: str | None, name: str | None = None, version: str | None = None) -> tuple[str, int, dict, Path]:
+    """(stage, number, doc, file) of the edit to hand off: the latest, or `version` (a number or label such as 8 or v8~abcd)
+    named on purpose. Both go through editdoc, which refuses a version that has not fully arrived here."""
     for st in ([stage] if stage else ORDER):
         v = editdoc.list_versions(ep, st, name)
+        if not v and version is None and editdoc.has_version(ep, st, name):
+            editdoc.latest_path(ep, st, name)          # logged, not here yet: refused as arriving, never skipped for the stage below
         if v:
-            return st, v[-1], editdoc.load(editdoc.path_for(ep, st, v[-1], name))
+            if version is None:
+                p = editdoc.latest_path(ep, st, name)
+                return st, v[-1], editdoc.load(p), p
+            try:
+                p = editdoc.path_for(ep, st, version if not str(version).isdigit() else int(version), name)
+            except editdoc.AmbiguousVersion as exc:
+                raise SystemExit(str(exc)) from exc
+            except ValueError as exc:
+                raise SystemExit(f"--version: {exc}") from exc
+            if not p.is_file():
+                raise SystemExit(f"{st}{'.' + name if name else ''} has no version {version}.")
+            return st, int(editdoc.VERSION_RE.match(p.name)["n"]), editdoc.load(p), p
     what = f"{stage}{'.' + name if name else ''}"
     raise SystemExit("No edit to hand off. Run `ave assemble` first." if not stage else f"No {what} edit yet (see `ave status`).")
 
 
-def _master_audio(ep: Episode, doc: dict, stage: str, version: int):
-    """Compiled dialogue master (crossfades baked in). Needs the compile module; fall back with a warning if absent."""
+def _master_path(ep: Episode, stage: str, version) -> Path:
+    """work/render/<stage>.<label>.dialogue.wav: `version` is the edit's label (v8, or v8~abcd in an adopted project)."""
+    lab = version if isinstance(version, str) else f"v{int(version)}"
+    return ep.work / "render" / f"{stage}.{lab}.dialogue.wav"
+
+
+def _master_audio(ep: Episode, doc: dict, stage: str, version):
+    """Compiled dialogue master (crossfades baked in). Needs the compile module; fall back with a warning if absent.
+
+    Reused only while its `.src.sha256` matches this EditDoc, so another computer's v8 never reuses this computer's audio."""
     try:
         from .. import compile as comp
     except Exception:
         return None
-    out = ep.work / "render" / f"{stage}.v{version}.dialogue.wav"
-    if not out.exists():
+    out = _master_path(ep, stage, version)
+    key = out.with_suffix(".src.sha256")
+    digest = hashlib.sha256(json.dumps(doc, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+    try:
+        fresh = out.exists() and key.read_text().strip() == digest
+    except OSError:
+        fresh = False
+    if not fresh:
         out.parent.mkdir(parents=True, exist_ok=True)
         comp.compile_audio(ep, doc, out)
+        key.write_text(digest + "\n")
     return out
 
 
@@ -74,17 +104,20 @@ def _ensure_sum_wavs(ep: Episode, doc: dict, plan: dict) -> list[str]:
 def cmd(a) -> int:
     ep = Episode(a.episode)
     ep.require()
-    stage, version, doc = _pick(ep, a.stage, a.name)
+    from ..project.readiness import choosing
+    with choosing("--version", explicit=bool(a.stage or getattr(a, "version", None))):
+        stage, version, doc, path = _pick(ep, a.stage, a.name, getattr(a, "version", None))
+    lab = editdoc.label_of(path)    # v8, or v8~abcd: names derived from this edit
     layers = bool(getattr(a, "layers", False))
     label = a.label or (f"{stage} {a.name}" if a.name else None)
-    name = handoff.timeline_name(ep, doc, version, label) + (" layers" if layers else "")
+    name = handoff.timeline_name(ep, doc, lab, label) + (" layers" if layers else "")
     tag = f"{stage}.{a.name}" if a.name else stage
     if a.no_master:
         master = None
     elif layers and a.dry_run:      # a dry run never renders or writes: plan with the path the baked master will have
-        master = ep.work / "render" / f"{tag}.v{version}.dialogue.wav"
+        master = _master_path(ep, tag, lab)
     else:
-        master = _master_audio(ep, doc, tag, version)
+        master = _master_audio(ep, doc, tag, lab)
     from ..episode import read_json as _rj
     project = a.project or (_rj(ep.meta_path).get("resolve_project"))
     pmap, pmissing = {}, []
@@ -93,7 +126,7 @@ def cmd(a) -> int:
         if not pmap:
             raise SystemExit("--use-proxies: no verified proxies for this edit's footage. Run `ave proxies <episode>` first.")
     srt_copy = ep.captions / (re.sub(r"[\\/:*?\"<>|]+", "-", name) + ".srt")     # the SRT, named after the timeline (W7)
-    shipped = ep.exports / f"{tag}.v{version}.srt"      # `ave final` retranscribes the render: what ships is what Resolve should get
+    shipped = ep.exports / f"{tag}.{lab}.srt"      # `ave final` retranscribes the render: what ships is what Resolve should get
     plan = handoff.plan(ep, doc, name=name, audio_master=master, project=project, layers=layers, proxies=pmap, srt=shipped if shipped.exists() else None,
                         try_subtitles=bool(getattr(a, "try_subtitles", False)), srt_copy=srt_copy)
     if pmissing:
@@ -132,6 +165,7 @@ def register(sub) -> None:
     s.add_argument("episode")
     s.add_argument("--stage", choices=list(ORDER) + ["select"], help="default: latest of final, rough, assembly")
     s.add_argument("--name", help="named edit within the stage, e.g. `--stage select --name selects` for the A-clips timeline")
+    s.add_argument("--version", help="hand off this version on purpose (a number or label, e.g. 8 or v8~abcd); default: the latest")
     s.add_argument("--label", help="timeline label (default: the stage)")
     s.add_argument("--no-master", action="store_true", help="skip the compiled dialogue master; place cut source audio")
     s.add_argument("--project", help="Resolve project to open (created if missing); default: episode.json `resolve_project`, else the open project")

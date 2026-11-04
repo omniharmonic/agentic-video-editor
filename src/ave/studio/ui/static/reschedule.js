@@ -2,12 +2,12 @@
 // shift-by-days, start-on-a-date or next-free-slots. Everything goes through runBulk (bulk.js), so a refusal is explained in words and an
 // approved post keeps its approval.
 
-import { announce, append, clear, dateKey, daysBetween, fmtShort, h, humanWhen, icon, timeOf } from "./dom.js";
+import { announce, append, clear, dateKey, daysBetween, fmtShort, h, humanWhen, icon, timeOf } from "/app/shared/dom.js";
 import { runBulk } from "./bulk.js";
-import { openModal } from "./panels.js";
+import { openModal } from "/app/shared/panels.js";
+import { freeSlots, noSlotsText, slotLabel } from "/app/shared/plan.js";
 
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
-const slotLabel = (local) => `${fmtShort(dateKey(local))}, ${timeOf(local)}`;
 
 /** items: [{post, variant, rev, title, at (local ISO or null), tz, account, status, flags}] */
 export function openReschedule(ctx, items, { onDone } = {}) {
@@ -42,11 +42,10 @@ function single(ctx, it, onDone) {
 
   async function load() {
     try {
-      const r = await ctx.api.get(`slots?post=${encodeURIComponent(it.post)}&variant=${encodeURIComponent(it.variant)}&count=6`);
+      const r = await freeSlots(ctx.api, it);                                                  // its own slot is not a change
       chips.replaceChildren();
-      r.slots = r.slots.filter((s) => !(it.at && s.local === it.at.slice(0, 16)));            // its own slot is not a change
       if (!r.slots.length) {
-        chips.append(h("span", { class: "rs-hint" }, r.has_rules ? "No free slot in the next few months." : `${it.account || "This account"} has no schedule rules, so there are no slots to suggest. Pick a time above.`));
+        chips.append(h("span", { class: "rs-hint" }, noSlotsText(r, it)));
         return;
       }
       first = r.slots[0];

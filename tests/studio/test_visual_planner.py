@@ -20,61 +20,6 @@ def browser():
 
 
 @pytest.mark.legacy_ui
-@pytest.mark.parametrize('width',[1440,390])
-def test_phone_preview_and_original_media_download(tmp_path,browser,width):
-    built=build_studio(tmp_path)
-    studio=open_studio(built.sp.root,clock=built.clock)
-    server=StudioServer(studio,by='synthetic-reviewer',pin='424242')
-    worker=threading.Thread(target=server.serve_forever,daemon=True);worker.start()
-    page=browser.new_page(viewport={'width':width,'height':980},accept_downloads=True)
-    errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
-    try:
-        page.goto(server.url()+'#/phone/ig-main')
-        page.get_by_label('Planned Instagram profile',exact=True).wait_for()
-        assert page.locator('.ig-profile-tile').count()>0
-        page.locator('.ig-profile-tile').first.click()
-        page.locator('.ig-post-media img').wait_for()
-        assert page.locator('body').evaluate('(el)=>el.scrollWidth<=innerWidth')
-        page.screenshot(path=f'/tmp/ave-phone-preview-{width}.png',full_page=True)
-        page.get_by_role('button',name='Export files and caption',exact=True).click()
-        page.get_by_role('button',name='Download unreviewed draft',exact=True).click()
-        history=page.get_by_role('region',name='Package history',exact=True)
-        link=history.get_by_role('link',name='Download full-resolution package',exact=True)
-        link.wait_for()
-        assert page.get_by_role('link',name='Download full-resolution package',exact=True).count()==1
-        assert history.locator('.manual-package').count()==1
-        assert page.locator('.manual-status .manual-package').count()==0
-        page.locator('.manual-dialog').screenshot(path=f'/private/tmp/ave-integration-manual-package-{width}.png')
-        with page.expect_download() as download:
-            link.click()
-        path=tmp_path/'originals.zip';download.value.save_as(path)
-        with zipfile.ZipFile(path) as z:
-            manifest=json.loads(z.read('manifest.json'))
-            assert manifest['reviewed'] is False
-            assert manifest['media']
-            for media in manifest['media']:
-                import hashlib
-                from ave.studio import store
-                source=built.sp.root/store.read_assets(built.sp)[media['asset']]['file']
-                assert z.read(media['filename'])==source.read_bytes()
-                assert hashlib.sha256(z.read(media['filename'])).hexdigest()==media['sha256']
-            assert 'caption.txt' in z.namelist() and 'index.html' in z.namelist()
-        # A second package adds history once, preserving the first exact ZIP action.
-        original=link.get_attribute('href')
-        page.get_by_role('button',name='Download unreviewed draft',exact=True).click()
-        from playwright.sync_api import expect
-        expect(history.locator('.manual-package')).to_have_count(2)
-        links=history.get_by_role('link',name='Download full-resolution package',exact=True).evaluate_all('(nodes)=>nodes.map(n=>n.getAttribute("href"))')
-        assert len(set(links))==2 and original in links
-        (tmp_path/'hash-verification.json').write_text(json.dumps({'width':width,'manifest':manifest,'original_bytes_matched':True,'unique_history_links':links},indent=2))
-        from pathlib import Path
-        Path(f'/private/tmp/ave-integration-package-hashes-{width}.json').write_text((tmp_path/'hash-verification.json').read_text())
-        assert not errors
-    finally:
-        page.close();server.shutdown();worker.join(5);server.server_close()
-
-
-@pytest.mark.legacy_ui
 def test_pipeline_board_and_table_share_real_post_inventory(tmp_path,browser):
     built=build_studio(tmp_path)
     from ave.studio import store
@@ -135,28 +80,3 @@ def test_numbered_layout_manual_download_uses_its_actual_work_path(tmp_path):
     finally:
         server.shutdown();worker.join(5);server.server_close()
 
-
-@pytest.mark.legacy_ui
-def test_phone_carousel_matches_export_order_and_composed_caption(tmp_path,browser):
-    from test_manual_export import make_post
-    from ave.studio.project import StudioProject
-    from ave.studio import manual_export
-    sp=StudioProject(tmp_path/'book-studio');sp.create(title='Book launch studio')
-    p=make_post(sp,tmp_path,variant=True)
-    v=p['variants'][0]
-    manifest=manual_export.describe(sp,p['id'],v['id'],draft=True)['manifest']
-    studio=open_studio(sp.root)
-    server=StudioServer(studio,pin='424242')
-    worker=threading.Thread(target=server.serve_forever,daemon=True);worker.start()
-    page=browser.new_page()
-    try:
-        page.goto(server.url()+'#/phone/sofia-ig')
-        page.locator('.ig-profile-tile').first.click()
-        first=page.locator('.ig-post-media img');first.wait_for()
-        asset=manifest['media'][0]['sha256']
-        assert asset in first.get_attribute('src')
-        assert manifest['caption'] in page.locator('.ig-post-caption').inner_text()
-        page.get_by_role('button',name='Next slide',exact=True).click()
-        assert manifest['media'][1]['sha256'] in page.locator('.ig-post-media img').get_attribute('src')
-    finally:
-        page.close();server.shutdown();worker.join(5);server.server_close()

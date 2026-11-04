@@ -98,7 +98,7 @@ def run(destination):
         cfg=W.WKWebViewConfiguration.alloc().init();cfg.setUserContentController_(content)
         web=W.WKWebView.alloc().initWithFrame_configuration_(((0,0),(1024,850)),cfg);web.setNavigationDelegate_(receiver)
         window=A.NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(((0,0),(1024,850)),A.NSWindowStyleMaskTitled,A.NSBackingStoreBuffered,False);window.setContentView_(web)
-        web.loadRequest_(F.NSURLRequest.requestWithURL_(F.NSURL.URLWithString_(server.url()+'#/connections')))
+        web.loadRequest_(F.NSURLRequest.requestWithURL_(F.NSURL.URLWithString_(server.app_url()+'#/settings/accounts')))
         try:
             while not state['done'] and time.monotonic()-start<45:
                 F.NSRunLoop.currentRunLoop().runUntilDate_(F.NSDate.dateWithTimeIntervalSinceNow_(.1))

@@ -15,7 +15,7 @@ class MediaCleanupParent(Parent):
         from .video_workshop import project
         from .. import editdoc
         from .workbench import read
-        ep,_=project(studio.sp,job['args']['project']);head=editdoc.list_versions(ep,'short')[-1];path=editdoc.path_for(ep,'short',head);doc=read(studio.sp,path)
+        ep,_=project(studio.sp,job['args']['project']);head=editdoc.list_versions(ep,'short')[-1];path=editdoc.latest_path(ep,'short');doc=read(studio.sp,path)
         if head!=job['args']['version'] and any(h.get('request_id')==job['args']['request_id'] and h.get('operation')=='occurrence-cleanup' for h in doc.get('history',[])):
             from ..publish.safety import sha256_file
             self.committed={'project':job['args']['project'],'version':head,'sha256':sha256_file(path),'report':doc.get('cleanup_report'),'review':'not reviewed'}

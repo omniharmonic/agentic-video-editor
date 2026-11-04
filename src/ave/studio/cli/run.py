@@ -73,10 +73,15 @@ def cmd_run(a) -> int:
 
 @guarded
 def cmd_resolve(a) -> int:
-    human_gate(a, "settling an uncertain publish", f"ave studio resolve {a.post} {a.variant} " + (f"--posted {a.posted}" if a.posted else "--retry"))
+    flag = f"--posted {a.posted}" if a.posted else "--send-again" if a.send_again else "--retry"
+    human_gate(a, "sending a post again" if a.send_again else "settling an uncertain publish", f"ave studio resolve {a.post} {a.variant} {flag}")
     s = studio(a, adapters=False)
     name = a.by or getpass.getuser()
-    res = dispatch.resolve_uncertain(s.sp, a.post, a.variant, posted_url=a.posted, retry=bool(a.retry), by=name, actor=Actor("human", name), now=s.now())
+    if a.send_again:
+        res = dispatch.send_again(s.sp, a.post, a.variant, by=name, actor=Actor("human", name), now=s.now())
+    else:
+        res = dispatch.resolve_uncertain(s.sp, a.post, a.variant, posted_url=a.posted, retry=bool(a.retry), by=name,
+                                         actor=Actor("human", name), now=s.now())
     out({"ok": True, **res})
     return 0
 
@@ -107,12 +112,14 @@ def add(ss) -> None:
     p.add_argument("--max-ticks", type=int, default=None, help="stop after N ticks (default: run until stopped)")
     add_dir(p)
     p.set_defaults(fn=cmd_run)
-    p = ss.add_parser("resolve", help="HUMAN: settle an uncertain publish (--posted URL or --retry)")
+    p = ss.add_parser("resolve", help="HUMAN: settle an uncertain publish (--posted URL or --retry), or --send-again a post already sent")
     p.add_argument("post")
     p.add_argument("variant")
     g = p.add_mutually_exclusive_group(required=True)
     g.add_argument("--posted", metavar="URL")
     g.add_argument("--retry", action="store_true")
+    g.add_argument("--send-again", action="store_true",
+                   help="this computer already sent it, or a previous publisher reported it sent: send it again (needs a fresh approval)")
     p.add_argument("--by")
     add_dir(p)
     p.set_defaults(fn=cmd_resolve)

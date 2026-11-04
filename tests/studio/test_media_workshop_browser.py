@@ -63,52 +63,6 @@ def test_canvas_journey(rig,browser,width,tmp_path):
 
 @pytest.mark.legacy_ui
 @pytest.mark.parametrize('width',[1440,390])
-def test_real_photo_and_split(rig,browser,width):
-    studio,server=rig
-    p=Path('/private/tmp/ave-photo-fixtures-20261029/notebook.jpg')
-    if not p.exists():pytest.skip('Prepared CC0 photo unavailable')
-    a=library.add_file(studio.sp,p,source={'type':'stock','provider':'fixture'},license_entry={'source':'fixture','url':'https://commons.wikimedia.org/wiki/File:A_notebook.jpg','license':'CC0-1.0','license_url':'https://creativecommons.org/publicdomain/zero/1.0/','license_text':'Prepared public CC0 fixture; no live attestation'},by='synthetic')
-    page=browser.new_page(viewport={'width':width,'height':960 if width==1440 else 844})
-    try:
-        page.goto(server.url()+'#/library');page.locator('.lib-open').first.click();page.get_by_role('button',name='Edit image / design').click();page.get_by_role('button',name='Render image',exact=True).wait_for()
-        page.get_by_label('Crop aspect',exact=True).select_option('4:5');page.get_by_label('Exposure (EV) slider').focus();page.keyboard.press('ArrowRight');page.get_by_label('Preset',exact=True).select_option('warm')
-        page.screenshot(path=str(EVIDENCE/f'photo-{width}-draft.png'))
-        page.get_by_role('button',name='Render image',exact=True).click();page.get_by_role('link',name='Open full-resolution output').wait_for(timeout=20000)
-        assert page.locator('.mw-board>img').evaluate('(el)=>el.complete&&el.naturalWidth>0');page.screenshot(path=str(EVIDENCE/f'photo-{width}-render.png'))
-        page.get_by_role('button',name='Split',exact=True).click();page.get_by_label('Rows',exact=True).fill('2');page.get_by_label('Columns',exact=True).fill('3');page.get_by_label('Destination',exact=True).select_option('drafts');page.get_by_role('button',name='Render ordered tiles').click();page.get_by_role('link',name='Open draft 6',exact=True).wait_for(timeout=25000)
-        expect(page.get_by_role('link',name='Open first of 6 drafts',exact=True)).to_be_visible();assert page.locator('.mw-tiles img').evaluate_all('(els)=>els.length===6&&els.every(e=>e.complete&&e.naturalWidth>0)')
-        page.screenshot(path=str(EVIDENCE/f'split-{width}-result.png'));page.get_by_role('button',name='View tile order',exact=True).click();page.screenshot(path=str(EVIDENCE/f'split-{width}-arrangement.png'));assert len(store.list_posts(studio.sp))==6
-        assert hashlib.sha256(p.read_bytes()).hexdigest()==a['sha256']
-    finally:page.close()
-
-@pytest.mark.legacy_ui
-def test_75_asset_actual_lazy_renditions(rig,browser):
-    studio,server=rig;root=Path('/private/tmp/ave-preview-load-fixtures-20261029')
-    if not (root/'manifest.json').exists():pytest.skip('Prepared75 inputs unavailable')
-    manifest=json.loads((root/'manifest.json').read_text());assets=[]
-    for src in manifest['sources']:
-        assets.append(library.add_file(studio.sp,root/src['file'],source={'type':'own'},by='synthetic',alt=src['label']))
-    page=browser.new_page(viewport={'width':1440,'height':960});responses=[]
-    page.on('response',lambda r:responses.append(r) if '/workbench/preview/' in r.url else None)
-    try:
-        page.goto(server.url()+'#/library');page.locator('.lib-grid img').first.wait_for();page.wait_for_timeout(800)
-        initial=len(responses);assert 0<initial<75
-        imgs=page.locator('.lib-grid img');assert imgs.count()==75
-        for i in range(75):
-            im=imgs.nth(i);im.scroll_into_view_if_needed();wait_for(lambda:im.evaluate('(el)=>el.complete&&el.naturalWidth>0'),page)
-            assert im.evaluate('(el)=>Math.max(el.naturalWidth,el.naturalHeight)')<=320
-        received={r.url:len(r.body()) for r in responses if r.status==200};assert len(received)==75
-        assert sum(received.values())<manifest['total_bytes']/3
-        from ave.studio.image_workshop import rendition
-        cache=rendition(studio.sp,assets[0]['id'],'small');cache.write_bytes(b'interrupted cache')
-        response=page.request.get(server.url().split('?')[0]+'api/studio/workbench/preview/'+assets[0]['id']+'/small');assert response.ok;assert response.body().startswith(b'\x89PNG')
-        for src in manifest['sources']:assert hashlib.sha256((root/src['file']).read_bytes()).hexdigest()==src['sha256']
-        (EVIDENCE/'75-renditions.json').write_text(json.dumps({'original_bytes':manifest['total_bytes'],'initial_requests':initial,'all_requests':len(received),'requested_preview_bytes':sum(received.values()),'max_decoded_edge':320,'sources':manifest['sources']},indent=2))
-        page.screenshot(path=str(EVIDENCE/'75-library.png'))
-    finally:page.close()
-
-@pytest.mark.legacy_ui
-@pytest.mark.parametrize('width',[1440,390])
 def test_manuscript_gui_first_middle_final(rig,browser,width):
     studio,server=rig;p=Path('/private/tmp/ave-manuscript-fixtures-20261029/long-manuscript.docx')
     design_image=studio.sp.work/'manuscript-design.png';Image.new('RGB',(640,480),'#e9f0f7').save(design_image);library.add_file(studio.sp,design_image,source={'type':'own'},by='synthetic',alt='Manuscript design source')

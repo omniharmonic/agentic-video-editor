@@ -22,7 +22,7 @@ from urllib.parse import quote
 
 from ..episode import Episode
 from ..publish import safety
-from ..ui.jobs import child_env
+from ..jobs import child_env
 from . import desk, model, production, store
 from .clock import iso_utc
 from .events import Actor
@@ -54,6 +54,8 @@ def read(sp, path):
 
 def write(sp, path, obj):
     safe(sp, path)
+    from ..project.model import guard_write
+    guard_write(path)
     data = (json.dumps(obj, ensure_ascii=False, indent=2) + '\n').encode()
     if len(data) > desk.MAX_STATE_FILE:
         raise ValueError('Workbench state exceeds its bounded storage limit')
@@ -353,6 +355,8 @@ class Workbench:
         return read(self.sp, job_path(self.sp, jid))
 
     def upload(self, tmp_path, name, size, sha256):
+        from ..updates import refuse_if_draining
+        refuse_if_draining()
         if type(size) is not int or not 0 < size <= MAX_UPLOAD: raise ValueError('Empty or oversized upload')
         return self._register_staged(tmp_path, name, size, sha256)
 
@@ -439,6 +443,8 @@ class Workbench:
     def start_transcribe(self, body): return self._begin('transcribe', body)
 
     def _begin(self, op, body):
+        from ..updates import refuse_if_draining
+        refuse_if_draining()                     # the restart for an update was approved: nothing new starts
         held = self._claim()
         try: return self._start(op, body, held)
         except BaseException:
@@ -446,6 +452,8 @@ class Workbench:
             raise
 
     def retry(self, body):
+        from ..updates import refuse_if_draining
+        refuse_if_draining()
         production.only(body, {'job_id'})
         held = self._claim()
         try:

@@ -276,34 +276,256 @@ class TimeMap:
         return self.keeps[i][0] + (o - self.o_starts[i])
 
 
-# ---- persistence: edits/<stage>.vN.json -------------------------------------------------------
+# ---- persistence: edits/<stage>[.name].vN[~tag].json ------------------------------------------
+#
+# A version file is `<stage>[.name].v<N>.json` (legacy, and every un-adopted folder) or `<stage>[.name].v<N>~<tag>.json`, where
+# tag is the 4-character display tag of the computer that wrote it. Two computers that each make v8 while apart write
+# `rough.v8~abcd.json` and `rough.v8~efgh.json`, so nothing collides. N is the next number the writing computer saw.
+#
+# Order: in an adopted project (`.ave/project.json` exists) a version's place comes from the stamp of its `version.added` log
+# event; files the log does not know yet (legacy files, or ones that arrived before their event) fall back to (N, tag).
 
-_V = re.compile(r"^(?P<stage>[a-z]+)(?:\.(?P<name>[A-Za-z0-9_-]+))?\.v(?P<n>\d+)\.json$")
+VERSION_RE = re.compile(r"^(?P<stage>[a-z]+)(?:\.(?P<name>[\w-]+))?\.v(?P<n>\d+)(?:~(?P<device>[a-z0-9]{4}))?\.json$", re.ASCII)
+_V = VERSION_RE  # older callers match file names with editdoc._V
+
+
+class Version(int):
+    """One saved edit version. It IS its number N (compares, adds and prints as N, so code written for plain ints keeps
+    working); `.tag` is the device tag (None for a legacy name), `.path` the file, `.stamp` the hlc of its log event if any."""
+
+    def __new__(cls, n: int, tag: str | None = None, path: Path | None = None, stamp: str | None = None):
+        self = super().__new__(cls, n)
+        self.tag, self.path, self.stamp = tag, path, stamp
+        return self
+
+    @property
+    def id(self) -> str:
+        """The version's name: the file name without `.json` (e.g. `rough.s2.v8~abcd`)."""
+        return self.path.name[:-len(".json")] if self.path else str(int(self))
 
 
 def edits_dir(ep: Episode) -> Path:
     return ep.edits
 
 
-def list_versions(ep: Episode, stage: str, name: str | None = None) -> list[int]:
+def is_adopted(root: Path) -> bool:
+    return (Path(root) / ".ave" / "project.json").is_file()
+
+
+_LOG_CACHE: dict[str, tuple[tuple, dict]] = {}
+
+
+def logged_versions(root: Path) -> dict[str, tuple]:
+    """{project-relative file: (stamp, event id, hlc text)} of every `version.added` event in an adopted project's logs, the
+    earliest event per file. Cached on the log files' size and mtime, so repeated calls cost a few stats."""
+    root = Path(root)
+    if not is_adopted(root):
+        return {}
+    from .project import hlc as _hlc
+    from .project.log import log_files, read_log
+    files = log_files(root / ".ave" / "log")
+    key = []
+    for p in files:
+        try:
+            st = p.stat()
+        except OSError:
+            continue
+        key.append((p.name, st.st_ino, st.st_size, st.st_mtime_ns))
+    cached = _LOG_CACHE.get(str(root))
+    if cached and cached[0] == tuple(key):
+        return cached[1]
+    out: dict[str, tuple] = {}
+    for p in files:
+        for e in read_log(p):
+            data = e.get("data") or {}
+            if e.get("op") != "version.added" or not isinstance(data.get("file"), str):
+                continue
+            k = (_hlc.parse(e["hlc"]), e["id"], e["hlc"])
+            if data["file"] not in out or k[:2] < out[data["file"]][:2]:
+                out[data["file"]] = k
+    _LOG_CACHE[str(root)] = (tuple(key), out)
+    return out
+
+
+def _file_key(v: Version) -> tuple:
+    return (int(v), v.tag or "")
+
+
+def _ordered(ep: Episode, entries: list[Version]) -> list[Version]:
+    """Logged versions in stamp order, merged with unlogged ones by (N, tag)."""
+    stamps = logged_versions(ep.root)
+    logged, rest = [], []
+    for v in entries:
+        try:
+            rel = v.path.relative_to(ep.root).as_posix()
+        except ValueError:
+            rel = None
+        k = stamps.get(rel) if rel else None
+        if k:
+            v.stamp = k[2]
+            logged.append((k[:2], v))
+        else:
+            rest.append(v)
+    logged_sorted = [v for _, v in sorted(logged, key=lambda kv: kv[0])]
+    rest.sort(key=_file_key)
+    out, i, j = [], 0, 0
+    while i < len(logged_sorted) or j < len(rest):
+        if j >= len(rest) or (i < len(logged_sorted) and _file_key(logged_sorted[i]) <= _file_key(rest[j])):
+            out.append(logged_sorted[i]); i += 1
+        else:
+            out.append(rest[j]); j += 1
+    return out
+
+
+def version_entries(ep: Episode, stage: str, name: str | None = None) -> list[Version]:
+    """Every saved version of one edit as a `Version` (number, device tag, file, log stamp), oldest first; the last is the one
+    this computer considers latest."""
     out = []
     for f in edits_dir(ep).glob(f"{stage}*.json") if edits_dir(ep).is_dir() else []:
-        m = _V.match(f.name)
+        m = VERSION_RE.match(f.name)
         if m and m["stage"] == stage and (m["name"] or None) == name:
             _safe_components(f)
             if not f.is_file(): raise ValueError("Edit versions must be regular files")
-            out.append(int(m["n"]))
-    return sorted(out)
+            out.append(Version(int(m["n"]), m["device"], f))
+    return _ordered(ep, out)
 
 
-def path_for(ep: Episode, stage: str, version: int, name: str | None = None) -> Path:
+def list_versions(ep: Episode, stage: str, name: str | None = None) -> list[int]:
+    """The version numbers in `version_entries` order, as plain ints (callers check `type(v) is int`). Two computers' v8
+    appear as two 8s; `path_for(ep, stage, 8)` then names the later one, and `version_entries` tells them apart."""
+    return [int(v) for v in version_entries(ep, stage, name)]
+
+
+def version_name(stage: str, version: int, name: str | None = None, tag: str | None = None) -> str:
     mid = f".{name}" if name else ""
-    return edits_dir(ep) / f"{stage}{mid}.v{version}.json"
+    return f"{stage}{mid}.v{int(version)}{'~' + tag if tag else ''}.json"
+
+
+class AmbiguousVersion(ValueError):
+    """A bare version number matches more than one file (two computers each made that number): name it by its id."""
+    code = "edit.version_ambiguous"
+
+
+_LABEL_RE = re.compile(r"^v(?P<n>\d+)(?:~(?P<device>[a-z0-9]{4}))?$")
+
+
+def label(version, tag: str | None = None) -> str:
+    """`v8~abcd` for a device-tagged version, `v8` for a legacy one. Use it, never f"v{n}", for any name derived from a version
+    (exports, captions, cached pictures), so two computers' v8 never share a derived file."""
+    if isinstance(version, Version):
+        tag = version.tag
+    return f"v{int(version)}" + (f"~{tag}" if tag else "")
+
+
+def label_of(path: Path | str) -> str:
+    """The label of a version file (`rough.s2.v8~abcd.json` -> `v8~abcd`)."""
+    m = VERSION_RE.match(Path(path).name)
+    if not m:
+        raise ValueError(f"{Path(path).name} is not an edit version file")
+    return label(int(m["n"]), m["device"])
+
+
+def device_tag(root: Path) -> str | None:
+    """This computer's tag when `root` is an adopted project, else None (un-adopted folders keep legacy names)."""
+    if not is_adopted(root):
+        return None
+    from .project.model import Device
+    return Device.load().short
+
+
+def _next_number(versions: list) -> int:
+    return (max(int(v) for v in versions) if versions else 0) + 1
+
+
+def next_version(ep: Episode, stage: str, name: str | None = None) -> Version:
+    """The version `save_new_version` would write next on this computer (same number, same tag)."""
+    tag = device_tag(ep.root)
+    n = _next_number(version_entries(ep, stage, name))
+    return Version(n, tag, edits_dir(ep) / version_name(stage, n, name, tag))
+
+
+def next_label(ep: Episode, stage: str, name: str | None = None) -> str:
+    return label(next_version(ep, stage, name))
+
+
+def latest_version(ep: Episode, stage: str, name: str | None = None) -> Version | None:
+    v = version_entries(ep, stage, name)
+    return v[-1] if v else None
+
+
+def path_of_id(ep: Episode, version_id: str) -> Path:
+    """The file of a version id (`rough.s2.v8~abcd`); refuses anything that is not a version name."""
+    if not isinstance(version_id, str) or not VERSION_RE.match(version_id + ".json"):
+        raise ValueError(f"not an edit version id: {version_id!r}")
+    return edits_dir(ep) / f"{version_id}.json"
+
+
+def path_for(ep: Episode, stage: str, version, name: str | None = None) -> Path:
+    """The file of one version. `version` may be a `Version` (names its own file), a label (`v8~abcd`), or a bare number. A
+    bare number names its only file, or the legacy name when there is none (for writers); when two computers each made that
+    number it raises AmbiguousVersion. Use latest_path for "the latest"."""
+    if isinstance(version, Version) and version.path is not None:
+        return version.path
+    if isinstance(version, str):
+        m = _LABEL_RE.match(version)
+        if not m:
+            raise ValueError(f"not a version label: {version!r}")
+        if m["device"]:
+            return edits_dir(ep) / version_name(stage, int(m["n"]), name, m["device"])
+        version = int(m["n"])
+    legacy = edits_dir(ep) / version_name(stage, version, name)
+    if not edits_dir(ep).is_dir() or not any(edits_dir(ep).glob(legacy.name[:-len(".json")] + "~*.json")):
+        return legacy
+    same = [v for v in version_entries(ep, stage, name) if int(v) == int(version)]
+    if len(same) > 1:
+        raise AmbiguousVersion(f"{stage}{'.' + name if name else ''} v{int(version)} was made on more than one computer. "
+                               f"Choose one: {', '.join(label(v) for v in same)} (version ids {', '.join(v.id for v in same)})")
+    return same[0].path if same else legacy
+
+
+def resolve(ep: Episode, stage: str, version=None, name: str | None = None, *, id: str | None = None,
+            sha256: str | None = None) -> Path:
+    """A stored reference to a version: its id when the reference has one (preferred), else the number. A number two
+    computers both made is told apart by `sha256` when the reference records one (studio identities do), else it raises
+    AmbiguousVersion. No version at all means the latest."""
+    if id:
+        return path_of_id(ep, id)
+    if sha256 and version is not None and not isinstance(version, Version):
+        same = [v for v in version_entries(ep, stage, name) if int(v) == int(_LABEL_RE.match(version)["n"] if isinstance(version, str) and _LABEL_RE.match(version) else version)]
+        if len(same) > 1:
+            hit = [v for v in same if hashlib.sha256(v.path.read_bytes()).hexdigest() == sha256]
+            if hit:          # identical bytes on both computers: either file is the same edit
+                return hit[0].path
+    if version is None:
+        p = latest_path(ep, stage, name)
+        if p is None:
+            raise ValueError(f"no {stage} edit yet")
+        return p
+    return path_for(ep, stage, version, name)
+
+
+def has_version(ep: Episode, stage: str, name: str | None = None) -> bool:
+    """True when this edit (stage, name) has a version: a file here, or (in an adopted project) one in the log that may still be
+    arriving. Commands choose their stage with this, so a later stage that is on its way is never skipped for an earlier one,
+    and `latest_path` then says it is arriving instead of "no edit yet"."""
+    if version_entries(ep, stage, name):
+        return True
+    if not is_adopted(ep.root):
+        return False
+    from .project.readiness import newest_logged
+    return newest_logged(ep.root, stage, name) is not None
 
 
 def latest_path(ep: Episode, stage: str, name: str | None = None) -> Path | None:
-    v = list_versions(ep, stage, name)
-    return path_for(ep, stage, v[-1], name) if v else None
+    """The newest version's file. In an adopted project this is also the readiness choke point: when the log's newest version
+    of this edit has not fully arrived here (or arrived damaged) it raises readiness.NotReady, naming the version a person can
+    ask for on purpose instead, so "the latest" never silently means the one before."""
+    v = version_entries(ep, stage, name)
+    p = v[-1].path if v else None
+    if is_adopted(ep.root):
+        from .project.readiness import guard_latest
+        guard_latest(ep.root, stage, name, p)
+    return p
 
 
 class EditConflict(ValueError):
@@ -339,15 +561,59 @@ def mutation_lock(ep: Episode, *, cancelled=None):
     finally: os.close(fd)
 
 
+class SavedPath(type(Path())):
+    """The path `save_new_version` returns: a normal Path, plus `.warnings` a command should put in its result."""
+
+    warnings: tuple | list = ()  # derived paths (.parent, ...) carry none
+
+
+def _saved(path: Path, warnings: list[str]) -> SavedPath:
+    out = SavedPath(path)
+    out.warnings = list(warnings)
+    return out
+
+
+def saved_warnings(path) -> list[str]:
+    """The warnings of a path returned by save_new_version (empty for any other path)."""
+    return list(getattr(path, "warnings", None) or [])
+
+
+def _record(project, ep: Episode, path: Path, actor: str | None = None) -> list[str]:
+    """Log `version.added` for a version file (once per file), as `actor` (default: the log's own, the person). A failure leaves
+    the file in place, unrecorded, and says so (returned for the command result, and on stderr): `ave project adopt` records it later."""
+    from .project import adopt
+    try:
+        adopt.record_version(project, path, actor=actor)
+        return []
+    except Exception as exc:  # noqa: BLE001 - the version is saved; only its log entry is missing
+        import sys
+        msg = (f"saved {path.name} but could not record it in the project log ({exc}); "
+               f"run `ave project adopt {ep.root}` to record it")
+        print(f"warning: {msg}", file=sys.stderr)
+        return [msg]
+
+
 def save_new_version(ep: Episode, doc: dict, name: str | None = None, *, expected_version=None,
-                     expected_sha256=None, request_id=None, locked=False) -> Path:
-    """Atomic no-clobber publication. New callers pin CAS; legacy writers share allocation."""
+                     expected_sha256=None, request_id=None, locked=False, actor: str | None = None) -> Path:
+    """Atomic no-clobber publication. New callers pin CAS; legacy writers share allocation.
+
+    In an adopted project the file is device-tagged and a `version.added` event (with what it needs) is logged, as `actor`
+    (`"claude"` for a version Claude made on its own, e.g. `ave start`; default the person); anywhere
+    else the name and behaviour are exactly the legacy ones."""
     if name is not None and (not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", name)):
         raise ValueError("Invalid edit name")
     problems = validate(doc)
     if problems: raise ValueError("invalid EditDoc:\n  - " + "\n  - ".join(problems))
+    project = None
+    if (ep.root / ".ave").is_symlink():
+        raise ValueError(f"{ep.root / '.ave'} is a symlink; refusing to write a version into a project whose .ave is not a real folder")
+    if is_adopted(ep.root):
+        from .project import Project
+        from .project.model import require_writable
+        project = Project.open(ep.root)  # before writing: a broken project refuses here, not after the file exists
+        require_writable(ep.root)        # and so does one a newer AVE saved: no version file in an older schema
     with contextlib.nullcontext() if locked else mutation_lock(ep):
-        versions = list_versions(ep, doc["stage"], name)
+        versions = version_entries(ep, doc["stage"], name)
         current = versions[-1] if versions else 0
         if request_id:
             wanted = next((h for h in reversed(doc.get("history", [])) if h.get("request_id") == request_id), None)
@@ -358,14 +624,18 @@ def save_new_version(ep: Episode, doc: dict, name: str | None = None, *, expecte
                 found = next((h for h in old.get("history", []) if h.get("request_id") == request_id), None)
                 if found:
                     if found != wanted: raise EditConflict("Request ID already belongs to different edit parameters")
-                    return oldpath
-        if expected_version is not None and (type(expected_version) is not int or expected_version != current):
-            raise EditConflict(f"Edit changed; current version is {current}")
+                    return _saved(oldpath, _record(project, ep, oldpath, actor) if project is not None else [])
+        if expected_version is not None and (not isinstance(expected_version, int) or isinstance(expected_version, bool)
+                                             or expected_version != current):
+            raise EditConflict(f"Edit changed; current version is {int(current)}")
         if expected_sha256 is not None:
+            if not current: raise EditConflict("Edit bytes differ from the captured base")
             latest = path_for(ep, doc["stage"], current, name); _safe_components(latest)
-            if not current or hashlib.sha256(latest.read_bytes()).hexdigest() != expected_sha256:
+            if hashlib.sha256(latest.read_bytes()).hexdigest() != expected_sha256:
                 raise EditConflict("Edit bytes differ from the captured base")
-        path = path_for(ep, doc["stage"], current + 1, name); _safe_components(path)
+        n = _next_number(versions)
+        path = edits_dir(ep) / version_name(doc["stage"], n, name, project.device.short if project else None)
+        _safe_components(path)
         data = (json.dumps(doc, ensure_ascii=False, indent=2, allow_nan=False) + "\n").encode()
         fd, temp = tempfile.mkstemp(prefix=".edit-", dir=ep.edits)
         try:
@@ -375,10 +645,14 @@ def save_new_version(ep: Episode, doc: dict, name: str | None = None, *, expecte
             try: os.fsync(dfd)
             finally: os.close(dfd)
         finally: Path(temp).unlink(missing_ok=True)
-        return path
+        return _saved(path, _record(project, ep, path, actor) if project is not None else [])
 
 
 def load(path: Path | str) -> dict:
+    """Read an edit file. A logged version that has not fully arrived on this computer, or arrived damaged, is refused
+    (readiness.NotReady, a SystemExit carrying the plain reason) before a byte of it is parsed."""
+    from .project.readiness import guard_load
+    guard_load(Path(path))
     return read_json(Path(path))
 
 

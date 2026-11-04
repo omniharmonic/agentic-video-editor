@@ -800,7 +800,7 @@ def cleanup_dependencies(studio,args,*,committed=None):
     sp=studio.sp;ep,meta,path,current,current_sha=exact(sp,args['project'],args['version'],args['sha256'])
     versions=editdoc.list_versions(ep,'short');head=versions[-1]
     if committed:
-        if head!=committed['version'] or sha256_file(editdoc.path_for(ep,'short',head))!=committed['sha256']:raise ValueError('Published cleanup revision changed')
+        if head!=committed['version'] or sha256_file(editdoc.latest_path(ep,'short'))!=committed['sha256']:raise ValueError('Published cleanup revision changed')
     elif head!=args['version']:raise ValueError('Programme revision changed during cleanup')
     base_version=args.get('base_version',args['version']);base_sha=args.get('base_sha256',args['sha256'])
     _,_,_,doc,sha=exact(sp,args['project'],base_version,base_sha);recut_output(doc,[])
@@ -827,7 +827,7 @@ def cleanup_freshness(studio,args,deps,*,committed=None):
     ep,meta,_,_,_=exact(sp,args['project'],args['version'],args['sha256'])
     head=editdoc.list_versions(ep,'short')[-1];expected=committed['version'] if committed else args['version']
     if head!=expected:raise ValueError('Programme revision changed during cleanup')
-    if committed and sha256_file(editdoc.path_for(ep,'short',head))!=committed['sha256']:raise ValueError('Published cleanup revision changed')
+    if committed and sha256_file(editdoc.latest_path(ep,'short'))!=committed['sha256']:raise ValueError('Published cleanup revision changed')
     _,_,_,doc,_=exact(sp,args['project'],args.get('base_version',args['version']),args.get('base_sha256',args['sha256']))
     records=library.read_all(sp);paths=[ep.root/doc['caption_snapshot']['file']]
     for src in doc['sources'].values():

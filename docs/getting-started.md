@@ -53,11 +53,11 @@ ave sync ep-001                         # offsets + clock drift per camera -> wo
 ave frame ep-001 raw/camA.mp4 120       # a still, so the agent (or you) can see who is on which camera
 ```
 
-**HUMAN CHECKPOINT: camera mapping.** The agent shows a still per camera and proposes "camera A is the host, B the guest"; you confirm, and it
-records that in `episode.json`. Check the sync warnings; a weak match means that file shares no audio with the reference.
+**Camera mapping (flagged for you, not a stop).** The agent decides "camera A is the host, B the guest" from the evidence, records it in
+`episode.json` and flags it on the board with the stills or sound it used; you approve or change it in a word when you review the cut. Check the sync warnings; a weak match means that file shares no audio with the reference.
 
-Optional: `ave trim suggest ep-001` proposes the real start and end (slate talk, welcome, sign-off). It never applies them; `ave trim set ep-001 s1 --in S --out S` does,
-and that is your call.
+`ave trim suggest ep-001` reports the real start and end (slate talk, welcome, sign-off); `ave trim propose ep-001` uses that for the drafts and flags it.
+Before the final cut the trim is your call: `ave trim set ep-001 s1 --in S --out S` (`ave final` refuses a trim that is only proposed).
 
 ## 4. Assembly
 
@@ -67,7 +67,7 @@ ave assemble ep-001                     # edits/assembly.v1.json: every angle, s
 ave render ep-001 --stage assembly --proxy    # exports/assembly.v1.proxy.mp4: a small draft you can watch
 ```
 
-**HUMAN CHECKPOINT: the assembly.** Watch the draft (or open it in Resolve, step 8). Is the right person on screen when they speak? Are
+**Review the assembly (optional; its choices are flagged).** Watch the draft (or open it in Resolve, step 8). Is the right person on screen when they speak? Are
 the cameras in sync? Tell the agent what is wrong; it re-plans and writes a new version. Nothing is overwritten.
 
 ## 5. Rough cut
@@ -78,7 +78,8 @@ ave cleanup explain ep-001              # every decision, with the reason and a 
 ave render ep-001 --stage rough --proxy
 ```
 
-**HUMAN CHECKPOINT: the rough cut.** Listen for cuts that feel wrong. The numbers (pause lengths, filler lists) are in
+**YOUR REVIEW: the rough cut.** This is where you come back: every choice the agent made alone (camera mapping, the draft trim,
+assembly and cleanup options) is flagged here for a one-word answer. `ave start ep-001` gets you here in one go. Listen for cuts that feel wrong. The numbers (pause lengths, filler lists) are in
 `config/cleanup.default.yaml`; override per show in `~/.config/ave/cleanup.yaml` or `<episode>/policy/cleanup.yaml` rather than editing code.
 See [cleanup-policy.md](cleanup-policy.md).
 
@@ -121,7 +122,7 @@ The agent may say "it is in Resolve" only after `ave handoff` prints `"ok": true
 
 ```bash
 ave clips prepare ep-001 && ave clips propose ep-001    # candidates scored against config/clips.rubric.yaml
-ave ui ep-001 --open                    # the review desk: play each clip in context, mark keep / maybe / skip
+ave desktop                             # AVE Studio: the Room plays each select in context; keep / maybe / skip there
 ave shorts build ep-001 --all-approved  # vertical 9:16, captioned, from the clips you approved (look first with `ave shorts preview`; then `ave shorts export`)
 ave package ep-001 --dry-run            # what would ship; then run it without --dry-run
 ```

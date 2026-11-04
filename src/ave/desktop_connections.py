@@ -88,7 +88,8 @@ class Coordinator:
     def execute(self,token,secret_values=None):
         context=self.pending.pop(token,None)
         if not context or time.monotonic()-context['at']>180:raise ValueError('Native request expired or was already used')
-        self.session.authority.require()
+        from .desktop_auth import require_act
+        require_act(self.session.authority,'connection:'+context['action'])
         if self.session.closed or str(self.sp.root.resolve())!=context['workspace']:raise ValueError('Workspace changed')
         action=context['action'];a=context['args'];s=self.studio
         if action.startswith('connection'):

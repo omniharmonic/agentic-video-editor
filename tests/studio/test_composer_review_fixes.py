@@ -116,64 +116,6 @@ def test_undo_last_slide_accessible_and_gui_later_alt_preserved(rig,browser):
     finally:page.close()
 
 
-@pytest.mark.legacy_ui
-@pytest.mark.parametrize('width,height',[(390,844),(1024,768)])
-def test_cover_focal_touch_preview_export_and_fresh_reel_presence(rig,browser,width,height):
-    from ave.studio.manual_export import build as export
-    s,server=rig;source=next(p for p in store.list_posts(s.sp) if any(m['role']=='video' for m in p['media']))
-    # The shared preview fixture registers its MP4 in work/. This export journey
-    # copies those same synthetic bytes into the canonical library location.
-    from ave.library import registry
-    record=store.read_assets(s.sp)[source['media'][0]['asset']]
-    destination=s.sp.root/registry.rel_file(record['sha256'],'.mp4');destination.parent.mkdir(parents=True,exist_ok=True)
-    destination.write_bytes((s.sp.root/record['file']).read_bytes());registry.append(s.sp,{**record,'file':s.sp.rel(destination)})
-    legacy=copy.deepcopy(source['variants'][0])
-    profile=authoring.profile_save(s,{'platform':'instagram','profile':{'display_name':'Focal profile'}},AGENT)
-    p=s.create_post(copy={'base':'A cover in context'},media=source['media']);p=composer.add_variant(s,p['id'],{'expected_rev':p['rev'],'account':profile['id'],'post_type':'reel'},AGENT)
-    assert p['variants'][0]['presentation']=={'feed_presence':True}
-    before={m['asset']:(s.sp.root/store.read_assets(s.sp)[m['asset']]['file']).read_bytes() for m in p['media']}
-    page=browser.new_page(viewport={'width':width,'height':height},has_touch=True);errors=[];page.on('pageerror',lambda e:errors.append(str(e)));out=Path('/private/tmp/ave-composer-fix-evidence');out.mkdir(exist_ok=True)
-    try:
-        page.goto(server.url()+f'#/post/{p["id"]}');check=page.get_by_label('Show Reel in the profile feed',exact=True);check.wait_for();assert check.is_checked()
-        page.locator('.composer-slide-edit > summary').click();page.locator('.composer-focal > summary').click()
-        for label in ('Horizontal focal position','Vertical focal position'):
-            control=page.get_by_label(label,exact=True);control.scroll_into_view_if_needed();assert control.bounding_box()['height']>=44
-        page.screenshot(path=str(out/f'expanded-slide-focal-{width}.png'))
-        page.locator('.composer-slide-edit > summary').click()
-        page.locator('.composer-cover > summary').click();page.get_by_label('Cover horizontal focal position',exact=True).fill('0.1')
-        wait_for(lambda:projected(s,store.load_post(s.sp,p['id']),p['variants'][0]['id'])[-1].get('crop',{}).get('x')==.1,page)
-        page.get_by_label('Cover vertical focal position',exact=True).fill('0.8')
-        wait_for(lambda:projected(s,store.load_post(s.sp,p['id']),p['variants'][0]['id'])[-1].get('crop',{}).get('y')==.8,page)
-        revision=store.load_post(s.sp,p['id'])['rev'];page.wait_for_function('(rev)=>document.querySelector(".ed-sub")?.textContent===`Draft revision ${rev}` && document.querySelector(".ed-save")?.textContent==="Saved"',arg=revision)
-        page.wait_for_function('()=>[...document.querySelectorAll(".composer-cover-comparison img")].every(i=>i.complete&&i.naturalWidth>0)')
-        for label in ('Cover frame seconds','Cover horizontal focal position','Cover vertical focal position'):
-            node=page.get_by_label(label,exact=True);node.scroll_into_view_if_needed();assert node.bounding_box()['height']>=44
-        assert page.locator('body').evaluate('(e)=>e.scrollWidth<=innerWidth')
-        assert page.locator('.composer-cover-comparison img').first.evaluate('(e)=>getComputedStyle(e).objectFit')=='contain'
-        assert page.locator('.composer-cover-comparison img').last.evaluate('(e)=>getComputedStyle(e).objectPosition')=='10% 80%'
-        page.locator('.composer-cover-comparison').scroll_into_view_if_needed();page.screenshot(path=str(out/f'cover-comparison-{width}.png'))
-        page.get_by_label('Cover frame seconds',exact=True).scroll_into_view_if_needed();page.screenshot(path=str(out/f'expanded-frame-{width}.png'))
-        raw=store.load_post(s.sp,p['id']);proj=projected(s,raw,p['variants'][0]['id']);assert not proj[0].get('crop') and proj[-1]['role']=='cover'
-        cell=next(c for c in feed_plan.read(s,profile['id'])['cells'] if c['post']==p['id']);assert cell['crop']['x']==.1 and cell['feed_presence'] is True
-        page.goto(server.url()+f'#/grid/{profile["id"]}?surface=feed');tile=page.locator(f'.gcell[data-post="{p["id"]}"]');tile.wait_for();assert tile.locator('img').first.evaluate('(e)=>getComputedStyle(e).objectPosition')=='10% 80%'
-        page.goto(server.url()+f'#/phone/{profile["id"]}?surface=feed');image=page.get_by_role('button',name='Preview A cover in context',exact=True).locator('img');image.wait_for();assert image.evaluate('(e)=>getComputedStyle(e).objectPosition')=='10% 80%'
-        image.evaluate('(i)=>i.decode()');page.screenshot(path=str(out/f'cover-phone-{width}.png'))
-        package=export(s.sp,p['id'],draft=True,expected_rev=raw['rev']);assert package['manifest']['presentation']['feed_presence'] is True
-        with zipfile.ZipFile(package['zip']) as z:
-            for m in package['manifest']['media']+[package['manifest']['cover']]:assert hashlib.sha256(z.read(m['filename'])).hexdigest()==m['sha256']
-            assert b'show in profile feed' in z.read('index.html')
-        assert all((s.sp.root/store.read_assets(s.sp)[aid]['file']).read_bytes()==data for aid,data in before.items())
-        page.goto(server.url()+f'#/post/{p["id"]}');page.get_by_label('Show Reel in the profile feed',exact=True).uncheck()
-        wait_for(lambda:store.load_post(s.sp,p['id'])['variants'][0]['presentation']=={'feed_presence':False},page)
-        raw=store.load_post(s.sp,p['id']);package=export(s.sp,p['id'],draft=True,expected_rev=raw['rev'])
-        with zipfile.ZipFile(package['zip']) as z:assert b'keep off the profile feed' in z.read('index.html')
-        page.goto(server.url()+f'#/grid/{profile["id"]}?surface=feed');page.locator('.planner-feed').wait_for();assert page.locator(f'.gcell[data-post="{p["id"]}"]').count()==0
-        page.goto(server.url()+f'#/post/{source["id"]}');old_check=page.get_by_label('Show Reel in the profile feed',exact=True);old_check.wait_for();assert not old_check.is_checked()
-        assert 'unspecified' in page.locator('.composer-delivery').inner_text()
-        assert store.load_post(s.sp,source['id'])['variants'][0]==legacy and not errors,errors
-    finally:page.close()
-
-
 @pytest.mark.parametrize('later_alt',[False,True])
 def test_gapped_legacy_undo_restores_inheritance_and_follows_shared(tmp_path,later_alt):
     s=build(tmp_path);p=carousel(s);vid=p['variants'][0]['id']

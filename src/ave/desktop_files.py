@@ -105,6 +105,8 @@ class NativeFileWork:
         # replace the retained file's successful result with a cancellation.
         # Preparation has no commit and remains cancellable after computation.
         if self.closed or self.busy: raise ValueError('A native file operation is already running or closed')
+        from .updates import refuse_if_draining
+        refuse_if_draining()                     # imports, exports, packages: none starts once the restart is approved
         self.cancelled.clear();self.busy=True;self.critical=critical
         def deliver(fn):
             self.dispatch(lambda:None if self.closed else fn())

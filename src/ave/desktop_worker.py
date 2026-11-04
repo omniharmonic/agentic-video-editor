@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import re
+import subprocess
 import sys
 import uuid
 
@@ -14,7 +15,7 @@ def job_directory():
 
 
 def enqueue(ep, cmd, args):
-    from .ui.jobs import build_argv
+    from .jobs import build_argv
     build_argv(ep, cmd, args)
     jid = uuid.uuid4().hex
     directory = job_directory(); directory.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -26,7 +27,7 @@ def enqueue(ep, cmd, args):
 
 def production(jid):
     from .episode import Episode
-    from .ui.jobs import build_argv
+    from .jobs import build_argv
     from .cli import main
     if not re.fullmatch('[a-f0-9]{32}', jid): raise ValueError('Invalid worker job identity')
     path = job_directory() / (jid + '.json')
@@ -38,6 +39,16 @@ def production(jid):
     # One-shot consumed request. Crash recovery creates a new validated job.
     path.unlink()
     return main(argv)
+
+
+def sync_check():
+    """Print the bundled Syncthing's version: no network, no config or state created."""
+    from .desktop_runtime import component, frozen
+    binary = component('sync') / 'syncthing' if frozen() else Path(os.environ.get('AVE_SYNCTHING', ''))
+    if not binary.is_file(): print('syncthing missing'); return 1
+    run = subprocess.run([str(binary), '--version'], capture_output=True, text=True, timeout=30, env={'PATH': '/usr/bin:/bin', 'HOME': os.environ.get('HOME', '/var/empty')}, cwd='/')
+    print(run.stdout.strip() or run.stderr.strip())
+    return run.returncode
 
 
 def dispatch(argv=None):
@@ -58,6 +69,8 @@ def dispatch(argv=None):
         store.delete(key)
         print('keychain ok' if good and store.get(key) is None else 'keychain failed')
         return 0 if good else 1
+    if args == ['--sync-check']:
+        return sync_check()
     if args == ['--install-cli']:
         from .desktop_install import run
         return run()

@@ -63,6 +63,28 @@ def resolve_layout(spec: Any) -> dict[str, Any]:
     return out
 
 
+_NO_EPISODE = object()
+_UNREADABLE = object()
+
+
+def layout_spec_of(root: Path) -> Any:
+    """The layout spec every writer uses: episode.json's "layout" (None, the legacy flat, when it names none).
+    `_NO_EPISODE` when the folder has neither episode.json nor studio.json (a studio project's marker, with its own layout). The one source of truth for both writers (Episode) and the sync
+    rules (project.zones.project_rules). `_UNREADABLE` when it is there but cannot be read (half-written, or not JSON):
+    writers then fall back to flat, but the sync rules keep project.json's layout rather than flip a numbered project's
+    cuts to local on a damaged file."""
+    meta = Path(root) / "episode.json"
+    if not meta.exists():
+        meta = Path(root) / "studio.json"        # a studio project is an Episode whose marker (and layout) is studio.json
+    if not meta.exists():
+        return _NO_EPISODE
+    try:
+        data = json.loads(meta.read_text())
+    except (OSError, ValueError):
+        return _UNREADABLE
+    return data.get("layout") if isinstance(data, dict) else _UNREADABLE
+
+
 def detect_layout(root: Path) -> str:
     """For `init-episode --layout auto`: an existing 02_FOOTAGE means the creator's numbered project folder."""
     return "numbered" if (Path(root) / "02_FOOTAGE").is_dir() else "flat"
@@ -82,13 +104,8 @@ class Episode:
         self._load_layout()
 
     def _load_layout(self) -> None:
-        spec = None
-        if self.meta_path.exists():
-            try:
-                spec = json.loads(self.meta_path.read_text()).get("layout")
-            except (OSError, ValueError):
-                spec = None
-        self.layout = resolve_layout(spec)
+        spec = layout_spec_of(self.root)
+        self.layout = resolve_layout(None if spec is _NO_EPISODE or spec is _UNREADABLE else spec)
 
     def _dir(self, key: str) -> Path:
         return self.root / self.layout[key]
@@ -195,6 +212,8 @@ def read_json(path: Path) -> Any:
 
 def write_json(path: Path, data: Any) -> None:
     path = Path(path)
+    from .project.model import guard_write
+    guard_write(path)          # a project a newer AVE saved is read-only here: its shared files are never rewritten
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")

@@ -20,6 +20,10 @@ Supported versions: only the latest release (and `main`) receive fixes.
 
 The optional native desktop shell reuses the loopback server's token, Host/Origin checks, media review and PIN gates. It exposes no JavaScript/Python bridge and starts only after the existing human-terminal check. The Finder launcher opens a real Terminal and retains the PIN there; it never removes agent markers or creates a pseudoterminal. Harness deny rules should cover `ave desktop*` and installation-specific executable/module spellings in addition to the existing UI commands. Fictional `--fixtures` engineering runs cannot approve real posts.
 
+**App approval sheets and protected acts (Director's Room).** The app's web view can only *name* what a person wants to do; the native side does the rest (`ave/desktop_approvals.py`, `ave/desktop_native.py`). The native actions are `approvePublish` (`{items: [{post, variant, sha}]}`, 1 to 50), `approveTrim` (`{project, session}`), `approveContent` (`{project, doc, id, note?}`), `clearTrim` (`{project, session}`), `ackAlert` (`{alert}`), `pickBroll` (`{search, candidate, by}`) and `acceptProposal` (`{proposal}`); any other argument (a PIN, an approver name, a view time) is refused, and an agent marker refuses every step. Each one shows the exact words again in an AppKit sheet, read from the server, then runs the macOS device-owner check (`desktop_auth.NativeAuthority`). That check grants nothing session-wide: it mints one single-use grant bound to that act and exactly those targets, spent once by the native code on its own thread (`authority.use`). No web route approves anything: the old browser `POST /api/studio/approve` (PIN only), `reject`, `resume`, `tick/rehearse`, the view record and `PUT library/upload` were removed with the old studio shell, and a test reads every route string from the server's own dispatchers, calls each one with the room token in a browser and in the app without a grant, and sees no approval move: studio posts, content items, the episode's trim, the episode publish queue, the opening and closing approval and settled sends. Approving a post, recording the view and confirming a trim run in process, inside the grant. The remaining protected studio routes (`broll/pick`, `schedule/proposals/<id>/accept`, `alerts/<id>/ack`) pass only inside that spend, so a caller holding the room token is refused even while the person is reading the PIN sheet, and a grant for one post or act never authorises another. Approvals and trims also take the per-run PIN, shown only in AppKit. The studio API no longer reports whether a check is in progress. `alerts/<id>/ack` records a person only through the app's sheet; without the app it is refused, and the terminal's `ave studio alerts ack` keeps recording who ran it. A view recorded by the approval sheet carries `detail.via: "native-sheet"`, set by the native code, never taken from a request: it is how long the native sheet showed the exact words and hashes, not a measure of watching the media. Every check names its act (`require(action, keys)`); there is no session-wide unlock and no "Unlock Review" menu item. A batch sheet with more than three posts lists one line per post (at most twelve, then a count), because a native alert does not scroll.
+
+**Attribution follows the channel.** Claude's MCP holds the room token, so a request that carries only the token cannot show it is the person. Every board write over HTTP (a field, a stage move, an update, a new artifact, a decision answer or reopen, an undo, a keep / maybe / skip or a select nudge) is recorded as `actor: "claude"`, and a sign-off or an answer carries `relayed_by: "claude"`, so the director confirms or undoes it on the board like anything Claude relays through the MCP tools (a keep over the token is never a human-kept clip for the shorts path). The person's own writes go through the app's native bridge (`aveNative.boardWrite` → `desktop_approvals` → `via="app"`), the only way to `actor: "human"`; confirming what Claude reported (`confirmRelayed`) and an answer to a settings conflict (`answerDecision`) also take the per-act device-owner check, as do handing over publishing and removing a member. The route test above also asserts that no room-token request writes an `actor: "human"` event (only the Room's presence heartbeat is exempt). A plain browser (`ave studio ui`) has no bridge, so its hand edits read as relayed.
+
 The stdio MCP server fixes its studio at process launch. It exposes explicit projected reads and draft-only writes, rejects unknown fields, checks revisions and provides no shell, arbitrary path, publishing, approval or account tool. Project text remains untrusted. The same-user shell limitation below still applies; MCP is a narrow interface, not isolation from an agent that already has full local filesystem access.
 
 Collaboration bundles carry editorial content and optional SHA-verified media. Checksums detect corruption, not sender identity: exchange them through an authenticated channel with a trusted collaborator. Identity bindings and common bases persist locally; concurrent edits create retained conflicts. Media is staged without license attestations. Credentials, signed ledgers, queue state and approval keys must never be synchronized. Tailscale diagnostics do not establish a restricted OS account, change ACLs or expose the local approval server. See [collaboration.md](docs/collaboration.md).
@@ -50,7 +54,7 @@ security are the ones that touch credentials, the network, or the filesystem out
 
 #### Honest limits: what is a convention and what is a control
 
-Human-only commands (`ave publish approve`, `ave sequence approve`, `ave trim set`, `ave learn taste apply`, `ave content canva-approve`, and the content
+Human-only commands (`ave publish approve`, `ave sequence approve`, `ave trim set`, `ave trim clear`, `ave learn taste apply`, `ave content canva-approve`, and the content
 studio's `ave studio approve|ui|account live|account auth|resume|resolve|broll pick|broll generate|schedule apply|tick --send|run --send|send enable|send disable|library attest`)
 call `ave.humanpresence.require_human`: stdin and stdout must be a terminal and none of `CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`,
 `AVE_AGENT` may be set. **This stops an accident, not an adversary.** An agent that can run shell commands as your user can allocate a
@@ -61,7 +65,7 @@ control is the agent harness. Add deny rules so the agent cannot start these com
 
 ```json
 {"permissions": {"deny": ["Bash(ave publish approve*)", "Bash(ave publish run*)", "Bash(ave sequence approve*)",
-                          "Bash(ave trim set*)", "Bash(ave learn taste apply*)", "Bash(ave studio approve*)", "Bash(ave studio ui*)",
+                          "Bash(ave trim set*)", "Bash(ave trim clear*)", "Bash(ave learn taste apply*)", "Bash(ave studio approve*)", "Bash(ave studio ui*)",
                           "Bash(ave studio account live*)", "Bash(ave studio account auth*)", "Bash(ave studio resume*)", "Bash(ave studio resolve*)",
                           "Bash(ave studio broll pick*)", "Bash(ave studio broll generate*)", "Bash(ave studio schedule apply*)",
                           "Bash(ave studio tick --send*)", "Bash(ave studio run --send*)", "Bash(ave studio send*)", "Bash(ave studio library attest*)",
@@ -117,18 +121,19 @@ python cannot read, and refusing `ave studio ui` when an agent is in the process
 metadata are data, never instructions. Every `ave-studio*` skill and `AGENTS.md` say so; the dangerous commands above are human-gated so that an
 injected instruction has no lever.
 
-### Local web UI (`ave ui`)
+### The app's loopback server (`ave desktop`, `ave studio ui`)
 
 - Binds to `127.0.0.1` only. A random per-run token (`secrets.token_urlsafe(24)`) is required on every request, static files
-  included. It arrives once as `?t=` in the URL printed on your terminal, then moves into an `HttpOnly; SameSite=Strict` cookie.
-  `X-AVE-Token` also works for curl.
-- The `Host` header must be `127.0.0.1:<port>` or `localhost:<port>` (DNS-rebinding defence); a POST with a foreign `Origin` is
-  refused; no CORS headers are sent.
-- Files are served only from inside the episode folder (no `..`, no symlinks that leave it, no dot-files, never the raw footage
-  directories).
-- The UI can run only an allowlist of `ave` subcommands with typed arguments, with no shell, no free-form paths, and no
-  publish/approve/send. Approving a publish item in the UI records the human's approval of the exact bytes (hash-bound); it never sends.
-- Treat the printed URL like a password for the duration of the run. Do not paste it into chats or issue reports.
+  included. It arrives once as `?t=` in the URL the app opens (or the terminal prints, for `ave studio ui`), then moves into an
+  `HttpOnly; SameSite=Strict` cookie. `X-AVE-Token` also works for curl.
+- The `Host` header must be `127.0.0.1:<port>` or `localhost:<port>` (DNS-rebinding defence); a POST, PUT or PATCH with a foreign
+  `Origin` is refused; no CORS headers are sent.
+- Files are served only from inside the studio or the episode project (no `..`, no symlinks that leave it, no dot-files, never
+  the raw footage directories, whatever their case and through symlinks): `src/ave/studio/ui/http.py`.
+- The Workspace's Jobs panel runs only an allowlist of `ave` subcommands with typed arguments (`src/ave/jobs.py`), with no shell,
+  no free-form paths, and no publish/approve/send; jobs run with `AVE_AGENT=1`.
+- In a browser nothing can be approved. `ave ui` is retired.
+- Treat the URL like a password for the duration of the run. Do not paste it into chats or issue reports.
 
 ### Other things worth reporting
 

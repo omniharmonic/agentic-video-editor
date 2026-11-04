@@ -113,11 +113,11 @@ def ensure_select(ep: Episode, clip: dict) -> dict:
     from . import clips as C
     src = clip["source"]
     key = [src["stage"], src["version"]]
-    for v in reversed(editdoc.list_versions(ep, "select", clip["slug"])):
+    for v in reversed(editdoc.version_entries(ep, "select", clip["slug"])):
         p = editdoc.path_for(ep, "select", v, clip["slug"])
         prev = editdoc.load(p)
         if (prev.get("draft_select") or {}).get("range") == [clip["start"], clip["end"]] and prev["draft_select"]["source"] == key:
-            return {"name": clip["slug"], "version": v, "path": str(p.relative_to(ep.root)),
+            return {"name": clip["slug"], "version": int(v), "id": v.id, "path": str(p.relative_to(ep.root)),
                     "range": [clip["start"], clip["end"]], "source": key}
     data = C.load_clips(ep)
     docs = C._source_docs(ep, data["rubric"], [clip])
@@ -128,7 +128,8 @@ def ensure_select(ep: Episode, clip: dict) -> dict:
     sl["notes"] = C._clip_notes(clip, src) + "\nTRIAL select (clip not approved)"
     sl["draft_select"] = {"clip": clip["id"], "range": [clip["start"], clip["end"]], "source": key}
     path = editdoc.save_new_version(ep, sl, name=clip["slug"])
-    return {"name": clip["slug"], "version": editdoc.list_versions(ep, "select", clip["slug"])[-1], "path": str(path.relative_to(ep.root)),
+    return {"name": clip["slug"], "version": int(editdoc.VERSION_RE.match(path.name)["n"]), "id": path.name[:-len(".json")],
+            "path": str(path.relative_to(ep.root)),
             "range": [clip["start"], clip["end"]], "source": key}
 
 
@@ -331,8 +332,8 @@ def build_short(ep: Episode, clip: dict, cfg: dict | None = None, layout: str = 
     if prev_path and not force:
         prev = editdoc.load(prev_path)
         if (prev.get("short") or {}).get("sig") == sig:
-            return {"slug": slug, "path": str(prev_path.relative_to(ep.root)), "version": editdoc.list_versions(ep, "short", slug)[-1],
-                    "status": "unchanged", "needs_review": prev["short"]["needs_review"], "notes": []}
+            return {"slug": slug, "path": str(prev_path.relative_to(ep.root)), "version": int(editdoc.VERSION_RE.match(prev_path.name)["n"]),
+                    "label": editdoc.label_of(prev_path), "status": "unchanged", "needs_review": prev["short"]["needs_review"], "notes": []}
 
     doc = editdoc.clone(sel)
     doc["stage"] = "short"
@@ -357,7 +358,7 @@ def build_short(ep: Episode, clip: dict, cfg: dict | None = None, layout: str = 
     elif layout == "audiogram":
         from . import audiogram
         notes, cut = ["audiogram: waveform card instead of camera picture (no face framing, nothing to cut between)"], []
-        audiogram.attach(ep, doc, slug, (editdoc.list_versions(ep, "short", slug) or [0])[-1] + 1, cfg)
+        audiogram.attach(ep, doc, slug, editdoc.next_label(ep, "short", slug), cfg)
         plan = {"wave": {"crop": None, "zoom": 1.0, "reason": doc["tracks"]["video"][0]["reason"], "confidence": 1.0, "needs_review": False}}
     else:
         notes = apply_min_hold(doc, ep, cfg["build"]["min_hold_s"])
@@ -403,9 +404,9 @@ def build_short(ep: Episode, clip: dict, cfg: dict | None = None, layout: str = 
     cues = captions.cues_from_edit(ep, doc, style)
     if not cues:
         raise SystemExit(f"clip {slug}: no speech falls inside the edit, so there is nothing to caption")
-    v = (editdoc.list_versions(ep, "short", slug) or [0])[-1] + 1
-    srt = captions.write_srt(cues, ep.captions / f"short.{slug}.v{v}.srt")
-    ass = captions.write_ass(cues, style, (doc["canvas"]["w"], doc["canvas"]["h"]), ep.captions / f"short.{slug}.v{v}.ass")
+    lab = editdoc.next_label(ep, "short", slug)      # exactly what save_new_version will name it (v8, or v8~abcd)
+    srt = captions.write_srt(cues, ep.captions / f"short.{slug}.{lab}.srt")
+    ass = captions.write_ass(cues, style, (doc["canvas"]["w"], doc["canvas"]["h"]), ep.captions / f"short.{slug}.{lab}.ass")
     problems = captions.check(cues, style)
     doc["captions"] = {"srt": str(srt.relative_to(ep.root)), "ass": str(Path(ass["path"]).relative_to(ep.root)), "burn": True}
     doc["notes"] = (clip.get("title") or slug) + (" | needs review: " + "; ".join(review) if review else "")
@@ -416,7 +417,8 @@ def build_short(ep: Episode, clip: dict, cfg: dict | None = None, layout: str = 
     if stack_plan:
         doc["short"]["stack"] = stack_plan
     path = editdoc.save_new_version(ep, doc, name=slug)
-    return {"slug": slug, "path": str(path.relative_to(ep.root)), "version": v, "status": "built", "needs_review": review, "notes": notes,
+    return {"slug": slug, "path": str(path.relative_to(ep.root)), "version": int(editdoc.VERSION_RE.match(path.name)["n"]),
+            "label": editdoc.label_of(path), "warnings": editdoc.saved_warnings(path), "status": "built", "needs_review": review, "notes": notes,
             "crop_motion": doc["short"]["crop_motion"], "caption_problems": problems, "segments": len(doc["tracks"]["video"]), "duration": doc["duration"],
             "completeness": {k: comp[k] for k in ("complete", "boundary", "override", "problems")}, "edges": edges,
             "opening": {k: open_rec.get(k) for k in ("mode", "requested", "title", "title_source", "problems", "added_s")}}
@@ -523,7 +525,9 @@ def export_short(ep: Episode, clip: dict, platforms: list[str], cfg: dict | None
     if not path:
         raise SystemExit(f"no short for {slug}; run `ave shorts build {ep.root} --clip {slug}`")
     doc = editdoc.load(path)
-    ver = editdoc.list_versions(ep, "short", slug)[-1]
+    ver = int(editdoc.VERSION_RE.match(path.name)["n"])
+    lab = editdoc.label_of(path)          # v8, or v8~abcd: another computer's v8 never shares an export
+    edit_rel = str(path.relative_to(ep.root))
     draft = clip["status"] != "approved"
     sh = doc.get("short") or {}
     crec = sh.get("completeness")
@@ -542,9 +546,9 @@ def export_short(ep: Episode, clip: dict, platforms: list[str], cfg: dict | None
         if not spec:
             raise SystemExit(f"unknown platform {plat!r}; choose from {', '.join(cfg['platforms'])}")
         pr = presets.get(spec["preset"])
-        mp4 = out_dir / f"{slug}.v{ver}.{plat}.mp4"
+        mp4 = out_dir / f"{slug}.{lab}.{plat}.mp4"
         side = mp4.with_suffix(".json")
-        if mp4.exists() and side.exists():
+        if mp4.exists() and side.exists() and _sidecar_edit(side) in (edit_rel, None):
             results.append({"platform": plat, "status": "unchanged", "video": str(mp4.relative_to(ep.root)), "sidecar": str(side.relative_to(ep.root))})
             continue
         key = json.dumps({k: v for k, v in pr.items() if k != "about"}, sort_keys=True)
@@ -556,7 +560,7 @@ def export_short(ep: Episode, clip: dict, platforms: list[str], cfg: dict | None
             rdoc = doc
             if (doc.get("short") or {}).get("layout") == "stack":
                 from . import stack
-                rdoc = stack.render_doc(ep, doc, ver)
+                rdoc = stack.render_doc(ep, doc, lab)
             rep = comp.render(ep, rdoc, mp4, preset=spec["preset"], burn_captions=True, overwrite=False,
                               start_limit_db=cfg.get("audio", {}).get("start_limit_db", 0.0))
             rendered[key] = {"file": mp4, "report": rep}
@@ -588,7 +592,7 @@ def export_short(ep: Episode, clip: dict, platforms: list[str], cfg: dict | None
             "clip": {"id": clip["id"], "slug": slug, "score": clip.get("total"), "rationale": clip.get("rationale"),
                      "sentence_ids": clip.get("sentence_ids"), "source_range": sh.get("clip_range") or [clip["start"], clip["end"]]},
             "completeness": crec, "edges": sh.get("edges"), "opening": sh.get("opening"),
-            "edit": str(path.relative_to(ep.root)), "version": ver,
+            "edit": edit_rel, "version": ver, "label": lab,
             "needs_review": (doc.get("short") or {}).get("needs_review", []),
             "warnings": warnings, "created": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         }
@@ -596,7 +600,14 @@ def export_short(ep: Episode, clip: dict, platforms: list[str], cfg: dict | None
         results.append({"platform": plat, "status": "exported", "video": sidecar["video"], "sidecar": str(side.relative_to(ep.root)),
                         "lufs": rep["lufs"], "true_peak_db": rep["true_peak_db"], "limits_ok": limits["ok"],
                         "problems": limits["problems"] + enc_problems, "warnings": warnings})
-    return {"slug": slug, "version": ver, "exports": results}
+    return {"slug": slug, "version": ver, "label": lab, "exports": results}
+
+
+def _sidecar_edit(side: Path) -> str | None:
+    try:
+        return read_json(side).get("edit")
+    except (OSError, ValueError, AttributeError):
+        return "?"   # unreadable: never "unchanged"
 
 
 def list_shorts(ep: Episode) -> list[dict]:
@@ -606,7 +617,7 @@ def list_shorts(ep: Episode) -> list[dict]:
     for n in names:
         vs = editdoc.list_versions(ep, "short", n)
         exp = sorted(f"{d.name}/{p.name}" for d in (shorts_dir(ep), shorts_dir(ep, True)) if d.is_dir() for p in d.glob(f"{n}.v*.mp4"))
-        d = editdoc.load(editdoc.path_for(ep, "short", vs[-1], n))
+        d = editdoc.load(editdoc.latest_path(ep, "short", n))
         out.append({"slug": n, "versions": vs, "duration": d["duration"], "needs_review": (d.get("short") or {}).get("needs_review", []),
                     "exports": exp})
     return out

@@ -1,0 +1,161 @@
+/* The Director's Room design tokens. Light is the Workspace (a production office), dark is the Room (an editing suite at night).
+   Starting values are Vibe's public tokens (docs/superpowers/specs/2026-11-02-director-room-ux-standard.md); every later screen
+   reads these names and never a raw value. Fonts are bundled (fonts/SOURCES.md), nothing loads from the network. */
+
+@font-face { font-family: "Figtree"; font-style: normal; font-weight: 300 900; font-display: swap;
+  src: url("fonts/figtree-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Figtree"; font-style: normal; font-weight: 300 900; font-display: swap;
+  src: url("fonts/figtree-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Poppins"; font-style: normal; font-weight: 500; font-display: swap;
+  src: url("fonts/poppins-500-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Poppins"; font-style: normal; font-weight: 500; font-display: swap;
+  src: url("fonts/poppins-500-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Poppins"; font-style: normal; font-weight: 600; font-display: swap;
+  src: url("fonts/poppins-600-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Poppins"; font-style: normal; font-weight: 600; font-display: swap;
+  src: url("fonts/poppins-600-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+
+:root {
+  /* type */
+  --font-body: "Figtree", -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-title: "Poppins", "Figtree", -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --text-xs: 12px;  --lh-xs: 16px;
+  --text-sm: 13px;  --lh-sm: 18px;
+  --text-md: 14px;  --lh-md: 20px;     /* body and table */
+  --text-lg: 16px;  --lh-lg: 22px;
+  --text-h3: 18px;  --lh-h3: 24px;
+  --text-h2: 24px;  --lh-h2: 30px;
+  --text-h1: 32px;  --lh-h1: 40px;
+  --weight-regular: 400; --weight-medium: 500; --weight-semibold: 600; --weight-bold: 700;
+
+  /* space: a 4 px grid */
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 20px; --s-6: 24px; --s-8: 32px; --s-10: 40px; --s-12: 48px;
+  --row: 36px;            /* table row */
+  --control-sm: 32px; --control-md: 40px;
+
+  /* shape */
+  --radius-control: 4px; --radius-card: 8px; --radius-surface: 16px; --radius-round: 999px;
+  --shadow-sm: 0 4px 8px rgba(0, 0, 0, .2);
+  --shadow-md: 0 6px 20px rgba(0, 0, 0, .2);
+
+  /* motion: 70 to 150 ms, one curve */
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --fast: 70ms; --base: 100ms; --slow: 150ms;
+
+  /* fixed brand and status colours (same in both themes; white text passes 4.5:1 on each) */
+  --primary: #0073ea;
+  --primary-hover: #0060b9;
+  --primary-active: #00519c;
+  --on-primary: #ffffff;
+  --negative: #d83a52;
+  --negative-hover: #b63546;
+  --positive: #00854d;
+  --waiting: #d6264f;               /* the one warm accent: what needs the director */
+  --stage-plan: #5c6e91;
+  --stage-draft: #a15c00;
+  --stage-refine: #7044d4;
+  --stage-finish: #0b7d84;
+  --stage-out: #00854d;
+  --claude: #6b4fbb;                /* Claude's avatar */
+  --focus-ring: 0 0 0 2px var(--surface), 0 0 0 4px #4ea0ff;
+  --on-solid: #ffffff;              /* text on a solid colour cell */
+  --picture-bg: #000000;            /* letterbox behind the picture */
+  --waiting-soft: rgba(214, 38, 79, .14);
+  --waiting-quiet: rgba(214, 38, 79, .35);
+  /* sync pills: Vibe's status colours, none of which a stage or "waiting on you" uses, so a colour means one thing */
+  --sync-ok: #00c875;               /* Vibe "done" green: lighter than Out */
+  --sync-busy: #579bfc;             /* Vibe bright blue */
+  --sync-wait: #797e93;             /* neutral grey: nothing is wrong, someone is away */
+  --sync-warn: #fdab3d;             /* Vibe "working on it" orange: lighter than Draft */
+  --sync-bad: var(--negative);
+  --sync-ink: #ffffff;
+  --positive-ring: rgba(0, 133, 77, .25);
+  /* group colours: a board's projects (and people) each take one; white text and the group title both pass 4.5:1 on white */
+  --group-1: #1f6fd1; --group-2: #9146c4; --group-3: #0d7f6c; --group-4: #b85a00;
+  --group-5: #c42d63; --group-6: #4f53cf; --group-7: #6b7019; --group-8: #2f7895;
+  --claude-soft: rgba(107, 79, 187, .12);
+  --claude-hover: rgba(107, 79, 187, .2);
+  /* search matches in the script: every match is a quiet wash, the current one a muted amber, never brighter than the picture */
+  --hit: rgba(201, 154, 46, .22); --hit-ring: rgba(201, 154, 46, .32);
+  --hit-current: #b8902f; --hit-current-text: #10122a;
+  --len-bg: rgba(0, 0, 0, .72);    /* the length chip and play disc on a still */
+  --len-text: #ffffff;
+}
+
+/* Light: the Workspace */
+:root, [data-theme="light"] {
+  color-scheme: light;
+  --surface: #ffffff;
+  --canvas: #f6f7fb;
+  --raised: #ffffff;               /* popovers, menus, toasts */
+  --border: #d0d4e4;
+  --divider: #e7e9ef;
+  --text: #323338;
+  --text-secondary: #676879;
+  --text-disabled: rgba(50, 51, 56, .38);
+  --hover: rgba(103, 104, 121, .1);
+  --pressed: rgba(103, 104, 121, .2);
+  --selected: #cce5ff;
+  --selected-text: #0060b9;
+  --primary-subtle: rgba(0, 115, 234, .1);
+  --skeleton: #e6e9ef;
+  --skeleton-shine: #f3f4f8;
+  --scroll-thumb: #c5c7d0;
+  --scroll-thumb-hover: #9699a6;
+  --toast-bg: #323338;
+  --toast-text: #ffffff;
+  --stage-bg: #e6e9ef;
+  /* the Room's timeline (light values are for the kit preview) */
+  --lane-1: #4f88c6; --lane-2: #8a6cc4; --lane-3: #3a9792; --lane-4: #b0843a;
+  --track-bg: #eef0f5;
+  --playhead: #323338;
+  --window-mark: #676879;
+  --play-bg: #323338; --play-fg: #ffffff; --play-hover: #1f2024;
+  --shadow-picture: 0 0 0 1px rgba(0, 0, 0, .06), 0 12px 32px rgba(0, 0, 0, .18);
+  --shadow-bar: 0 -6px 20px rgba(0, 0, 0, .08);
+}
+
+/* Dark: the Room, and the Workspace at night */
+[data-theme="dark"] {
+  color-scheme: dark;
+  --surface: #181b34;
+  --canvas: #30324e;
+  --raised: #30324e;
+  --border: #4b4e69;
+  --divider: #2b2e4a;
+  --text: #d5d8df;
+  --text-secondary: #9699a6;
+  --text-disabled: rgba(213, 216, 223, .38);
+  --hover: rgba(213, 216, 223, .08);
+  --pressed: rgba(213, 216, 223, .16);
+  --selected: #133774;
+  --selected-text: #cce5ff;
+  --primary-subtle: rgba(0, 115, 234, .2);
+  --skeleton: #2b2e4a;
+  --skeleton-shine: #363a5a;
+  --scroll-thumb: #4b4e69;
+  --scroll-thumb-hover: #6b6e8b;
+  --toast-bg: #d5d8df;
+  --toast-text: #181b34;
+  --stage-bg: #10122a;             /* around the picture: darker than the surface, so the picture is the brightest thing */
+  --shadow-sm: 0 4px 8px rgba(0, 0, 0, .4);
+  --shadow-md: 0 6px 20px rgba(0, 0, 0, .45);
+  /* lanes at about 70% saturation, so no shot is brighter than the picture */
+  --lane-1: #4b7fb8; --lane-2: #7d66b3; --lane-3: #3b8a86; --lane-4: #a17d40;
+  --track-bg: rgba(255, 255, 255, .03);
+  --playhead: #e8eaf0;
+  --window-mark: #9699a6;
+  --play-bg: #3d4062; --play-fg: #e8eaf0; --play-hover: #4b4e72;
+  --shadow-picture: 0 0 0 1px rgba(255, 255, 255, .04), 0 12px 40px rgba(0, 0, 0, .45);
+  --shadow-bar: 0 -6px 20px rgba(0, 0, 0, .25);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --fast: 0ms; --base: 0ms; --slow: 0ms; }
+}

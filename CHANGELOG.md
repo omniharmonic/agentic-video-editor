@@ -8,6 +8,22 @@ tested on synthetic fixtures.
 
 ## [Unreleased]
 
+## [0.4.1] - first automatic update
+
+- The first release delivered through the app's own updater. It carries no feature changes from 0.4.0: installing it proves the update path (signed download, safe restart after running jobs, projects intact) end to end.
+
+## [0.4.0] - the Director's Room
+
+- **The Room.** One place to watch and direct an episode: Cut, Script, Selects and Layout views side by side with the video. Flag a moment with a note, keep or go back on a change, sign off a stage, and see what the assistant did and why. When the assistant relays a sign-off for you, you confirm it, and you can undo it.
+- **The Workspace.** Your whole studio on one screen: a board of posts by stage, a calendar you can drag posts across, previews of how each post will look, your sources, ideas, campaigns and the running jobs.
+- **Settings.** Add and remove people, connect accounts, and choose which alerts reach you. Accounts and alerts are managed in the app instead of on the command line.
+- **Approval sheets.** Anything that publishes, changes who may do what, or overrides a check now stops on a sheet you read and approve: publishing one post or a batch, setting or clearing a trim, approving content (including approving despite the critic's objection), acknowledging an alert, handing over publishing, and removing a member. The assistant can prepare these, but only you can approve them.
+- **Sync across computers.** Maren and Tomas each see the same projects, versions and approvals on their own Mac. A project saved by a newer version shows "Update needed" and stays read-only on an older one instead of being damaged.
+- **Automatic updates.** Choose AVE Studio, then Check for Updates. A new version downloads, is checked, and installs when your current render or import finishes, so a running job is never cut off.
+- **More tools.** The older screens you may still need live in a separate window, out of the way of the Room and Workspace.
+- Fixes and hardening: a post counts as Out only after an approved or recorded send; the app refuses actions started by an assistant that need your own approval; downloads and the release are signed and notarized, and the app itself is stapled so it opens offline.
+
+
 - Local studio Desk: pasted writing/idea intake, editorial lanes, episode checkpoints, source shelf and explicit integration readiness. Connection loss preserves text on the page.
 - Optional pywebview desktop shell and installation-bound macOS Finder launcher, preserving the human launch and review gates.
 - External-agent stdio MCP with bounded context/source/skill/recipe reads and replay-safe, revision-checked draft writes. No embedded model API.

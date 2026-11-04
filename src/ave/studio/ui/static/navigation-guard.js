@@ -1,4 +1,4 @@
-import {h} from './dom.js';
+import {h} from '/app/shared/dom.js';
 const editors=new Set();
 let pending=null;
 export function registerDraft(controller){editors.add(controller);return ()=>editors.delete(controller);}

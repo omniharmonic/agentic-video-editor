@@ -5,6 +5,10 @@ camera frame, so every episode needs a human-approved in/out. This module only P
 session's transcript for phrases listed in config/trim.default.yaml and reports each hit as evidence, with a proposed in/out snapped into
 a pause and a confidence. `set_trim` records the human's decision in episode.json; `assemble` honours it. Nothing here edits a cut.
 
+`propose` is the one exception, and it is for DRAFTS only: it records Claude's own suggestion (`by: "claude"`, `draft_only: true`) so the
+assembly and rough cut start at the real start without waiting, and it is flagged for the director. It never counts as approval:
+`ave final` refuses a trim the director has not confirmed with `ave trim set` (`final_block`).
+
 Times are EPISODE time (the recorder's timeline), like the transcript.
 """
 
@@ -310,12 +314,55 @@ def set_trim(ep: Episode, session: str, in_s: float | None = None, out_s: float 
         raise SystemExit(f"in must be before out (got in {a:g}s, out {b:g}s)")
     rec = {k: v for k, v in (("in", a), ("out", b)) if v is not None}
     rec.update(by=by, at=time.strftime("%Y-%m-%dT%H:%M:%S%z"))
+    if by != "human":
+        rec["draft_only"] = True            # Claude's proposal: used for drafts, refused by `ave final` until the director confirms it
     meta.setdefault("trim", {})[session] = rec
     write_json(ep.meta_path, meta)
     from . import progress
     progress.log(ep, f"trim {session} set by {by}: in {a if a is not None else 'unchanged'}s, out {b if b is not None else 'unchanged'}s "
                      f"(episode time). Re-run `ave assemble` and `ave cleanup` for this session.", kind="decision", step="trim")
     return meta["trim"]
+
+
+def ends_text(rec: dict) -> str:
+    """"in 3.20s out 41.00s": the ends a trim record holds, in words."""
+    return " ".join(x for x in (f"in {rec['in']:.2f}s" if rec.get("in") is not None else "",
+                                f"out {rec['out']:.2f}s" if rec.get("out") is not None else "") if x)
+
+
+def confirm(ep: Episode, session: str, in_s: float | None = None, out_s: float | None = None, *, quote: str | None = None) -> dict:
+    """The director's confirmation of a trim, the one act behind both `ave trim set` and the app's trim approval sheet: record the
+    in/out as theirs (`by: "human"`, no `draft_only`) and answer Claude's open draft-trim question on the board. Callers check
+    that a person is acting first (`require_human` for the CLI, the device-owner check for the sheet)."""
+    rec = set_trim(ep, session, in_s=in_s, out_s=out_s)
+    if (ep.root / ".ave" / "project.json").is_file():
+        from .start import close_decisions
+        close_decisions(ep.root, f"trim-{session}", choice=f"the director set {ends_text(rec[session])}", actor="human", quote=quote)
+    return rec
+
+
+def awaiting(ep: Episode) -> list[dict]:
+    """The trims waiting on the director: each session whose recorded trim is Claude's draft (or anything not confirmed), with
+    the evidence `suggest` found for each end when it is on disk. `ave final` refuses every one of these."""
+    try:
+        book = read_json(ep.meta_path).get("trim") or {}
+    except (OSError, ValueError):
+        return []
+    p = ep.artifact(SUGGESTIONS)
+    try:
+        sug = read_json(p) if p.exists() else {}
+    except (OSError, ValueError):
+        sug = {}
+    out = []
+    for key, rec in sorted(book.items()):
+        if not isinstance(rec, dict) or confirmed(rec):
+            continue
+        s = sug.get(key) or {}
+        why = [f"{label}: {part['reason']} (confidence {part.get('confidence', 0):.2f})"
+               for label, part in (("Start", s.get("head") or {}), ("End", s.get("tail") or {})) if part.get("reason")]
+        out.append({"session": key, "in": rec.get("in"), "out": rec.get("out"), "by": rec.get("by"), "at": rec.get("at"),
+                    "ends": ends_text(rec), "why": why})
+    return out
 
 
 def clear_trim(ep: Episode, session: str) -> dict:
@@ -340,9 +387,74 @@ def pending_questions(ep: Episode) -> list[str]:
     out = []
     for key, s in sorted(sug.items()):
         ins, outs = s["head"]["proposed_in"], s["tail"]["proposed_out"]
-        if (ins is None and outs is None) or key in done:
+        if (ins is None and outs is None) or confirmed(done.get(key)):
             continue
         bits = ", ".join(x for x in (f"in {ins:.1f}s" if ins is not None else "", f"out {outs:.1f}s" if outs is not None else "") if x)
         out.append(f"Trim for {key}: suggested {bits} but not approved. Review `ave trim suggest {ep.root} --session {key}`; "
-                   f"approve or adjust with `ave trim set {ep.root} {key} --in S --out S` (before the rough cut).")
+                   f"approve or adjust with `ave trim set {ep.root} {key} --in S --out S` (before the final cut).")
     return out
+
+
+# ---- Claude's draft trim, and the gate before the final ----------------------------------------------------------------
+
+def confirmed(rec: dict | None) -> bool:
+    """True when the director recorded this trim themselves (`ave trim set`)."""
+    return bool(rec) and rec.get("by") == "human" and not rec.get("draft_only")
+
+
+def propose(ep: Episode, session: str | None = None, minutes: float | None = None, home: Path | None = None) -> dict:
+    """Claude's trim for DRAFTS: run `suggest` and record each end that is at least `draft_min_confidence` sure, with `by: "claude"`
+    and `draft_only: true`. A trim the director already set is never touched. The result says what was applied and what was too
+    weak; the caller flags it for the director. `ave final` refuses it until they confirm it with `ave trim set`."""
+    key = session_key(ep, session)
+    cur = (read_json(ep.meta_path).get("trim") or {}).get(key)
+    if confirmed(cur):
+        return {"session": key, "applied": False, "trim": cur, "weak": [], "suggestion": None,
+                "reason": "the director already set this trim, so it is kept as it is"}
+    pol = resolve_policy(ep, home=home)
+    s = suggest(ep, session=session, minutes=minutes, home=home, policy=pol)
+    floor = float(pol.get("draft_min_confidence", 0.6))
+    ends = {"in": (s["head"]["proposed_in"], s["head"]["confidence"], s["head"]["reason"]),
+            "out": (s["tail"]["proposed_out"], s["tail"]["confidence"], s["tail"]["reason"])}
+    use = {k: v[0] for k, v in ends.items() if v[0] is not None and v[1] >= floor}
+    weak = [{"end": k, "at": v[0], "confidence": v[1], "reason": v[2]} for k, v in ends.items() if v[0] is not None and v[1] < floor]
+    if not use:
+        return {"session": key, "applied": False, "trim": cur, "weak": weak, "suggestion": s,
+                "reason": "nothing to trim with confidence" + (f" (weaker than {floor:g}: " + ", ".join(f"{w['end']} {w['at']:.2f}s" for w in weak) + ")" if weak else "")}
+    book = set_trim(ep, key, in_s=use.get("in"), out_s=use.get("out"), by="claude")
+    return {"session": key, "applied": True, "trim": book[key], "weak": weak, "suggestion": s,
+            "reason": "; ".join(f"{k} {ends[k][0]:.2f}s (confidence {ends[k][1]:.2f}): {ends[k][2]}" for k in use)}
+
+
+def finish_block(ep: Episode) -> str | None:
+    """Why the episode may not move to Finish yet (a sign-off from Refine), or None: `final_block` for every edit the final
+    would be built from (each session's, or the one unnamed edit)."""
+    from . import editdoc
+    ids = sessions.session_ids(ep)
+    for name in (ids if len(ids) > 1 else [None]):
+        p = editdoc.latest_path(ep, "rough", name) or editdoc.latest_path(ep, "assembly", name)
+        why = final_block(ep, name, editdoc.load(p) if p else None)
+        if why:
+            return why
+    return None
+
+
+def final_block(ep: Episode, name: str | None, doc: dict | None = None) -> str | None:
+    """Why `ave final` must not run yet, or None. A trim Claude proposed for the draft needs the director's confirmation first, and
+    an edit cut from such a trim must be re-made after they confirm (the new assembly records who set its trim)."""
+    meta = read_json(ep.meta_path)
+    book = meta.get("trim") or {}
+    # a named edit answers to its own trim; an unnamed one (single session, or sessions combined) to every trim recorded
+    recs = [(name, book.get(name))] if name else sorted(book.items())
+    key, rec = next(((k, r) for k, r in recs if r and not confirmed(r)), (name or MAIN, None))
+    where = f"{ep.root}"
+    if rec:
+        bits = " ".join(x for x in (f"--in {rec['in']:g}" if rec.get("in") is not None else "", f"--out {rec['out']:g}" if rec.get("out") is not None else "") if x)
+        return (f"The trim for {key} ({bits or 'no ends'}) is only Claude's proposal for the draft, and the director has not confirmed it. "
+                f"A trim needs the director before the final cut. Director, in your own terminal: `ave trim set {where} {key} {bits}` "
+                f"(or other times), or `ave trim clear {where} {key}` to keep everything. Then re-run `ave assemble` and `ave cleanup`, then `ave final`.")
+    used = (doc or {}).get("trim") or {}
+    if used.get("draft_only") or used.get("by") not in (None, "human"):
+        return (f"This edit was cut from Claude's draft trim for {key}, not one the director confirmed. Re-run `ave assemble {where}` and "
+                f"`ave cleanup {where}`{' --name ' + name if name else ''} so the edit uses the confirmed trim, then `ave final`.")
+    return None

@@ -54,16 +54,28 @@ def _from_sidecars(ep, a, common) -> tuple[list, list]:
     import re
     from ..episode import read_json
     best: dict[tuple[str, str], tuple[int, dict]] = {}
+    rank: dict[tuple[str, str], tuple] = {}
+    latest_edit: dict[str, str | None] = {}
     for side in sorted((ep.exports / "shorts").glob("*.json")):
         try:
             sc = read_json(side)
         except Exception:
             continue
-        m = re.match(r"^(?P<slug>.+)\.v(?P<v>\d+)\.(?P<plat>[a-z]+)$", side.stem)
+        m = re.match(r"^(?P<slug>.+)\.v(?P<v>\d+)(?:~(?P<device>[a-z0-9]{4}))?\.(?P<plat>[a-z]+)$", side.stem)
         if not m or not (ep.root / sc.get("video", "")).exists():
             continue
         key = (m["slug"], m["plat"])
-        if key not in best or int(m["v"]) > best[key][0]:
+        # the export made from the latest short edit wins (as studio ingest_shorts.exports_for); then the highest number
+        if m["slug"] not in latest_edit:
+            from .. import editdoc
+            try:
+                lp = editdoc.latest_path(ep, "short", m["slug"])
+            except (OSError, ValueError):
+                lp = None
+            latest_edit[m["slug"]] = ep.rel(lp) if lp else None
+        r = (latest_edit[m["slug"]] is not None and sc.get("edit") == latest_edit[m["slug"]], int(m["v"]), m["device"] or "")
+        if key not in best or r > rank[key]:
+            rank[key] = r
             best[key] = (int(m["v"]), sc)
     if not best:
         raise SystemExit(f"no shorts exports with sidecars in {ep.exports / 'shorts'}; run `ave shorts export {ep.root}` first")
@@ -133,6 +145,10 @@ def cmd_approve(a) -> int:
                                                           for f, p in zip(item["files"], queue.resolve_files(ep, item))],
                      alt_texts=item.get("alt_texts"), caption=item.get("caption"))
     _out({"approving": shown, "sha256": sha})
+    from ..start import open_decisions_warning      # warns, never refuses: the director decides with this in view
+    w = open_decisions_warning(ep.root)
+    if w:
+        print(f"warning: {w}", file=sys.stderr)
     confirm = input("Type the first 8 characters of the sha256 above to approve: ").strip()
     try:
         done = queue.approve(ep, a.id, a.by or getpass.getuser(), confirm)
@@ -182,16 +198,20 @@ def cmd_run(a) -> int:
     except (RuntimeError, ValueError, FileNotFoundError) as e:
         raise SystemExit(str(e))
     _out(rep)
+    if rep.get("fake"):
+        print(rep["fake"], file=sys.stderr)
     if not send and rep["ok"]:
         print("DRY RUN: nothing was sent. Re-run with --yes to publish.", file=sys.stderr)
     return 0 if rep["ok"] else 2
 
 
 def cmd_resolve(a) -> int:
+    flag = f"--posted {a.posted}" if a.posted else "--send-again" if a.send_again else "--retry"
+    humanpresence.require_human("sending a post again" if a.send_again else "settling an uncertain publish",
+                                f"ave publish resolve {a.episode} {a.id} {a.platform} {flag}")
     _refuse_studio(a)
-    humanpresence.require_human("settling an uncertain publish", f"ave publish resolve {a.id} {a.platform} " + (f"--posted {a.posted}" if a.posted else "--retry"))
     try:
-        item = queue.resolve(_ep(a), a.id, a.platform, posted_url=a.posted, retry=a.retry, by=getpass.getuser())
+        item = queue.resolve(_ep(a), a.id, a.platform, posted_url=a.posted, retry=a.retry, send_again=a.send_again, by=getpass.getuser())
     except (ValueError, RuntimeError) as e:
         raise SystemExit(str(e))
     _out({"id": item["id"], "status": item["status"], "results": item["results"]})
@@ -281,12 +301,14 @@ def register(sub) -> None:
     s.add_argument("--yes", action="store_true", help="actually send")
     s.add_argument("--dry-run", action="store_true", help="force dry-run (wins over --yes)")
     s.set_defaults(fn=cmd_run)
-    s = ps.add_parser("resolve", help="settle a platform left uncertain by a crash: --posted URL or --retry")
+    s = ps.add_parser("resolve", help="HUMAN ONLY: settle a platform: --posted URL or --retry after a crash, or --send-again")
     s.add_argument("episode")
     s.add_argument("id")
     s.add_argument("platform")
     s.add_argument("--posted", metavar="URL")
     s.add_argument("--retry", action="store_true")
+    s.add_argument("--send-again", action="store_true",
+                   help="send a post this computer already sent there (or a previous publisher reported sent) once more")
     s.set_defaults(fn=cmd_resolve)
     s = ps.add_parser("auth", help="store credentials in the OS keychain")
     s.add_argument("platform", choices=["youtube", "facebook", "aggregator"])

@@ -614,3 +614,46 @@ def test_each_session_final_gets_its_own_captions_audio_and_chapters(tmp_path, f
     out = Path(rep["manifest"]).parent
     assert "Only in s2" in (out / "audio" / "chapters.s2.txt").read_text()
     assert not (out / "audio" / "chapters.txt").exists()      # the shared list must not land on a session it may not belong to
+
+
+# ---- an adopted project where two computers each made v8 ----------------------------------------
+
+def test_adopted_project_packages_the_latest_of_two_computers_v8(tmp_path, final_video, video_pool, monkeypatch):
+    from ave import editdoc
+    from ave.project import Project
+    from ave.project.adopt import adopt, record_version
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    (tmp_path / "home").mkdir()
+    ep = make_episode(tmp_path / "ep")
+    adopt(ep.root)
+    project = Project.open(ep.root)
+    mine = project.device.short
+    other = "zz" + ("yy" if mine != "zzyy" else "xx")
+    add_clips(ep, {"c01": "approved"})
+    for tag in (other, mine):                                   # the other computer's v8 is logged first: mine is latest here
+        add_final(ep, final_video, version=8, chapters=False, doc=False)
+        for suffix in (".master.mp4", ".srt"):
+            (ep.exports / f"final.v8{suffix}").rename(ep.exports / f"final.v8~{tag}{suffix}")
+        fdoc = ep.edits / f"final.v8~{tag}.json"
+        fdoc.write_text("{}")
+        sdoc = ep.edits / f"short.clip-c01.v8~{tag}.json"
+        sdoc.write_text("{}")
+        mp4 = add_short(ep, video_pool / "vertical.mp4", "c01", "youtube", ver=8)
+        side = mp4.with_suffix(".json")
+        sc = json.loads(side.read_text())
+        tagged = mp4.with_name(f"clip-c01.v8~{tag}.youtube.mp4")
+        mp4.rename(tagged)
+        sc.update(video=ep.rel(tagged), edit=ep.rel(sdoc), name=tagged.stem)
+        side.unlink()
+        tagged.with_suffix(".json").write_text(json.dumps(sc))
+        record_version(project, fdoc)
+        record_version(project, sdoc)
+    assert editdoc.latest_path(ep, "final").name == f"final.v8~{mine}.json"
+    fin = K.find_final(ep)
+    assert fin["primary"]["path"].name == f"final.v8~{mine}.master.mp4" and fin["primary"]["label"] == f"v8~{mine}"
+    assert K.find_srt(ep, fin["primary"], None).name == f"final.v8~{mine}.srt"
+    shorts = K.find_shorts(ep)
+    assert [s["src"].name for s in shorts] == [f"clip-c01.v8~{mine}.youtube.mp4"]
+    m = manifest(build(ep, include={"shorts"}))
+    assert [f["package_path"] for f in m["files"] if f["role"] == "short"] == [f"shorts/youtube/clip-c01.v8~{mine}.youtube.mp4"]
+    assert Path(build(ep, include={"shorts"}, new_version=True)["package_dir"]).name == f"2026-10-14-v2~{mine}"   # packages are tagged too

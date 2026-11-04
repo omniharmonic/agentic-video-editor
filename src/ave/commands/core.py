@@ -26,11 +26,13 @@ def cmd_resume(a) -> int:
     return 0
 
 
-def _assemble_one(ep: Episode, canvas, session: str | None, combined: bool = False) -> dict:
+def _assemble_one(ep: Episode, canvas, session: str | None, combined: bool = False, actor: str | None = None) -> dict:
     doc = assemble.build_combined(ep, canvas) if combined else assemble.build(ep, canvas, session=session)
-    path = editdoc.save_new_version(ep, doc, name=session)
+    path = editdoc.save_new_version(ep, doc, name=session, actor=actor)
     ep.mark_stage("assembly", edit=path.name)
     out = {"saved": str(path), "video_segments": len(doc["tracks"]["video"]), "duration": doc["duration"]}
+    if editdoc.saved_warnings(path):
+        out["warnings"] = editdoc.saved_warnings(path)
     if session:
         out.update(session=session, name=session, excluded=doc.get("excluded", []))
     return out

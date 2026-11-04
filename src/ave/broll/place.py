@@ -677,7 +677,7 @@ def _latest(ep: Episode, stage: str | None, name: str | None) -> tuple[str, dict
     vers = editdoc.list_versions(ep, stage, name)
     if not vers:
         raise PlaceError(f"No {stage} edit{' ' + name if name else ''} yet for {ep.root.name}.")
-    return stage, editdoc.load(editdoc.path_for(ep, stage, vers[-1], name)), vers[-1]
+    return stage, editdoc.load(editdoc.latest_path(ep, stage, name)), vers[-1]
 
 
 def remove(ep: Episode, placement_id: str, *, stage: str | None = None, name: str | None = None, by: str | None = None, reason: str = "") -> dict:
@@ -729,7 +729,7 @@ def listing(ep: Episode, *, stage: str | None = None, name: str | None = None) -
     ovs = [{k: o.get(k) for k in ("id", "mode", "o0", "o1", "audio", "fit", "src_in", "ken_burns", "credit_id")} | {"asset": (o.get("library") or {}).get("asset"),
                                                                                                                   "file": o["file"]}
            for o in placements(doc)]
-    return {"edit": f"{stage}{'.' + name if name else ''}.v{ver}", "placements": ovs, "history": doc.get("history") or [],
+    return {"edit": editdoc.latest_path(ep, stage, name).name[:-len(".json")], "placements": ovs, "history": doc.get("history") or [],
             "closure": closure(ep, doc)}
 
 
@@ -740,6 +740,6 @@ def check(ep: Episode, *, stage: str | None = None, name: str | None = None, bea
     c = closure(ep, doc)
     ov = [{"id": o["id"], "o0": o["o0"], "o1": o["o1"]} for o in placements(doc)]
     pacing = critic.check_placements(ov, doc["duration"], beats or [], critic.load_config(), music=doc["tracks"].get("music") or [])
-    return {"edit": f"{stage}{'.' + name if name else ''}.v{ver}", "ok": c["ok"], "license": c, "pacing": pacing,
+    return {"edit": editdoc.latest_path(ep, stage, name).name[:-len(".json")], "ok": c["ok"], "license": c, "pacing": pacing,
             "credits": c["attributions"], "courtesy_credits": c["optional_attributions"], "derived_from": c["derived_from"],
             "note": None if beats else "pass --beats FILE to check emotional beats; without it that rule is not checked"}

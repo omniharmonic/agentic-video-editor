@@ -29,7 +29,8 @@ def test_window_lifecycle_and_cleanup(monkeypatch, failure):
         def __init__(self, st, **kw):
             assert kw["fixtures"]
             self.app = SimpleNamespace(pin=SimpleNamespace(reveal=lambda: "fixture-pin"))
-        def url(self): return "http://127.0.0.1:1234/?t=test"
+        def url(self): return "http://127.0.0.1:1234/tools/?t=test"
+        def app_url(self): return "http://127.0.0.1:1234/app/?t=test"
         def serve_forever(self): events.append("serve")
         def shutdown(self): events.append("shutdown")
         def server_close(self): events.append("close")

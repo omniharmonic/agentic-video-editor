@@ -14,6 +14,8 @@ Captions sit on the seam between the halves (config `stack.caption_y`): the one 
 from __future__ import annotations
 
 import copy
+import hashlib
+import json
 import subprocess
 from pathlib import Path
 
@@ -117,12 +119,23 @@ def render_picture(ep: Episode, doc: dict, out: Path) -> Path:
     return out
 
 
-def render_doc(ep: Episode, doc: dict, version: int) -> dict:
-    """The doc `comp.render` gets for a stack short: same audio/captions, picture = the stacked intermediate (rendered once per version)."""
+def render_doc(ep: Episode, doc: dict, version: int | str) -> dict:
+    """The doc `comp.render` gets for a stack short: same audio/captions, picture = the stacked intermediate (rendered once per version).
+
+    `version` is the version's label (`v8`, or `v8~abcd` in an adopted project; a bare number means `v<n>`). The cached picture is
+    reused only when its `.src.sha256` matches this doc, so another computer's v8 never reuses this computer's picture."""
     slug = doc["short"]["slug"]
-    pic = ep.work / "shorts" / f"stack.{slug}.v{version}.mp4"
-    if not pic.exists():
+    lab = version if isinstance(version, str) else f"v{int(version)}"
+    pic = ep.work / "shorts" / f"stack.{slug}.{lab}.mp4"
+    key = pic.with_suffix(".src.sha256")
+    digest = hashlib.sha256(json.dumps(doc, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+    try:
+        fresh = pic.exists() and key.read_text().strip() == digest
+    except OSError:
+        fresh = False
+    if not fresh:
         render_picture(ep, doc, pic)
+        key.write_text(digest + "\n")
     d = copy.deepcopy(doc)
     d["sources"]["STACK"] = {"kind": "video", "file": str(pic.relative_to(ep.root)), "start_offset": 0.0, "drift_ppm": 0.0}
     d["tracks"]["video"] = [{"id": "stack", "src": "STACK", "o0": 0.0, "o1": doc["duration"], "e0": 0.0, "crop": None, "zoom": 1.0}]

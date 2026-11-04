@@ -1,5 +1,5 @@
 // Shared small forms for production and campaign planning. All text stays data.
-import { h } from './dom.js';
+import { h } from '/app/shared/dom.js';
 export const button = (label, fn, cls='') => h('button', {type:'button', class:cls, onclick:fn}, label);
 export function select(label, values, value, change) {
   const el=h('select', {'aria-label':label}, values.map(([id,name])=>h('option',{value:id},name)));

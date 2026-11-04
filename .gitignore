@@ -41,3 +41,4 @@ ave-demo/
 
 # the Room's loopback token file
 .ave/local/
+appcast.xml

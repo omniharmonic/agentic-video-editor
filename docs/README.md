@@ -22,7 +22,7 @@ For anyone, human or agent, [AGENTS.md](../AGENTS.md) is the canonical statement
 | [motion.md](motion.md) | The motion-graphics kit: templates, tokens, brand fonts, alpha renders | user, contributor |
 | [sequences.md](sequences.md) | Opening and closing sequences (cold open, title, host card, credits, end card) and their approval | user |
 | [content.md](content.md) | The opt-in content kit: quote posts, thumbnails, carousels, reel cards, the Canva renderer | user |
-| [ui.md](ui.md) | The local review UI (`ave ui`): pages, shortcuts, and its safety model | user |
+| [ui.md](ui.md) | Where the retired `ave ui` pages went (the Room, the Workspace) and the loopback safety rules they kept | user |
 | [studio.md](studio.md) | The content studio (`ave studio`): calendar, library, B-roll, platform adapters, scheduler; the honest status table (nothing verified live) and the human-only acts | user |
 | [publishing-setup.md](publishing-setup.md) | One-time credential setup per platform and the publishing safety model | user |
 | [asset-licensing.md](asset-licensing.md) | The license log for music and B-roll, provider terms, and the warnings that go with them (mostly unverified) | user |

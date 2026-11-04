@@ -20,7 +20,11 @@ pyz = PYZ(a.pure)
 exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name='AVE Studio', debug=False,
           bootloader_ignore_signals=False, strip=False, upx=False, console=False, target_arch='arm64', codesign_identity='-')
 coll = COLLECT(exe, a.binaries, a.datas, strip=False, upx=False, name='AVE Studio')
-app = BUNDLE(coll, name='AVE Studio.app', bundle_identifier='local.ave.studio',
-             info_plist={'CFBundleDisplayName':'AVE Studio','CFBundleShortVersionString':'0.1.0',
-                         'CFBundleVersion':'20261103','LSMinimumSystemVersion':'14.0',
-                         'NSHighResolutionCapable':True,'NSAppTransportSecurity':{'NSAllowsLocalNetworking':True}})
+# Versions and the Sparkle keys come from build_desktop.py. AVE_UPDATE_PLIST is empty for a development build (updates off);
+# a release carries SUPublicEDKey and the private SUFeedURL. Never print it.
+import json
+info_plist = {'CFBundleDisplayName':'AVE Studio','CFBundleShortVersionString':os.environ.get('AVE_BUNDLE_VERSION','0.1.0'),
+              'CFBundleVersion':os.environ.get('AVE_BUNDLE_BUILD','20261103'),'LSMinimumSystemVersion':'14.0',
+              'NSHighResolutionCapable':True,'NSAppTransportSecurity':{'NSAllowsLocalNetworking':True}}
+info_plist.update(json.loads(os.environ.get('AVE_UPDATE_PLIST') or '{}'))
+app = BUNDLE(coll, name='AVE Studio.app', bundle_identifier='local.ave.studio', info_plist=info_plist)

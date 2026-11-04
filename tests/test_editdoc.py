@@ -140,3 +140,26 @@ def test_every_consumer_follows_the_sync_map_not_a_copy_of_the_formula():
     assert fr[0]["source_start_frame"] == round(100.0 * 30)                       # through the map, not start_offset alone
     plain = cutplan.to_frames([shot], 30.0, {"A": 2.0}, {"A": "a.mov"}, {"A": 0.0})
     assert plain[0]["source_start_frame"] == round(100.05 * 30)                    # legacy call signature unchanged
+
+
+def test_device_tagged_versions_read_beside_legacy_ones(tmp_path):
+    from ave.episode import Episode
+    ep = Episode(tmp_path); ep.create()
+    editdoc.save_new_version(ep, good())
+    (ep.edits / "assembly.v2~abcd.json").write_text((ep.edits / "assembly.v1.json").read_text())
+    (ep.edits / "assembly.v2~efgh.json").write_text((ep.edits / "assembly.v1.json").read_text())
+    assert editdoc.list_versions(ep, "assembly") == [1, 2, 2]
+    assert [v.tag for v in editdoc.version_entries(ep, "assembly")] == [None, "abcd", "efgh"]
+    assert editdoc.latest_path(ep, "assembly").name == "assembly.v2~efgh.json"
+    with pytest.raises(editdoc.AmbiguousVersion):             # two computers' v2: a bare number cannot pick one
+        editdoc.path_for(ep, "assembly", 2)
+    assert editdoc.path_for(ep, "assembly", "v2~abcd").name == "assembly.v2~abcd.json"
+    assert editdoc.path_for(ep, "assembly", 1).name == "assembly.v1.json"
+    assert editdoc.resolve(ep, "assembly", 2, id="assembly.v2~efgh").name == "assembly.v2~efgh.json"
+    sha = __import__("hashlib").sha256((ep.edits / "assembly.v2~abcd.json").read_bytes()).hexdigest()
+    (ep.edits / "assembly.v2~efgh.json").write_text("{}")
+    assert editdoc.resolve(ep, "assembly", 2, sha256=sha).name == "assembly.v2~abcd.json"
+    assert editdoc.label(editdoc.latest_version(ep, "assembly")) == "v2~efgh" and editdoc.label(1) == "v1"
+    assert editdoc.next_label(ep, "assembly") == "v3"
+    assert editdoc.save_new_version(ep, good()).name == "assembly.v3.json"     # not adopted: the legacy name
+    assert editdoc._V.match("assembly.v2~abcd.json")["n"] == "2"

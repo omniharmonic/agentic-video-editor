@@ -3,6 +3,8 @@
 `blockers(...)` is the ONLY place the gate list lives. Nothing is sent unless it returns empty AND the caller passed `send=True` AND the
 queue's own checks pass again inside `queue.run` (signature, bytes, metadata, immediately before each platform). The gates, in order:
 
+    this computer is the project's publisher (`queue.not_publisher`): every other computer, and a copy of the folder on a new Mac,
+        has no queue and sends nothing; a post status that arrived by sync never counts
     dropped / no queue item / not a studio (meta_v 2) item / queue item not bound to THIS account
     queue.send_blockers: status approved, valid HMAC signature, file sha == approved sha, metadata hash == approved hash
     the queue item still equals the post (caption, copy extras, alt texts, every file sha): what the human reviewed is what goes out
@@ -172,6 +174,9 @@ def blockers(sp, post: Mapping, variant: Mapping, *, now: datetime, publishers: 
              send: bool = False) -> list[Blocker]:
     """Every reason `variant` may NOT be sent now (see the module docstring for the list). Empty = all gates open. No network."""
     out: list[Blocker] = []
+    elsewhere = pq.not_publisher(sp)
+    if elsewhere:                     # first and alone: a post's status synced in posts/ is never a reason to send from here
+        return [Blocker("not_publisher", elsewhere)]
     if (variant.get("delivery") or {}).get("method") == "manual":
         return [Blocker("manual_delivery", "Manual delivery never dispatches automatically")]
     if variant.get("dropped"):
@@ -431,8 +436,10 @@ def duplicate_of(sp, post: Mapping, variant: Mapping, item: Mapping, now: dateti
                     continue
             except (KeyError, ValueError):
                 continue
+            # posts/ syncs, so `result` above is only a hint: the duplicate counts only when THIS computer's own queue item says it
+            # was published. A status that arrived from another computer never stops (or starts) a send here.
             other = state.load_queue_item(sp, v)
-            if other and fingerprint(sp, v, other) == mine:
+            if other and other.get("status") == "published" and fingerprint(sp, v, other) == mine:
                 return f"{p['id']}:{v['id']}"
     return None
 
@@ -511,6 +518,30 @@ def resolve_uncertain(sp, post_id: str, variant_id: str, *, posted_url: str | No
     store.save_post(sp, new, expected_rev=post["rev"], actor=actor, op="resolve", variant=variant_id,
                     detail={"posted": bool(posted_url), "retry": retry}, now=now)
     return {"post": post_id, "variant": variant_id, "queue_status": item["status"], "resolved": "posted" if posted_url else "retry"}
+
+
+def send_again(sp, post_id: str, variant_id: str, *, by: str, actor: Actor | None = None, now: datetime | None = None) -> dict:
+    """A HUMAN says this variant may go out again on its platform although this computer already sent it, or a previous publisher
+    reported it sent (the CLI enforces the human gate; this is the state change). It writes the queue's `send_again` record
+    (`queue.resolve(send_again=True)`), clears the variant's result, and leaves the queue item awaiting a fresh approval: the next
+    tick sends only after the person approves it again."""
+    now = now or SystemClock().now()
+    actor = actor or Actor("human", by)
+    post = store.load_post(sp, post_id)
+    v = model.find_variant(post, variant_id)
+    item = state.load_queue_item(sp, v)
+    if item is None:
+        raise ValueError("variant has no queue item (run `ave studio queue sync` first)")
+    ep = state.queue_episode(sp, v)
+    item = pq.resolve(ep, item["id"], v["platform"], send_again=True, by=by)
+    new = copy.deepcopy(post)
+    nv = model.find_variant(new, variant_id)
+    nv["result"] = None
+    nv["attempts"] = [*nv["attempts"], {"at": iso_utc(now), "outcome": "send_again",
+                                        "detail": f"{by} checked the platform and asked to send it again; it needs a fresh approval"}]
+    store.save_post(sp, new, expected_rev=post["rev"], actor=actor, op="resolve", variant=variant_id, detail={"send_again": True}, now=now)
+    return {"post": post_id, "variant": variant_id, "queue_status": item["status"], "resolved": "send_again",
+            "next": f"approve it again (`ave studio approve {post_id} {variant_id}`), then the next tick may send it"}
 
 
 # ------------------------------------------------------------------------------------------------ pause / resume

@@ -402,7 +402,7 @@ def test_real_worker_retains_lock_after_parent_process_death(wb,tmp_path):
     alive. Killing that worker permits recovery and a real retry/render.
     """
     import signal, subprocess, sys
-    from ave.ui.jobs import child_env
+    from ave.jobs import child_env
     upload(wb)
     control=tmp_path/'process-control';control.mkdir()
     worker_script=control/'worker_fixture.py';parent_script=control/'parent_fixture.py'

@@ -35,7 +35,7 @@ def _prev_short(ep: Episode, slug: str) -> tuple[dict, int]:
     vs = editdoc.list_versions(ep, "short", slug)
     if not vs:
         raise SystemExit(f"no short for {slug}; run `ave shorts build {ep.root} --clip {slug}` first")
-    return editdoc.load(editdoc.path_for(ep, "short", vs[-1], slug)), vs[-1]
+    return editdoc.load(editdoc.latest_path(ep, "short", slug)), vs[-1]
 
 
 def _source(ep: Episode, clip: dict) -> dict:

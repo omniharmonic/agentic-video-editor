@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from .. import proxies
+from .. import editdoc, proxies
 from ..episode import Episode
 from .handoff import ORDER, _pick
 
@@ -12,13 +12,13 @@ from .handoff import ORDER, _pick
 def cmd(a) -> int:
     ep = Episode(a.episode)
     ep.require()
-    stage, version, doc = _pick(ep, a.stage, a.name)
+    stage, version, doc, _ = _pick(ep, a.stage, a.name)
     files = proxies.footage_used(ep, doc)
     if not files:
         raise SystemExit("The edit uses no video footage; nothing to proxy.")
     res = proxies.run(ep, files, a.codec, a.height, hw=False if a.no_hw else None, force=a.force, dry_run=a.dry_run,
                       log=lambda m: print(m, flush=True))
-    out = {"ok": not res["failed"], "edit": f"{stage}{'.' + a.name if a.name else ''}.v{version}", "codec": res["codec"],
+    out = {"ok": not res["failed"], "edit": editdoc.latest_path(ep, stage, a.name).name[:-len(".json")], "codec": res["codec"],
            "height": res["height"], "dry_run": a.dry_run, "estimate_gb": round(res["estimate_bytes"] / 1e9, 2),
            "free_gb": round(res["free_bytes"] / 1e9, 2), "made": res["made"], "kept": res["kept"], "failed": res["failed"],
            "to_make": [i["proxy"] for i in res["items"] if i["action"] != "keep"] if a.dry_run else None,

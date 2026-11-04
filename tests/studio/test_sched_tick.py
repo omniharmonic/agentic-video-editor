@@ -1062,3 +1062,29 @@ def test_resolved_feedback_stops_blocking_and_notes_do_not_block(tmp_path):
     assert calls(w) == 0
     w.approve(pid, vid)                                                                     # ... and approves again
     assert len(w.tick(send=True).posted) == 1
+
+
+def test_send_again_through_the_studio_cli(tmp_path, monkeypatch, capsys):
+    """Task 20 N-2: a studio post this computer already sent goes out again only through the human-only
+    `ave studio resolve POST VARIANT --send-again` (real CLI), and then only after a fresh approval."""
+    from ave import cli, humanpresence
+    w, pid, vid = ready(tmp_path)
+    assert len(w.tick(send=True).posted) == 1 and calls(w) == 1
+    item = w.item(pid, vid)
+    assert item["post_ref"] == f"studio:{pid}:{vid}" and pq.record_mark(w.sp, item, "instagram")[0] == "sent"
+    assert pq.send_again_command(w.sp, item, "instagram").startswith(f"ave studio resolve {pid} {vid} --send-again --studio ")
+    argv = ["studio", "resolve", pid, vid, "--send-again", "--studio", str(w.sp.root)]
+    monkeypatch.setattr(humanpresence, "is_human_terminal", lambda: False)
+    assert cli.main(argv) == 2
+    assert "human act" in capsys.readouterr().err and pq.record_mark(w.sp, w.item(pid, vid), "instagram")[0] == "sent"
+    monkeypatch.setattr(humanpresence, "is_human_terminal", lambda: True)
+    assert cli.main(argv) == 0
+    item = w.item(pid, vid)
+    assert pq.record_mark(w.sp, item, "instagram")[0] == "send_again" and item["status"] == "awaiting_approval"
+    assert w.variant(pid, vid)["result"] is None and w.variant(pid, vid)["attempts"][-1]["outcome"] == "send_again"
+    before = w.tick(send=True)
+    assert calls(w) == 1 and not before.deferred          # not before a person approves it again
+    w.approve(pid, vid)
+    after = w.tick(send=True)
+    # every send gate is open again: only the account's own posting gap (the first post went out moments ago) defers it now
+    assert [d["variant"] for d in after.deferred] == [vid] and not after.blocked and calls(w) == 1

@@ -39,7 +39,7 @@ export const api = {
   move: (post, body) => call("POST", `posts/${encodeURIComponent(post)}/move`, { body }),
   swap: (post, body) => call("POST", `posts/${encodeURIComponent(post)}/swap`, { body }),
   unschedule: (post, body) => call("POST", `posts/${encodeURIComponent(post)}/unschedule`, { body }),
-  acceptProposal: (id) => call("POST", `schedule/proposals/${encodeURIComponent(id)}/accept`, { body: {} }),
+  acceptProposal: (id) => (window.aveNative?.acceptProposal ? window.aveNative.acceptProposal(id) : call("POST", `schedule/proposals/${encodeURIComponent(id)}/accept`, { body: {} })),
   slots: (post, variant, count = 6) => call("GET", "slots", { params: { post, variant, count } }),
   get: (path, params) => call("GET", path, { params }),
   post: (path, body) => call("POST", path, { body }),

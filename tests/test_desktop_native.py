@@ -43,11 +43,14 @@ def test_auth_callback_and_shutdown(native_context,outcome):
     authority.request('Review this workspace',results.append)
     assert not authority.active
     context=authority._context;context.callback(outcome,None)
-    assert results==[outcome] and authority.active==outcome and context.invalidated
+    # success is a single-use grant bound to the act that asked, never a session-wide switch
+    assert len(results)==1 and bool(results[0])==outcome and not authority.active and context.invalidated
+    with pytest.raises(StudioError):authority.require('Review this workspace')
+    with pytest.raises(TypeError):authority.require()           # every check names its act (Task 23 minor)
     authority.close()
-    with pytest.raises(StudioError):authority.require()
+    with pytest.raises(StudioError):authority.require('Review this workspace')
     context.callback(True,None)
-    assert not authority.active and results==[outcome]
+    assert not authority.active and len(results)==1
 
 def test_unavailable_and_late_callback(native_context):
     native_context.available=False
@@ -55,7 +58,7 @@ def test_unavailable_and_late_callback(native_context):
     assert results==[False] and not authority.active
     native_context.available=True;authority.request('review',results.append)
     c=authority._context;authority.cancel();c.callback(True,None)
-    assert results==[False] and not authority.active
+    assert results==[False,False] and not authority.active          # the cancelled check answers "no" instead of hanging
 
 def test_timeout_invalidates_then_rejects_late_success(native_context,monkeypatch):
     timers=[]
@@ -88,9 +91,12 @@ def test_authoring_server_protected_routes_and_no_secret_reads(tmp_path,monkeypa
     (sp.accounts_dir/'test.yaml').write_text('id: test\nplatform: instagram\nmode: manual\nlabel: Test\n')
     a=NativeAuthority();app=StudioApp(studio,native_authority=a)
     try:
-        for route in ('approve','resume','broll/pick','accounts/auth','send'):
+        for route in ('broll/pick','accounts/auth','send'):
             with pytest.raises(StudioError) as err:app.post(route,{'human':True,'authorized':True})
             assert err.value.status==403
+        for route in ('approve','resume','reject','tick/rehearse'):            # gone with the old shell: no route approves
+            with pytest.raises(StudioError) as err:app.post(route,{'human':True,'authorized':True})
+            assert err.value.status==404
         assert app.get('summary',{})[1]['ui']['native']
         rows=app.get('accounts',{})[1]['accounts']
         assert rows[0]['credentials']['status']=='unverified'
@@ -177,14 +183,17 @@ def test_mocked_native_success_still_needs_pin_exact_view_and_consumes(tmp_path,
     sha='a'*64;item={'post':'synthetic','variant':'synthetic','sha':sha}
     body={'by':'Synthetic reviewer','items':[item],'pin':app.pin.reveal()}
     try:
-        authority.request('Synthetic review',lambda ok:None)
+        grants=[];authority.request('Synthetic review',grants.append,action='approvePublish',keys=[app.approval_key('synthetic','synthetic',sha)])
         authority._context.callback(True,None)
-        with pytest.raises(StudioError):app.approve({**body,'pin':'wrong'})
-        assert app.approve(body)['refused'] and not app.views
-        app.record_view('synthetic',{'variant':'synthetic','sha':sha,'displayed_ms':10000})
-        assert app.approve({**body,'items':[{**item,'sha':'b'*64}]})['refused']
-        assert app.approve(body)['approved'] and not app.views
-        assert app.approve(body)['refused']
+        with pytest.raises(StudioError):app.approve(body)                     # minted, but not spent on this thread
+        with authority.use(grants[0],'approvePublish',[app.approval_key('synthetic','synthetic',sha)]):
+            with pytest.raises(StudioError):app.approve({**body,'pin':'wrong'})
+            assert app.approve(body)['refused'] and not app.views
+            app.record_view('synthetic',{'variant':'synthetic','sha':sha,'displayed_ms':10000})
+            with pytest.raises(StudioError):app.approve({**body,'items':[{**item,'sha':'b'*64}]})   # the grant names sha a only
+            assert app.approve(body)['approved'] and not app.views
+            assert app.approve(body)['refused']
+        with pytest.raises(StudioError):app.approve(body)
         authority.close()
         with pytest.raises(StudioError):app.approve(body)
     finally:app.close()
@@ -206,9 +215,10 @@ def test_initial_native_confirmation_cancel_revokes_consumer_and_late_callbacks(
     authority=NativeAuthority();app=StudioApp(studio,fixtures=True,native_authority=authority)
     fake=types.SimpleNamespace(session=types.SimpleNamespace(authority=authority,server=types.SimpleNamespace(app=app)),reply=lambda *a:None)
     try:
-        authority.request('first session',lambda ok:None);old=authority._context;old.callback(True,None)
-        app.record_view('synthetic',{'variant':'one','sha':'a'*64,'displayed_ms':10000})
-        namespace['unlock'](fake,'1')
+        grants=[];key=app.approval_key('synthetic','one','a'*64)
+        authority.request('first session',grants.append,action='approvePublish',keys=[key]);old=authority._context;old.callback(True,None)
+        with authority.use(grants[0],'approvePublish',[key]):app.record_view('synthetic',{'variant':'one','sha':'a'*64,'displayed_ms':10000})
+        namespace['unlock'](fake,'1',lambda grant:None,None,'approvePublish',[key])
         assert not app.views
         with pytest.raises(StudioError,match='authenticate'):app.record_view('synthetic',{'variant':'one','sha':'a'*64})
         with pytest.raises(StudioError,match='authenticate'):app.approve({'by':'test','pin':app.pin.reveal(),'items':[]})
@@ -355,7 +365,7 @@ def test_native_report_cancel_before_dispatch_never_starts_transaction(tmp_path,
     ns={'__name__':'ave.desktop_native','REPORT_FIELDS':native.REPORT_FIELDS,'package_file':lambda *a,**k:(None,None,m),'alert':alert}
     exec(compile(ast.fix_missing_locations(ast.Module(body=[method],type_ignores=[])),native.__file__,'exec'),ns)
     session=types.SimpleNamespace(server=types.SimpleNamespace(app=types.SimpleNamespace(ep=types.SimpleNamespace(root=tmp_path))),record=lambda *a:pytest.fail('cancelled transaction'))
-    fake=types.SimpleNamespace(busy=False,session=session,file_work=owner,window=types.SimpleNamespace(setTitle_=lambda *a:None),reply=lambda *a:replies.append(a),unlock=lambda rid,after:after())
+    fake=types.SimpleNamespace(busy=False,session=session,file_work=owner,window=types.SimpleNamespace(setTitle_=lambda *a:None),reply=lambda *a:replies.append(a),unlock=lambda rid,after,purpose=None,**bound:after(object()))
     ns['report'](fake,request,'1');owner.thread.join(2)
     while not ui.empty():ui.get()()
     assert replies[-1][1] is False and 'cancelled' in replies[-1][2]['error'].lower()

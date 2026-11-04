@@ -136,7 +136,7 @@ def queue_mismatch(sp, post: Mapping, v: Mapping, item: Mapping) -> list[str]:
     return [d["field"] + (" differs" if d["field"] != "post" else f": {d['post']}") for d in queue_diff(sp, post, v, item)]
 
 
-def _create(sp, fields: dict, publishers) -> dict:
+def _create(sp, fields: dict, publishers, post_ref: str | None = None) -> dict:
     kw = {k: fields[k] for k in ("platforms", "title", "description", "tags", "caption", "visibility", "ai_disclosure", "account",
                                  "post_type", "first_comment", "link_url", "schedule", "media_type")}
     if fields["media_type"] == "video":
@@ -144,7 +144,7 @@ def _create(sp, fields: dict, publishers) -> dict:
     else:
         kw.update(files=fields["files"], alt_texts=fields["alt_texts"])
     kw.update({k:fields[k] for k in ("delivery","cover","presentation") if k in fields})
-    return pq.create(sp, meta_v=fields.get("meta_v",2), publishers=publishers, **kw)
+    return pq.create(sp, meta_v=fields.get("meta_v",2), publishers=publishers, post_ref=post_ref, **kw)
 
 
 def _update(sp, item_id: str, fields: dict, publishers) -> dict:
@@ -191,7 +191,7 @@ def sync_queue(sp, post_id: str, *, publishers: Mapping[str, Any] | None = None,
         edit["license_gap"] = False
         try:
             if item is None or item["status"] == "rejected":
-                item = _create(sp, fields, pubs)
+                item = _create(sp, fields, pubs, post_ref=f"studio:{post['id']}:{v['id']}")
                 row["action"] = "created"
             else:
                 before = (item["status"], item["sha256"], safety.meta_hash(item), item.get("schedule"))

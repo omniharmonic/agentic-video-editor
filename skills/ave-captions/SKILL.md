@@ -22,6 +22,11 @@ ave captions check <ep> captions/rough.srt             # exit 1 + JSON problems 
 ave captions retranscribe <ep> exports/final.mp4 [--srt-out f.srt] [--asr whisper] [--diarize]
 ```
 
+In an adopted project (the folder has `.ave/project.json`, see `ave project adopt`) the caption files are named after the
+version they belong to, so no other version's captions are ever rewritten: `captions/rough.v3~abcd.srt` + `.ass` next to
+`edits/rough.v3~abcd.json` (`~abcd` is this computer's device tag). Un-adopted folders keep `captions/rough.srt`. Read the
+caption path from the EditDoc's `captions.srt`; never build it from the stage name.
+
 Styles: `podcast` (bottom centre, white, thin outline), `short` (bold, word highlight, safe zone clear of the bottom 25% and
 right 120 px at 1080 wide), `minimal` (small, quiet). Sizes are fractions of the canvas, so the same style is correct at
 1920x1080 and 1080x1920. Tune numbers in the YAML, or override per episode in `<ep>/policy/captions.styles.yaml` (deep-merged).

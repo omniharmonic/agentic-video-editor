@@ -33,6 +33,7 @@ def test_context_reads_disk_and_has_explicit_gates(app):
     ctx = call(app, 'get_context')
     assert ctx['show']['title'] == 'Grounded conversations'
     assert ctx['human_gates'] and ctx['live_verified'] is False
+    assert 'camera mapping' in ctx['flagged_at_review'] and not any('camera mapping' in g for g in ctx['human_gates'])
     assert ctx['untrusted_text']
     after = {p.relative_to(root):p.read_bytes() for p in root.rglob('*') if p.is_file()}
     assert before == after
@@ -102,6 +103,19 @@ def test_source_lookup_never_reads_selected_filesystem_path(app,tmp_path):
     outside=tmp_path/'secret.md';outside.write_text('outside-secret')
     with pytest.raises(ValueError): call(app,'read_source',name=str(outside))
     with pytest.raises(ValueError): call(app,'read_source',name='../secret.md')
+
+
+def test_director_skill_is_in_the_catalog_and_names_the_room_tools(app):
+    from ave.agent import TOOL_MAP
+    assert 'ave-director' in call(app,'get_context')['skills']
+    text = call(app,'read_skill',name='ave-director')['text']
+    assert text.startswith('---\nname: ave-director\ndescription: ')
+    rooms = ('room_read','room_show','room_offer_version','room_highlight','room_keep','room_back')
+    assert set(rooms) <= set(TOOL_MAP)
+    for tool in rooms:
+        assert f'`{tool}' in text, tool
+    for word in ('Keep this','Try another way','Go back','Sign-off','lock that','"queued": true','too_large','PROGRESS.md','rule 5','HUMAN_GATES','ave handoff'):
+        assert word in text, word
 
 
 def test_skills_and_recipes_are_shipped_allowlist(app):

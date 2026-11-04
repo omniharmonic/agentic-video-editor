@@ -7,7 +7,7 @@
 # `counter`: the unit the platform counts in (chars | graphemes | x_weighted) and the preview's soft limit. HARD limits come from
 #            config/platforms.yaml through the same preflight as the queue; the editor shows both when they differ.
 # `surfaces`: per post_type, how the media is drawn (aspect, crop, safe zones).
-# static/previews/previews.json is a generated mirror of this file for the browser (tests/studio/test_previews_config.py keeps them equal).
+# app/static/shared/previews/previews.json is a generated mirror of this file for the browser (tests/studio/test_previews_config.py keeps them equal).
 version: 1
 approximate_label: "Approximate: layout and cut-offs are documentation-derived and not yet checked against a live post."
 

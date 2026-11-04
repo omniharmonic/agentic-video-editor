@@ -74,7 +74,7 @@ ave broll place <ep> --stage short --name <slug> --asset a_... --at 4 --dur 2   
 ### To the studio
 
 Approved shorts go to the studio with `ave studio ingest shorts <episode> [--clips ids] [--accounts ids] [--dry-run] [--sync]` (skill `ave-studio-recipes`, recipe `episode-shorts-to-posts`).
-It takes only clips a NAMED human kept from a terminal or `ave ui` (a keep typed through an agent shell, `via: notty`, does not count), only exports that are not drafts, match their recorded
+It takes only clips a NAMED human kept from a terminal or the Room's Selects (a keep typed through an agent shell, `via: notty`, does not count), only exports that are not drafts, match their recorded
 sha256, pass limits/encode/licenses, are complete statements and are the latest cut. Export every platform the studio's accounts post to (`--platforms reels,youtube,facebook,x`).
 
 `build` does: 1080x1920 canvas; per camera, Apple Vision finds the face on sampled frames and one static 9:16 crop is computed

@@ -11,7 +11,7 @@ not change how reconciliation works.
 
 ## Live exchange in the desktop app
 
-In **Collaborate**, both people enable sharing, pair with a single-use invitation and compare the six-digit code by voice. Drafts go through the reviewed bundle flow. **Send a file** moves one chosen file of any practical size (up to 512 GiB): chunks arrive in order, an interrupted send resumes, and the whole file is hashed before release. Received files stay in the exchange folder until you import them. Requires the standalone Tailscale app from tailscale.com, not the Mac App Store build, on both Macs in the same tailnet; a node shared from another tailnet is refused.
+In **Settings › Collaboration**, both people enable sharing, pair with a single-use invitation and compare the six-digit code by voice. Drafts go through the reviewed bundle flow. Footage and other large files do not travel here any more: a project shared with a person in **Settings › People** keeps its files in sync on every member's computer (Syncthing, over Tailscale only), so the old "Send a file" channel is retired. Requires the standalone Tailscale app from tailscale.com, not the Mac App Store build, on both Macs in the same tailnet; a node shared from another tailnet is refused.
 
 ## First exchange
 

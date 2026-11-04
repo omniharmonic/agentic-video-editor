@@ -14,6 +14,9 @@ ALL_PLATFORMS = DIRECT + AGGREGATED + STUDIO
 
 
 def get_publisher(name: str, **kw) -> Publisher:
+    from .fake import FakePublisher, fake_file
+    if fake_file() is not None:        # AVE_PUBLISH_FAKE: an acceptance run; nothing leaves the computer (see fake.py)
+        return FakePublisher(name, fake_file(), **kw)
     if name == "youtube":
         from .youtube import YouTubePublisher
         return YouTubePublisher(**kw)

@@ -1,6 +1,6 @@
 # Your first shared studio
 
-Maren and Tomas each have a local installation and working studio. One machine owns publishing. The Desk is the starting point; Calendar lays out releases, Grid previews the feed, Review is the editorial checkpoint, and Library tracks media and its license evidence.
+Maren and Tomas each have a local installation and working studio. One machine owns publishing. The app has two surfaces: the Workspace (the board of every artifact; Calendar lays out releases, Previews shows the feed, Sources tracks media and its licence evidence, and Approvals is where you sign) and the Room, where you watch, read and decide on a cut with Claude.
 
 ## Start on each computer
 
@@ -13,7 +13,7 @@ uv sync --all-extras
 .venv/bin/ave desktop ~/Movies/MyShow/studio
 ```
 
-Run the desktop command yourself in Terminal. Keep its private approval PIN there. The window stops its local server when closed. The browser alternative is `ave studio ui ~/Movies/MyShow/studio --open` (also a human launch). A source checkout offers `ave studio ui --fixtures --open` for fictional sample data; nothing in that mode affects a real post.
+Run the desktop command yourself in Terminal. The approval PIN shows only in the app's own sheets. The window stops its local server when closed. The browser alternative is `ave studio ui ~/Movies/MyShow/studio --open` (also a human launch). A source checkout offers `ave studio ui --fixtures --open` for fictional sample data; nothing in that mode affects a real post.
 
 An installed wheel provides `ave` directly. Install the desktop extra for a native window, or keep using the browser UI; [desktop.md](desktop.md) explains both and the Finder launcher. The launcher is tied to this installation and is unsigned. It is not a standalone installer for Tomas's computer.
 
@@ -33,11 +33,11 @@ The host supplies its own agent subscription or scheduled jobs. AVE embeds no Cl
 
 ## Make and review something
 
-1. On the Desk, add an idea or paste your essay. The essay becomes sentence-addressable passages under the studio's work directory.
+1. In the Workspace's Sources, use Paste text to add an idea or your essay. The essay becomes sentence-addressable passages under the studio's work directory.
 2. Ask the agent for a content plan in your show's voice. Use the shipped recipe appropriate to the input: writing, an episode, or approved short clips.
 3. Review drafts and variants in the studio. For podcast editing, review the speaker mapping, assembly, rough cut and final cut at their checkpoints; use Resolve when you want to polish the timeline.
 4. Add media with its actual license/provenance, and attest it yourself. An agent can prepare evidence; it cannot sign your license decision.
-5. Review the exact copy, media and platform previews, then approve in the human review surface. Synchronizing the queue never approves or sends.
+5. Review the exact copy, media and platform previews, then approve in Workspace › Approvals (the app checks that it is you). Synchronizing the queue never approves or sends.
 6. Rehearse with `ave studio tick --studio /path/to/studio`. Sending requires your explicit human command and all the signed account, approval and sender gates.
 
 Do not mistake “approved,” “scheduled,” “would post,” or a synthetic test result for “published.” Only the platform result establishes that a post went out.

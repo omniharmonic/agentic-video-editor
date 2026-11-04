@@ -105,10 +105,7 @@ def test_whole_image_drag_saves_real_plan_and_phone_uses_same_order(planning,bro
         assert page.locator('body').evaluate('(el)=>el.scrollWidth<=innerWidth')
         assert not page.locator('.feed-planner').evaluate('(el)=>[...el.childNodes].some(n=>n.nodeType===3 && /null|undefined/.test(n.textContent))')
         page.screenshot(path=f'/tmp/ave-feed-planner-{width}.png',full_page=True)
-        page.locator('#main').get_by_role('link',name='Phone preview',exact=True).click()
-        page.locator('.ig-profile-tile').first.wait_for()
-        titles=[c['title'] for c in feed_plan.read(studio)['cells']]
-        assert page.locator('.ig-profile-tile').evaluate_all('(tiles)=>tiles.map(x=>x.getAttribute("aria-label"))')==['Preview '+title for title in titles]
+        assert page.locator('#main').get_by_role('link',name='Phone preview',exact=True).get_attribute('href')=='/app/#/workspace'   # the phone preview is the Workspace's Previews now
         assert authoritative_bytes(studio.sp)==before
         assert not errors
     finally:

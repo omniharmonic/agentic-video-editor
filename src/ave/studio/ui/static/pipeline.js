@@ -1,6 +1,6 @@
 // One persistent production inventory; three views, one contextual inspector.
 import {registerDraft} from './navigation-guard.js';
-import {h,clear} from './dom.js';
+import {h,clear} from '/app/shared/dom.js';
 import {button,select,input,field,dialog,media} from './production-ui.js';
 const BASE_STAGES=[['idea','Idea'],['writing','Writing'],['design','Design/editing'],['review','Review'],['ready','Ready'],['blocked','Blocked']];
 const PRIORITIES=['low','normal','high','urgent'];

@@ -1,3 +1,4 @@
+from pathlib import Path
 """Mutable fictional authoring; no credentials or release authority."""
 import pytest
 from ave.studio import composer, authoring, store
@@ -141,11 +142,11 @@ def test_fresh_profile_import_caption_group_and_reload(rig,browser,tmp_path):
     from PIL import Image
     from pathlib import Path
     studio,server=rig;page=browser.new_page(viewport={'width':390,'height':844});errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
-    original=tmp_path/'finished.png';Image.new('RGB',(1200,1500),'#33635c').save(original)
+    original=tmp_path/'finished.png';Image.new('RGB',(1200,1500),'#33635c').save(original);native_import(page,studio,original)
     try:
         page.goto(server.url()+'#/grid/local');page.get_by_role('button',name='New profile',exact=True).click();page.get_by_label('Profile display name',exact=True).fill('Sofia notebook');page.get_by_label('Profile handle',exact=True).fill('sofia.notes');page.get_by_label('Profile bio',exact=True).fill('Notes from the writing room.');page.get_by_role('button',name='Create profile',exact=True).click()
         page.wait_for_url('**/#/grid/local_*');page.get_by_role('button',name='Add draft',exact=True).click();page.locator('.composer-stage').wait_for()
-        page.get_by_label('Import finished media',exact=True).set_input_files(str(original));page.locator('.composer-stage img').wait_for()
+        page.get_by_role('button',name='Import media',exact=True).click();page.locator('.composer-stage img').wait_for()
         caption=page.locator('textarea[data-path$=".copy.caption"]');caption.fill('A quiet place to begin.');page.get_by_role('button',name='Save draft',exact=True).click();page.wait_for_function('()=>document.querySelector(".ed-save").textContent.startsWith("Saved")')
         page.get_by_role('button',name='Saved writing',exact=True).click();page.get_by_role('button',name='New saved writing',exact=True).click();page.get_by_label('Writing name',exact=True).fill('Invitation');page.get_by_label('Saved writing text',exact=True).fill('Come sit with a story.');page.get_by_role('button',name='Save',exact=True).click();page.get_by_role('button',name='Invitation',exact=True).click();assert page.locator('.writing-preview').inner_text()=='Come sit with a story.';page.get_by_role('button',name='Insert a copy',exact=True).click();page.wait_for_function('()=>[...document.querySelectorAll("textarea")].some(t=>t.value==="Come sit with a story.")')
         page.screenshot(path='/private/tmp/ave-composer-evidence/writing-saved-390.png')
@@ -305,14 +306,14 @@ def test_production_source_drafts_and_anchors_survive_navigation(rig,browser):
     studio,server=rig;page=browser.new_page(viewport={'width':1440,'height':960});post=next(p for p in store.list_posts(studio.sp) if p['media'] and p['production']['status']!='ready' and not any(v.get('result') for v in p['variants']));pid=post['id']
     try:
         page.goto(server.url()+'#/pipeline');page.locator(f'tr[data-post="{pid}"] .prod-open').click();page.get_by_label('Audience',exact=True).fill('A carefully preserved audience note.')
-        page.locator('#nav a[data-p="workbench"]').click();page.get_by_role('heading',name='Sources',exact=True).wait_for();assert store.load_post(studio.sp,pid)['production']['brief']['audience']=='A carefully preserved audience note.'
+        page.locator('#nav a[data-p="workbench"]').click();page.get_by_role('heading',name='Media tools',exact=True).wait_for();assert store.load_post(studio.sp,pid)['production']['brief']['audience']=='A carefully preserved audience note.'
         page.get_by_role('button',name='Add source',exact=True).click();page.get_by_label('Upload source file',exact=True).set_input_files({'name':'draft-note.md','mimeType':'text/markdown','buffer':b'A complete thought for this source. Another complete thought.'})
         page.locator('#nav a[data-p="pipeline"]').click();page.get_by_role('heading',name='Keep your changes?',exact=True).wait_for();page.get_by_role('button',name='Cancel',exact=True).click();assert page.get_by_label('Upload source file',exact=True).evaluate('(e)=>e.files[0].name')=='draft-note.md'
         page.locator('#nav a[data-p="pipeline"]').click();page.get_by_role('button',name='Save and continue',exact=True).click();page.locator('.production-table').wait_for()
         page.locator(f'tr[data-post="{pid}"] .prod-open').click();page.get_by_role('button',name='Tasks',exact=True).click();page.get_by_label('Task title',exact=True).fill('Keep this unfinished task')
-        page.locator('#nav a[data-p="workbench"]').click();page.get_by_role('button',name='Save and continue',exact=True).click();page.wait_for_timeout(300);assert not page.get_by_role('heading',name='Keep your changes?',exact=True).is_visible(),page.locator('body').inner_text();page.get_by_role('heading',name='Sources',exact=True).wait_for();task=next(t for t in store.load_post(studio.sp,pid)['production']['checklist'] if t['title']=='Keep this unfinished task')
+        page.locator('#nav a[data-p="workbench"]').click();page.get_by_role('button',name='Save and continue',exact=True).click();page.wait_for_timeout(300);assert not page.get_by_role('heading',name='Keep your changes?',exact=True).is_visible(),page.locator('body').inner_text();page.get_by_role('heading',name='Media tools',exact=True).wait_for();task=next(t for t in store.load_post(studio.sp,pid)['production']['checklist'] if t['title']=='Keep this unfinished task')
         page.locator('#nav a[data-p="pipeline"]').click();page.locator(f'tr[data-post="{pid}"] .prod-open').click();page.get_by_role('button',name='Discussion',exact=True).click();page.get_by_label('Discussion anchor',exact=True).select_option('task:'+task['id']);page.get_by_label('Comment',exact=True).fill('Check this task after the next revision.')
-        page.locator('#nav a[data-p="workbench"]').click();page.get_by_role('button',name='Save and continue',exact=True).click();page.get_by_role('heading',name='Sources',exact=True).wait_for()
+        page.locator('#nav a[data-p="workbench"]').click();page.get_by_role('button',name='Save and continue',exact=True).click();page.get_by_role('heading',name='Media tools',exact=True).wait_for()
         page.locator('#nav a[data-p="pipeline"]').click();page.locator(f'tr[data-post="{pid}"] .prod-open').click();page.get_by_role('button',name='Discussion',exact=True).click();page.locator('.prod-comment p').get_by_text('Check this task after the next revision.',exact=True).wait_for();assert 'Task Keep this unfinished task' in page.locator('.prod-comment small').last.inner_text()
     finally:page.close()
 
@@ -394,3 +395,13 @@ def test_legacy_slot_order_matches_preview_alt_and_payload(rig,browser):
         page.goto(server.url()+f'#/post/{post["id"]}');page.locator('.composer-slide-edit > summary').click();assert page.get_by_label('Alt text for slide 1',exact=True).input_value()=='Opening slide';page.get_by_label('Alt text for slide 1',exact=True).fill('Revised opening');page.get_by_role('button',name='Save draft',exact=True).click();wait_for(lambda:store.load_post(studio.sp,post['id'])['variants'][0]['media'][1]['alt']=='Revised opening',page)
         raw=store.load_post(studio.sp,post['id']);fields,problems=_spec(studio.sp,raw,raw['variants'][0],store.read_assets(studio.sp));assert not problems;assert fields['alt_texts']==['Revised opening','Later slide'];assert page.locator('.composer-stage img').get_attribute('alt')=='Revised opening'
     finally:page.close()
+
+
+def native_import(page, studio, path):
+    """The app's native import (aveNative.importLibrary), stood in for by the studio's own upload: a web file input no longer exists."""
+    def imp():
+        res = studio.upload(Path(path).name, Path(path), by="maren")
+        res = res if isinstance(res, dict) and "asset" in res else {"asset": res, "duplicate": False}
+        return {"added": [{**res, "name": Path(path).name}]}
+    page.expose_function("__aveImport", imp)
+    page.add_init_script("window.aveNative = Object.assign(window.aveNative || {}, { importLibrary: () => window.__aveImport() });")

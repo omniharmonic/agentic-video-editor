@@ -60,7 +60,7 @@ def test_real_quote_journey(rig,browser,width):
     studio,server=rig;page=browser.new_page(viewport={'width':width,'height':960 if width==1440 else 768 if width==1024 else 844});errors=[]
     page.on('pageerror',lambda e:errors.append(str(e)))
     try:
-        page.goto(server.url()+'#/workbench');page.get_by_role('heading',name='Sources').wait_for()
+        page.goto(server.url()+'#/workbench');page.get_by_role('heading',name='Media tools').wait_for()
         upload(page,'listening.md',TEXT)
         page.get_by_label('Select p001.s1',exact=True).wait_for()
         page.reload();page.get_by_label('Select p001.s1',exact=True).check()

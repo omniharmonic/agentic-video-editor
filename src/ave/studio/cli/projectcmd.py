@@ -135,9 +135,9 @@ def cmd_demo(a) -> int:
          "note": "Every account is dry-run and every picture, person and price is made up. Nothing can post."})
     say(f"Demo studio ready in {res['studio']} ({res['posts']} posts, {res['accounts']} accounts, {res['assets']} library assets, {res['seconds']} s).\n"
         "Nothing is real and nothing can post: every account is dry-run.\n"
-        "Next, in your own terminal window (the UI is a human act and prints a PIN):\n"
+        "Next, in your own terminal window (opening the app is a human act):\n"
         f"  {ui}\n"
-        "Then try: the calendar (drag a card), the Instagram grid, Review (the PIN approves), the library's licenses, Alerts.")
+        "Then try: the Workspace's Calendar (drag a post), Previews, Sources and their licences, and Settings › Alerts.")
     return 0
 
 
@@ -149,7 +149,7 @@ def cmd_ui(a) -> int:
     except SystemExit as e:
         if isinstance(e.code, str) and "human act" in e.code:
             line = with_dir(a, "ave studio ui") + (" --open" if a.open else "")
-            out({"ok": False, "blocked": True, "needs_human": True, "error": "ave studio ui is a human act (it can approve posts)", "run": line,
+            out({"ok": False, "blocked": True, "needs_human": True, "error": "ave studio ui is a human act (it acts as you in the studio)", "run": line,
                  "bang": "! " + line})
             say(e.code.splitlines()[0] + "\nAsk the human to run, in their own terminal window:\n  " + line)
             return 2
@@ -195,6 +195,6 @@ def add(ss) -> None:
     p.add_argument("--studio", dest="studio_opt", metavar="DIR")
     p.add_argument("--today", metavar="YYYY-MM-DD", help="lay the data out around this day instead of today (for repeatable screenshots)")
     p.set_defaults(fn=cmd_demo)
-    p = ss.add_parser("ui", help="the studio UI (human): calendar, grid, editor, review with PIN approval")
+    p = ss.add_parser("ui", help="the app in a browser (human): the Room, the Workspace and Settings; approving needs AVE Studio itself")
     _ui_args(p)
     p.set_defaults(fn=cmd_ui)

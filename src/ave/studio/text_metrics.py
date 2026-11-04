@@ -1,4 +1,4 @@
-"""Platform text metrics (spec 4.4). The browser twin is `studio/ui/static/text_metrics.js`; both are checked against
+"""Platform text metrics (spec 4.4). The browser twin is `app/static/shared/text_metrics.js`; both are checked against
 `tests/data_studio/text_metrics_fixtures.json` (same strings, same expected numbers), so the editor counter and the server preflight cannot drift.
 
     graphemes(text)        user-perceived characters (ZWJ emoji, flags, skin tones, keycaps, combining marks): Bluesky/Threads count these

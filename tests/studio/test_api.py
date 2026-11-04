@@ -105,7 +105,8 @@ def review_target(built):
 
 def test_binds_loopback_only(srv):
     assert srv.server_address[0] == "127.0.0.1"
-    assert srv.url().startswith(f"http://127.0.0.1:{srv.port}/?t=")
+    assert srv.app_url().startswith(f"http://127.0.0.1:{srv.port}/app/?t=")
+    assert srv.url().startswith(f"http://127.0.0.1:{srv.port}/tools/?t=")              # More tools
 
 
 @pytest.mark.parametrize("path", ["/", "/static/style.css", "/api/studio/summary", "/files/library/assets/x.png"])
@@ -124,7 +125,7 @@ def test_bad_host_refused(cl, srv):
 def test_foreign_origin_refused_for_post_and_put(cl, srv):
     h = {"Origin": "http://evil.example"}
     assert cl.req("POST", "/api/studio/posts", {"idea": "x"}, headers=h)[0] == 403
-    assert cl.req("PUT", "/api/studio/library/upload?name=a.png", raw=b"abc", headers=h)[0] == 403
+    assert cl.req("PUT", "/api/studio/workbench/upload?name=a.png", raw=b"abc", headers=h)[0] == 403
     ok = {"Origin": f"http://127.0.0.1:{srv.port}"}
     assert cl.req("POST", "/api/studio/posts", {"idea": "x"}, headers=ok)[0] == 201
 
@@ -132,8 +133,10 @@ def test_foreign_origin_refused_for_post_and_put(cl, srv):
 def test_first_visit_parks_token_in_cookie_and_serves_the_shell(cl):
     s, h, _ = cl.req("GET", "/", token="query")
     assert s == 303 and "ave_ui=" in h["Set-Cookie"] and "HttpOnly" in h["Set-Cookie"]
-    s, h, body = cl.req("GET", "/", token="cookie")
-    assert s == 200 and b"Studio" in body
+    s, h, _ = cl.req("GET", "/", token="cookie")
+    assert s == 302 and h["Location"] == "/app/"                                   # the old shell is retired: the app is the front door
+    s, h, body = cl.req("GET", "/tools/", token="cookie")
+    assert s == 200 and b"More tools" in body
     assert "default-src 'self'" in h["Content-Security-Policy"] and h["Cache-Control"] == "no-store"
     s, h, css = cl.req("GET", "/static/style.css", token="cookie")
     assert s == 200 and h["Content-Type"].startswith("text/css")        # the shared ave ui tokens
@@ -197,14 +200,14 @@ def test_upload_cap_and_framing(built):
     s = serve(built.studio, pin=PIN, max_upload=1024)
     try:
         c = Client(s)
-        st, _, raw = c.req("PUT", "/api/studio/library/upload?name=a.png", headers={"Content-Length": "1025"}, raw=b"")
+        st, _, raw = c.req("PUT", "/api/studio/workbench/upload?name=a.png", headers={"Content-Length": "1025"}, raw=b"")
         assert st == 413 and json.loads(raw)["code"] == "body.too_large"
-        st, _, raw = c.req("PUT", "/api/studio/library/upload?name=a.png", headers={"Content-Length": str(10 ** 12)}, raw=b"")
+        st, _, raw = c.req("PUT", "/api/studio/workbench/upload?name=a.png", headers={"Content-Length": str(10 ** 12)}, raw=b"")
         assert st == 413
         for bad in ("", "../x.png", "a/b.png", ".hidden", "a\\b.png"):
-            st, _, _ = c.req("PUT", "/api/studio/library/upload?name=" + bad.replace("/", "%2F").replace("\\", "%5C"), raw=b"abc")
+            st, _, _ = c.req("PUT", "/api/studio/workbench/upload?name=" + bad.replace("/", "%2F").replace("\\", "%5C"), raw=b"abc")
             assert st == 400, bad
-        assert c.req("PUT", "/api/studio/library/upload?name=a.png", raw=b"")[0] == 400                      # empty
+        assert c.req("PUT", "/api/studio/workbench/upload?name=a.png", raw=b"")[0] == 400                      # empty
         assert c.req("PUT", "/api/studio/library/other", raw=b"abc")[0] == 404
     finally:
         s.shutdown()
@@ -212,29 +215,10 @@ def test_upload_cap_and_framing(built):
     assert not list((built.sp.work / "uploads").glob("*"))
 
 
-def test_upload_streams_hashes_and_cleans_up(built, srv, cl):
-    import hashlib
-    st, body = cl.api("PUT", "library/upload?name=quote.png", raw=b"x" * 5000)
-    assert st == 501 and body["code"] == "not_implemented"                 # WS1 has not registered `upload`
-    seen = {}
-
-    def upload(studio, filename, path, *, by):             # the signature of library.hook_upload (name, data-or-path, by=)
-        seen.update(name=filename, by=by, bytes=Path(path).read_bytes(), path=Path(path))
-        seen.update(sha=hashlib.sha256(seen["bytes"]).hexdigest(), size=len(seen["bytes"]))
-        return {"asset": {"id": "a_test"}, "duplicate": False}
-    built.studio.register("upload", upload)
-    data = os.urandom(200_000)
-    st, body = cl.api("PUT", "library/upload?name=quote.png", raw=data)
-    assert st == 201 and body == {"asset": {"id": "a_test"}, "duplicate": False}
-    assert seen["sha"] == hashlib.sha256(data).hexdigest() and seen["size"] == len(data) and seen["bytes"] == data
-    assert seen["name"] == "quote.png" and seen["by"] == "tester"
-    assert not seen["path"].exists() and not list((built.sp.work / "uploads").glob("*"))
-
-
 def test_truncated_upload_is_refused(built, srv):
     built.studio.register("upload", lambda *a, **k: pytest.fail("must not be called"))
     c = http.client.HTTPConnection("127.0.0.1", srv.port, timeout=5)
-    c.putrequest("PUT", "/api/studio/library/upload?name=a.png", skip_host=True)
+    c.putrequest("PUT", "/api/studio/workbench/upload?name=a.png", skip_host=True)
     for k, v in (("Host", f"127.0.0.1:{srv.port}"), ("X-AVE-Token", srv.token), ("Content-Length", "1000")):
         c.putheader(k, v)
     c.endheaders(b"only a few bytes")
@@ -247,12 +231,28 @@ def test_truncated_upload_is_refused(built, srv):
 
 # ---- the approval PIN and the view rule -----------------------------------------------------------------------------------
 
+# No HTTP route approves or records a view any more (Task 24): the app's native approval sheet calls these two in process, after
+# its device-owner check (desktop_approvals.Approvals). These helpers make the same in-process calls, so every rule the old
+# browser approval was held to (the PIN, the lock, the view of the exact sha, the replay, the typed mode) is still checked here.
+def _inproc(fn):
+    from ave.studio.ui.api import map_error
+    try:
+        return 200, fn()
+    except Exception as e:                                    # what the HTTP layer used to answer
+        se = map_error(e, None)
+        return se.status, se.body()
+
+
 def view(cl, pid, vid, sha, ms=2500):
-    return cl.post(f"posts/{pid}/view", {"variant": vid, "sha": sha, "displayed_ms": ms})
+    return _inproc(lambda: cl.srv.app.record_view(pid, {"variant": vid, "sha": sha, "displayed_ms": ms}, via="native-sheet"))
 
 
 def approve(cl, pid, vid, sha, pin=PIN, by="maren", **extra):
-    return cl.post("approve", {"items": [{"post": pid, "variant": vid, "sha": sha}], "by": by, "pin": pin, **extra})
+    return _inproc(lambda: cl.srv.app.approve({"items": [{"post": pid, "variant": vid, "sha": sha}], "by": by, "pin": pin, **extra}))
+
+
+def approve_items(cl, body):
+    return _inproc(lambda: cl.srv.app.approve(body))
 
 
 def test_approve_needs_the_pin(built, cl):
@@ -271,7 +271,6 @@ def test_pin_locks_after_five_wrong_even_for_the_right_pin(built, cl):
     assert codes == ["pin.wrong"] * 5
     st, body = approve(cl, pid, vid, sha, pin=PIN)
     assert st == 403 and body["code"] == "pin.locked"
-    assert cl.post("resume", {"pin": PIN})[1]["code"] == "pin.locked"          # the same gate guards resume
     assert pq.load(built.sp, item["id"])["status"] == "awaiting_approval"
     assert cl.get("summary")[1]["ui"]["pin_locked"] is True
 
@@ -353,22 +352,11 @@ def test_typed_mode_wants_typed_hex_not_a_view(built, cl):
     (built.sp.root / "studio.json").write_text(json.dumps(meta))
     pid, vid, item, sha = review_target(built)
     assert "typed" in approve(cl, pid, vid, sha)[1]["refused"][0]["reason"]
-    body = cl.post("approve", {"items": [{"post": pid, "variant": vid, "sha": sha, "confirm": sha[:5]}], "by": "maren", "pin": PIN})[1]
+    body = approve_items(cl, {"items": [{"post": pid, "variant": vid, "sha": sha, "confirm": sha[:5]}], "by": "maren", "pin": PIN})[1]
     assert "typed" in body["refused"][0]["reason"]
-    body = cl.post("approve", {"items": [{"post": pid, "variant": vid, "sha": sha, "confirm": sha[:10]}], "by": "maren", "pin": PIN})[1]
+    body = approve_items(cl, {"items": [{"post": pid, "variant": vid, "sha": sha, "confirm": sha[:10]}], "by": "maren", "pin": PIN})[1]
     assert len(body["approved"]) == 1
     assert approve(cl, pid, vid, sha, pin="000000")[0] == 403                    # typed mode still needs the PIN
-
-
-def test_reject_voids_the_approval_without_a_pin(built, cl):
-    pid = built.posts["scheduled"]
-    v = built.studio.post(pid)["variants"][0]
-    item = state.load_queue_item(built.sp, v)
-    assert item["status"] == "approved"
-    st, body = cl.post("reject", {"items": [{"post": pid, "variant": v["id"]}], "by": "maren", "reason": "off message"})
-    assert st == 200 and body["rejected"][0]["queue_id"] == item["id"] and body["post"]["variants"][0]["status"] == "dropped"
-    assert pq.load(built.sp, item["id"])["approvals"] == []
-    assert pq.load(built.sp, item["id"])["status"] == "rejected"
 
 
 def test_the_pin_is_never_in_a_response_a_file_or_the_log(built, srv, cl, capsys):
@@ -377,7 +365,6 @@ def test_the_pin_is_never_in_a_response_a_file_or_the_log(built, srv, cl, capsys
     approve(cl, pid, vid, sha)
     approve(cl, pid, vid, sha, pin="999999")
     cl.post("pause", {})
-    cl.post("resume", {"pin": PIN})
     cl.get("summary")
     cl.get("posts/" + pid)
     for body in cl.seen:
@@ -409,7 +396,7 @@ def test_start_refuses_without_a_human_terminal(built, monkeypatch, capsys):
     assert capsys.readouterr().out == ""                                       # no URL, no PIN
 
 
-def test_start_prints_pin_only_on_the_terminal(built, monkeypatch, capsys):
+def test_start_prints_the_app_and_never_the_pin(built, monkeypatch, capsys):
     from ave import humanpresence
     from ave.studio.ui import server as S
     monkeypatch.setattr(humanpresence, "is_human_terminal", lambda: True)
@@ -417,7 +404,7 @@ def test_start_prints_pin_only_on_the_terminal(built, monkeypatch, capsys):
     monkeypatch.setattr(S.StudioServer, "serve_forever", lambda self: seen.setdefault("pin", self.app.pin.reveal()))
     assert S.run_cli(Args(dir=str(built.sp.root))) == 0
     out = capsys.readouterr().out
-    assert seen["pin"] in out and len(seen["pin"]) == 6 and "?t=" in out
+    assert seen["pin"] not in out and "/app/?t=" in out and "nothing can be approved" in out     # a browser approves nothing
     assert not any(seen["pin"].encode() in p.read_bytes() for p in built.sp.root.rglob("*") if p.is_file())
 
 
@@ -469,7 +456,7 @@ def test_unregistered_hooks_are_501(built, cl):
                                 ("POST", f"posts/{pid}/unschedule", {"variant": "v_003", "expected_rev": 1}),
                                 ("POST", f"posts/{pid}/swap_asset", {"variant": "v_003", "expected_rev": 1, "index": 0, "asset": "a_x"}),
                                 ("POST", "broll/search", {"query": "bread"}), ("POST", "broll/pick", {"search": "s", "candidate": "c", "by": "maren"}),
-                                ("POST", "schedule/proposals/sp_1/accept", {}), ("POST", "tick/rehearse", {})):
+                                ("POST", "schedule/proposals/sp_1/accept", {})):
         st, body = cl.api(method, route, body)
         assert st == 501 and body["code"] == "not_implemented" and "error" in body, route
 
@@ -551,17 +538,17 @@ def test_drop_feedback_rejects_the_queue_item_and_drops_the_variant(built, cl):
     assert q["status"] == "rejected" and q["approvals"] == []
 
 
-def test_pause_and_resume(built, cl):
+def test_pause_here_and_resume_only_in_the_app(built, cl):
     assert cl.post("pause", {})[1] == {"paused": True, "scope": "studio"} and built.sp.pause_path.exists()
     assert cl.get("summary")[1]["paused"] is True
-    assert cl.post("resume", {"pin": "000000"})[0] == 403 and built.sp.pause_path.exists()
-    assert cl.post("resume", {"pin": PIN})[1] == {"paused": False} and not built.sp.pause_path.exists()
+    assert cl.post("resume", {"pin": PIN})[0] == 404 and built.sp.pause_path.exists()     # resuming is the app's native act now
+    built.sp.pause_path.unlink()
     assert cl.post("pause", {"account": "ig-main"})[1] == {"paused": True, "scope": "ig-main"}
     assert (built.sp.accounts_dir / "ig-main.paused").exists()
     assert cl.get("accounts")[1]["accounts"][2]["paused"] is True
     assert cl.post("pause", {"account": "../x"})[0] == 400
     assert cl.post("pause", {"account": "nobody"})[0] == 404
-    assert cl.post("resume", {"pin": PIN, "account": "ig-main"})[0] == 200 and not (built.sp.accounts_dir / "ig-main.paused").exists()
+    assert cl.post("resume", {"pin": PIN, "account": "ig-main"})[0] == 404 and (built.sp.accounts_dir / "ig-main.paused").exists()
 
 
 def test_unknown_methods_and_routes(cl):
@@ -573,7 +560,8 @@ def test_unknown_methods_and_routes(cl):
 
 # ---- fixtures: the committed shapes are what the server answers -----------------------------------------------------------
 
-@pytest.mark.parametrize("fx", [f for f in FIXTURES if f.stem not in ("POST_approve", "POST_edit_conflict", "POST_move_conflict", "PUT_library_upload")],
+@pytest.mark.parametrize("fx", [f for f in FIXTURES if f.stem not in ("POST_approve", "POST_edit_conflict", "POST_move_conflict", "PUT_library_upload", "POST_view", "POST_reject",
+                                                                       "POST_resume", "POST_tick_rehearse")],
                          ids=lambda f: f.stem)
 def test_fixture_served_verbatim(fx_cl, fx):
     d = json.loads(fx.read_text())
@@ -590,28 +578,12 @@ def test_fixture_served_verbatim(fx_cl, fx):
         assert body == d["response"]
 
 
-def test_fixture_upload_and_approve_flow(fx_cl):
-    d = json.loads((DATA / "api" / "PUT_library_upload.json").read_text())
-    st, body = fx_cl.api("PUT", "library/upload?name=quote-card.png", raw=b"png bytes")
-    assert st == 201 and body == d["response"]
-    a = json.loads((DATA / "api" / "POST_approve.json").read_text())
-    req = a["request"]
-    st, body = fx_cl.post("approve", {**req, "pin": "000000"})
-    assert st == 403
-    first = req["items"][0]
-    fx_cl.post(f"posts/{first['post']}/view", {"variant": first["variant"], "sha": first["sha"], "displayed_ms": 2400})
-    st, body = fx_cl.post("approve", req)
-    assert st == 200 and [x["variant"] for x in body["approved"]] == ["v_fb"]
-    assert "not viewed" in body["refused"][0]["reason"] and body["approved"][0]["source"] == "studio-ui"
-    assert fx_cl.get("posts/p_20261102_k3f9")[1]["post"]["id"] == "p_20261102_k3f9"
-
-
 def test_fixture_mode_files_are_placeholders_not_errors(fx_cl):
     st, h, body = fx_cl.req("GET", "/files/library/assets/9f/x.jpg")          # fixtures name files nobody has: a stand-in picture, never a 404
     assert st == 200 and h["Content-Type"] == "image/jpeg" and body[:3] == b"\xff\xd8\xff"
     assert fx_cl.req("GET", "/files/library/assets/9f/x.jpg")[2] == body        # deterministic
     assert fx_cl.req("GET", "/files/exports/none.png")[0] == 404 and fx_cl.req("GET", "/files/inbox/x.jpg")[0] == 404
-    assert fx_cl.req("GET", "/")[0] == 200
+    assert fx_cl.req("GET", "/app/")[0] == 200 and fx_cl.req("GET", "/tools/")[0] == 200
 
 
 @pytest.mark.parametrize("extra", [{"unknown":"no"}, {"by":{}}, {"by":42}, {"by":" "}, {"by":"x"*81}, {"approved":True}])

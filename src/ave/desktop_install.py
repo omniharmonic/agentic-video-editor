@@ -77,3 +77,29 @@ def run(home: Path | None = None, executable: Path | None = None, data: Path | N
               "resolve_bridge": install_bridge(data / "resolve-mcp/scripts/install_resolve_bridge.py", home)}
     print(json.dumps(report, indent=2))
     return 0 if "failed" not in report["resolve_bridge"]["status"] else 1
+
+
+def refresh_after_update(version: str, home: Path | None = None, executable: Path | None = None, data: Path | None = None,
+                         state: Path | None = None) -> dict | None:
+    """On the first launch of a new version, copy the support files out of the new bundle again: the Resolve bridge, the
+    `ave` shim and the skill links. Only what was installed before is refreshed (nothing new is installed without being
+    asked), and the version is recorded so this runs once. None when this version already refreshed."""
+    from . import updates
+    if not updates.first_launch_of(version, state):
+        return None
+    home = home or Path.home()
+    executable = executable or Path(sys.executable).resolve()
+    data = data or Path(sys._MEIPASS)
+    report: dict = {"version": version}
+    shim = home / ".local/bin/ave"
+    if shim.is_file() and not shim.is_symlink() and MARKER in shim.read_text(errors="replace"):
+        report["ave"] = install_shim(home, executable)
+    links = home / ".claude/skills"
+    skills = data / "ave/_data/skills"
+    if skills.is_dir() and links.is_dir() and any(p.is_symlink() and "AVE Studio" in os.readlink(p) for p in links.iterdir()):
+        report["skills"] = link_skills(home, skills)
+    if (home / SCRIPTS / "resolve_bridge.py").exists():
+        report["resolve_bridge"] = install_bridge(data / "resolve-mcp/scripts/install_resolve_bridge.py", home)
+    if "failed" not in str(report.get("resolve_bridge", {}).get("status", "")):
+        updates.record_launch(version, state)      # a failed bridge refresh tries again next launch
+    return report

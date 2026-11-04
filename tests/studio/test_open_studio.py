@@ -132,17 +132,16 @@ def test_grid_orders_newest_first_and_marks_the_crop(real):
 def test_pause_resume_upload_library_and_swap_asset_through_the_real_hooks(real, tmp_path):
     cl, built, st = real
     assert cl.post("pause", {})[1] == {"paused": True, "scope": "studio"}
-    assert cl.post("resume", {"pin": "424242"})[1]["paused"] is False
+    assert cl.post("resume", {"pin": "424242"})[0] == 404                       # resuming is the app's native act now
     assert cl.post("pause", {"account": "ig-main"})[1]["scope"] == "ig-main"
-    assert cl.post("resume", {"pin": "424242", "account": "ig-main"})[0] == 200
     from studio_helpers import make_png
     png = make_png(tmp_path / "up.png", (1080, 1350), (9, 99, 199))
     data = png.read_bytes()
-    s, body = cl.api("PUT", "library/upload?name=up.png", raw=data)
-    assert s == 201 and body["duplicate"] is False and body["asset"]["sha256"] == hashlib.sha256(data).hexdigest()
+    assert cl.api("PUT", "library/upload?name=up.png", raw=data)[0] == 404        # files enter the library only through the app's panel
+    body = st.upload("up.png", png, by="tester")                                   # what the app's native import calls
+    assert body["duplicate"] is False and body["asset"]["sha256"] == hashlib.sha256(data).hexdigest()
     new = body["asset"]["id"]
-    s, body = cl.api("PUT", "library/upload?name=up.png", raw=data)
-    assert s == 201 and body["duplicate"] is True
+    assert st.upload("up.png", png, by="tester")["duplicate"] is True
     # swap the asset of an in-review variant: the queue item follows the new bytes
     pid = built.posts["in_review"]
     post = cl.get(f"posts/{pid}")[1]["post"]
@@ -165,7 +164,7 @@ def test_swap_asset_on_an_approved_variant_voids_the_approval(real, tmp_path):
     post = cl.get(f"posts/{pid}")[1]["post"]
     v = post["variants"][0]
     assert v["status"] in ("approved", "scheduled")
-    s, body = cl.api("PUT", "library/upload?name=b.png", raw=make_png(tmp_path / "b.png", (1080, 1350), (200, 9, 9)).read_bytes())
+    body = st.upload("b.png", make_png(tmp_path / "b.png", (1080, 1350), (200, 9, 9)), by="tester")
     from ave.library import update_asset
     update_asset(built.sp, body["asset"]["id"], alt="A red square test image.")
     s, body = cl.post(f"posts/{pid}/swap_asset", {"variant": v["id"], "expected_rev": post["rev"], "index": 0, "asset": body["asset"]["id"]})
@@ -197,9 +196,10 @@ def test_move_swap_unschedule_feedback_rehearse_and_broll_through_the_real_hooks
         assert cl.post(f"posts/{pid}/move", {"variant": v["id"], "expected_rev": post["rev"], "to": to})[0] == 409          # stale rev
         s1, body = cl.post(f"posts/{pid}/unschedule", {"variant": v["id"], "expected_rev": rev})
         assert s1 == 200 and not (body["post"]["variants"][0]["schedule"] or {}).get("utc")
-        # a dry rehearsal tick posts nothing
-        s1, body = cl.post("tick/rehearse", {})
-        assert s1 == 200 and body["mode"] == "dry-run" and body["posted"] == []
+        # a dry rehearsal tick posts nothing (the CLI's `ave studio tick`; its old web route is gone)
+        assert cl.post("tick/rehearse", {})[0] == 404
+        body = st.rehearse()
+        assert body["mode"] == "dry-run" and body["posted"] == []
         # send back to Claude with a rework note (a feedback line; the open note blocks dispatch)
         s1, body = cl.post(f"posts/{pid}/feedback", {"variant": v["id"], "kinds": ["rework_copy"], "note": "too salesy"})
         assert s1 == 201 and body["feedback"][0]["kind"] == "rework_copy"
@@ -225,8 +225,11 @@ def test_review_then_approve_over_the_real_hooks_never_sends(real):
     detail = cl.get(f"posts/{pid}")[1]
     v = detail["post"]["variants"][0]
     sha = detail["queue"][v["id"]]["sha256"]
-    assert cl.post(f"posts/{pid}/view", {"variant": v["id"], "sha": sha, "displayed_ms": 2500})[0] == 200
-    s, body = cl.post("approve", {"items": [{"post": pid, "variant": v["id"], "sha": sha}], "by": "Maren", "pin": "424242"})
-    assert s == 200 and len(body["approved"]) == 1 and body["refused"] == []
+    assert cl.post(f"posts/{pid}/view", {"variant": v["id"], "sha": sha, "displayed_ms": 2500})[0] in (400, 404)     # no web route records a view
+    assert cl.post("approve", {"items": [{"post": pid, "variant": v["id"], "sha": sha}], "by": "Maren", "pin": "424242"})[0] == 404
+    app = cl.srv.app                                                       # what the app's approval sheet does in process, after its check
+    app.record_view(pid, {"variant": v["id"], "sha": sha, "displayed_ms": 2500}, via="native-sheet")
+    body = app.approve({"items": [{"post": pid, "variant": v["id"], "sha": sha}], "by": "Maren", "pin": "424242"})
+    assert len(body["approved"]) == 1 and body["refused"] == []
     assert cl.get(f"posts/{pid}")[1]["queue"][v["id"]]["status"] == "approved"
     assert all(p.publish_calls == 0 for p in built.publishers.values())

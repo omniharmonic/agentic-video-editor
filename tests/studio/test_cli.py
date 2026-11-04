@@ -90,6 +90,7 @@ HUMAN = [
     (["tick", "--send"], "ave studio tick --send"),
     (["run", "--send"], "ave studio run --send"),
     (["resolve", "p_fx004", "v_004", "--retry"], "ave studio resolve p_fx004 v_004 --retry"),
+    (["resolve", "p_fx004", "v_004", "--send-again"], "ave studio resolve p_fx004 v_004 --send-again"),
     (["broll", "pick", "s_1", "pexels:1", "--by", "Maren"], "ave studio broll pick s_1 pexels:1 --by Maren"),
     (["broll", "generate", "--provider", "x", "--prompt", "a loaf", "--max-cost", "1", "--by", "Maren"], "ave studio broll generate --provider x"),
     (["schedule", "apply", "sp_0001"], "ave studio schedule apply sp_0001"),

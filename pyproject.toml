@@ -1,6 +1,6 @@
 [project]
 name = "agentic-video-editor"
-version = "0.1.0"
+version = "0.4.1"
 description = "Agent-agnostic toolkit and skills for editing podcasts and video with any MCP-capable AI agent and DaVinci Resolve."
 readme = "README.md"
 license = { file = "LICENSE" }

@@ -46,7 +46,7 @@ ingest, audio, sync, camera mapping, cut planning, **assembly**, **rough cut**, 
 and works on Linux as well as macOS. The one stand-in is the transcript: tones are not speech, so the demo uses the generator's known transcript
 and says so.
 
-![The review UI (ave ui)](docs/images/ui-dashboard.png)
+![AVE Studio: the Room and the Workspace](docs/images/ui-dashboard.png)
 
 ## Quick start
 
@@ -98,8 +98,9 @@ Then start your first real episode: **[docs/getting-started.md](docs/getting-sta
 
 ## Human checkpoints and safety
 
-The agent stops for you at: speaker names, camera mapping, the assembly, the rough cut, the opening/closing plan, the final cut, which clips to use,
-and anything that publishes or spends money.
+The agent stops for you at: speaker names, the opening/closing plan, the final cut (and your trim before it), which clips to use,
+and anything that publishes or spends money. Camera mapping, the assembly and the rough cut it decides itself (`ave start <folder>`
+goes straight to a rough cut) and flags every such choice for you at review, so you can approve or change it in a word.
 
 - **Raw footage is read-only.** Nothing is moved, edited or deleted in your `raw/` folders. The one write is `ave proxies`, which only creates new files in a `proxies/` subfolder.
 - **Edits are versioned**: `edits/<stage>.vN.json`, never overwritten. Re-running a stage is safe.

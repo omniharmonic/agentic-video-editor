@@ -114,7 +114,7 @@ def dependency_freshness(studio,ep,row,dependencies,operation,args):
     from .. import editdoc
     for d in edits:
         try:
-            p=editdoc.path_for(ep,d['stage'],d['version'],d['name']);paths.append(p)
+            p=editdoc.resolve(ep,d['stage'],d['version'],d['name'],id=d.get('id'),sha256=d.get('sha256'));paths.append(p)
             doc=R.json_file(R.regular(p))
             for track in ('music','overlays'):
                 paths.extend(ep.root/item['file'] for item in doc['tracks'].get(track,[]) if item.get('file'))
@@ -197,7 +197,7 @@ class Parent:
         paths.extend(ep.root/s['file'] for s in row['sources'])
         records=library.read_all(self.studio.sp)
         for item in self.initial['constituents']:
-            identity=item['identity'];paths.append(editdoc.path_for(ep,'assembly',identity['version'],identity['name']))
+            identity=item['identity'];paths.append(editdoc.resolve(ep,'assembly',identity['version'],identity['name'],id=identity.get('id'),sha256=identity.get('sha256')))
             for ref in item['asset_closure']:
                 rec=records.get(ref['id'])
                 if not rec or rec['sha256']!=ref['sha256'] or rec.get('derived_from',[])!=ref['derived_from']:raise ValueError('Constituent provenance changed')

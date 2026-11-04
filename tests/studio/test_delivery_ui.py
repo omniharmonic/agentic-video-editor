@@ -112,10 +112,10 @@ def test_real_pdf_import_and_delivery_capability_details(rig,browser,tmp_path):
     v=model.new_variant(account='author',platform='instagram',post_type='feed');v.update(payload_version=3,delivery={'method':'manual'});p['variants']=[v]
     p=store.save_post(studio.sp,p,expected_rev=None,actor=AGENT,op='fixture')
     pdf=tmp_path/'original.pdf';Image.new('RGB',(612,792),'#b9c8bc').save(pdf,'PDF')
-    page=browser.new_page(viewport={'width':1024,'height':768})
+    page=browser.new_page(viewport={'width':1024,'height':768});native_import(page,studio,pdf)
     try:
         page.goto(server.url()+f'#/post/{p["id"]}')
-        page.get_by_label('Import finished media').set_input_files(str(pdf))
+        page.get_by_role('button',name='Import media',exact=True).click()
         page.locator('.composer-stage').get_by_text('PDF document',exact=True).wait_for()
         assert store.load_post(studio.sp,p['id'])['variants'][0]['media'][0]['role']=='document'
         page.get_by_text('Delivery capabilities and readiness',exact=True).click()
@@ -166,16 +166,7 @@ def test_visible_receipt_outcomes_editor_details_and_history(rig,browser,phase,s
         page.locator('.ed-history summary').click();assert expected in page.locator('.ed-history').inner_text()
         card.scroll_into_view_if_needed();page.screenshot(path=str(evidence/f'editor-{phase}-{adjunct or source}-{width}.png'))
         assert page.locator('body').evaluate('(e)=>e.scrollWidth<=innerWidth')
-        # Mount the real calendar detail consumer against the real server API, without mock response projection.
-        page.evaluate('''async ({post,variant})=>{const {openPeek}=await import('/static/peek.js');const {api}=await import('/static/api.js');const accounts=(await api.get('accounts')).accounts;await openPeek({api,accounts,tz:'UTC'},{post,variant,title:'Delivery review'});}''',{'post':p['id'],'variant':v['id']})
-        page.locator('#peek .peek-history .delivery-receipt').wait_for()
-        assert expected in page.locator('.peek-reason').inner_text()
-        assert 'Being sent right now' not in page.locator('#peek').inner_text()
-        assert expected in page.locator('#peek .peek-history').inner_text()
-        if adjunct:assert f'First comment: {adjunct}.' in page.locator('#peek .peek-history').inner_text()
-        page.locator('#peek .peek-history').scroll_into_view_if_needed();page.screenshot(path=str(evidence/f'details-{phase}-{adjunct or source}-{width}.png'))
-        assert page.locator('#peek').evaluate('(e)=>e.scrollWidth<=e.clientWidth')
-        assert not page.locator('#peek').get_by_role('button',name='Retry',exact=False).count()
+        # (the old calendar peek is retired; the Workspace post sheet shows the same receipt: test_workspace_browser)
         assert pq.load(studio.sp,item['id'])['results']['instagram']==result
         assert not errors
     finally:ctx.close()
@@ -241,3 +232,13 @@ def test_pending_status_refresh_refuses_missing_or_mismatched_producing_approval
     with pytest.raises(ValueError,match='no approval identity|another approval'):
         pq.refresh(studio.sp,item['id'],publishers={'instagram':a})
     assert pq.load(studio.sp,item['id'])==before and a.publish_calls==0
+
+
+def native_import(page, studio, path):
+    """The app's native import (aveNative.importLibrary), stood in for by the studio's own upload: a web file input no longer exists."""
+    def imp():
+        res = studio.upload(Path(path).name, Path(path), by="maren")
+        res = res if isinstance(res, dict) and "asset" in res else {"asset": res, "duplicate": False}
+        return {"added": [{**res, "name": Path(path).name}]}
+    page.expose_function("__aveImport", imp)
+    page.add_init_script("window.aveNative = Object.assign(window.aveNative || {}, { importLibrary: () => window.__aveImport() });")

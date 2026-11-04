@@ -1,4 +1,4 @@
-import {h} from './dom.js';
+import {h} from '/app/shared/dom.js';
 import {button,field,input,select,dialog} from './production-ui.js';
 import {openAssetPicker} from './library.js';
 

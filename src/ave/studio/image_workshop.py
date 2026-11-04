@@ -165,7 +165,7 @@ def rendition(sp,aid,tier):
     if rec['kind']=='image': im=decode(path)
     else:
         import subprocess
-        from ..ui.jobs import child_env
+        from ..jobs import child_env
         dest.parent.mkdir(parents=True,exist_ok=True)
         fd,tmp=tempfile.mkstemp(suffix='.png',dir=dest.parent);os.close(fd)
         try:

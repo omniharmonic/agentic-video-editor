@@ -1,4 +1,4 @@
-import {h,clear} from './dom.js';
+import {h,clear} from '/app/shared/dom.js';
 
 const stages=[['sources','Recordings'],['speakers','Speakers'],['mapping','Sync & cameras'],['bounds','Session bounds'],['assembly','Assembly'],['rough','Rough cut'],['sequence','Opening & closing'],['final','Final cut'],['clips','Clips & shorts'],['release','Release']];
 const seconds=n=>{n=Number(n)||0;return `${Math.floor(n/3600)?Math.floor(n/3600)+':':''}${String(Math.floor(n/60)%60).padStart(2,'0')}:${(n%60).toFixed(1).padStart(4,'0')}`;};

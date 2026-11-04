@@ -9,69 +9,25 @@ import {openMedia} from './media-workshop.js';
 import {
   ApiError, announce, clear, debounce, effectiveCaption, effectiveFirstComment, effectiveHashtags, effectiveMedia, empty, errorBox, field,
   findVariant, fmtWhen, getPath, groupSha, h, hashQuery, localUrl, postTitle, say, shortSha, statusChip, PLATFORM_NAMES, ago,
-} from "./panels.js";
-import { flagInfo } from "./dom.js";
+} from "/app/shared/panels.js";
+import { flagInfo } from "/app/shared/dom.js";
 import { nextFreeSlot } from "./bulk.js";
 import { openReschedule } from "./reschedule.js";
 import { openAssetPicker } from "./library.js";
-import { openSendBack } from "./feedback.js";
-import { buildPreview, loadPreviewConfig, previewModel, captionStats, platformCfg } from "./previews/index.js";
+import { openSendBack } from "/app/shared/feedback.js";
+import { buildPreview, loadPreviewConfig, captionStats, platformCfg } from "/app/shared/previews/index.js";
+import { AUTOSAVE_MS, setPath, classify, pathInfo, displayOf, toStored, dirtyText, loadAssets as loadPostAssets, previewOf, importNative } from "/app/shared/compose.js";
 
 import {createDnd} from "./dnd.js";
 import {registerDraft,leaveSafely} from "./navigation-guard.js";
 import {writingLibrary,editProfile} from "./authoring.js";
 import {dialog,input,select,field as simpleField} from "./production-ui.js";
 import { openManualExport } from "./manual.js";
-import { deliveryReceipt } from "./delivery-receipt.js";
+import { deliveryReceipt } from "/app/shared/delivery-receipt.js";
 
-export const AUTOSAVE_MS = 800;
+export { AUTOSAVE_MS, setPath, classify, displayOf };
 const POLL_MS = 5000;
 const FLAG_ORDER = ["approval_stale", "approval_expired", "moved_after_approval", "license_gap", "uncertain"];
-
-export function setPath(obj, path, value) {
-  const parts = path.split(".");
-  let cur = obj;
-  for (let i = 0; i < parts.length - 1; i++) {
-    const p = parts[i];
-    let next = Array.isArray(cur) ? (cur.find((x) => x && x.id === p) ?? cur[Number(p)]) : cur[p];
-    if (next === undefined || next === null) { next = {}; if (!Array.isArray(cur)) cur[p] = next; }
-    cur = next;
-  }
-  const last = parts[parts.length - 1];
-  if (Array.isArray(cur)) { const i = cur.findIndex((x) => x && x.id === last); cur[i >= 0 ? i : Number(last)] = value; } else cur[last] = value;
-}
-
-/** Three-way classification of one field. "same": both sides landed on the same value. "rebase": only mine changed. "conflict": both changed differently. */
-export function classify(base, theirs, mine) {
-  const eq = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
-  if (eq(mine, theirs)) return "same";
-  if (eq(base, theirs)) return "rebase";
-  return "conflict";
-}
-
-const pathInfo = (path) => {
-  let m = /^variants\.([^.]+)\.copy\.(caption|first_comment|hashtags)$/.exec(path);
-  if (m) return { kind: "variant-copy", variant: m[1], key: m[2] };
-  m = /^(?:variants\.([^.]+)\.)?media\.(\d+)\.alt$/.exec(path);
-  if (m) return { kind: "alt", variant: m[1] || null, index: Number(m[2]) };
-  if (path === "copy.base") return { kind: "base" };
-  if (path === "copy.link") return { kind: "link" };
-  return { kind: "other" };
-};
-
-/** What the human sees for a stored value (inherited copy shows through when a variant's own value is null). */
-export function displayOf(post, path) {
-  const info = pathInfo(path);
-  const v = info.variant ? findVariant(post, info.variant) : null;
-  if (info.kind === "variant-copy") {
-    if (info.key === "caption") return effectiveCaption(post, v);
-    if (info.key === "first_comment") return effectiveFirstComment(post, v);
-    return effectiveHashtags(post, v).join(" ");
-  }
-  const raw = getPath(post, path);
-  return raw === null || raw === undefined ? "" : Array.isArray(raw) ? raw.join(" ") : String(raw);
-}
-const toStored = (path, text) => (/(^|\.)copy\.hashtags$/.test(path) ? text.split(/[\s,]+/).filter(Boolean).map((t) => t.replace(/^#/, "")) : text);
 
 export function mountEditor(root, ctx, { postId, variantId = null, contextual = false, onClose = null }) {
   root.classList.add("st");
@@ -128,12 +84,7 @@ export function mountEditor(root, ctx, { postId, variantId = null, contextual = 
     S.remote = null;
   }
   async function loadAssets() {
-    const ids = new Set();
-    (S.post.media || []).forEach((m) => ids.add(m.asset));
-    S.post.variants.forEach((v) => (v.media || []).forEach((m) => ids.add(m.asset)));
-    await Promise.all([...ids].filter((id) => id && !S.assets[id]).map(async (id) => {
-      try { const r = await ctx.api.get(`library/${id}`); S.assets[id] = { ...r.asset, url: r.url, preview_url:r.preview_url, coverage: r.license, usage: r.usage }; } catch { S.assets[id] = { id, missing: true }; }
-    }));
+    await loadPostAssets(ctx.api, S.post, S.assets);
     if (!Object.keys(S.accounts).length) {
       try { const r = await ctx.api.get("accounts"); (r.accounts || []).forEach((a) => { S.accounts[a.id] = a; }); } catch { /* optional */ }
     }
@@ -331,7 +282,7 @@ export function mountEditor(root, ctx, { postId, variantId = null, contextual = 
     if(/^variants.*\.copy\./.test(path))node.append(h("button.composer-reset",{type:"button",onclick:async()=>{S.dirty.set(path,{value:null,base:getPath(S.post,path)});await save.flush();if(!S.dirty.size)drawForm();}},"Reset to shared"));
     return node;
   }
-  const displayOfDirty = (path) => { const e = S.dirty.get(path); return Array.isArray(e.value) ? e.value.join(" ") : e.value; };
+  const displayOfDirty = (path) => dirtyText(S.dirty.get(path));
 
   async function refreshMedia(){
     const active=form.querySelector(':focus'),path=active?.dataset.path,start=active?.selectionStart,end=active?.selectionEnd;
@@ -408,10 +359,9 @@ export function mountEditor(root, ctx, { postId, variantId = null, contextual = 
     const mediaNode=(m,controls=false)=>{const a=S.assets[m?.asset]||{},url=localUrl(a.kind==='image'?(a.preview_url||a.url):a.url),crop=focalPreview(m,v?.id||null);if(a.kind==='document')return h('div.composer-document',h('strong','PDF document'),h('p',a.name||a.file?.split('/').pop()||'Original PDF'),url?h('a',{href:url,target:'_blank',rel:'noopener'},'Open original PDF'):null,h('p.st-hint','The original document is delivered as a file. Page rendering is not part of this preview.'));return url?h(a.kind==='video'?'video':'img',{src:url,alt:m?.alt||a.alt||'',...(a.kind==='video'?{controls,muted:!controls,playsinline:true,preload:'metadata'}:{}),style:{objectFit:S.full?'contain':'cover',objectPosition:`${crop.x*100}% ${crop.y*100}%`}}):h('div.composer-empty',h('p','Build your next post'),h('button.primary',{type:'button',onclick:()=>pick('add')},'Add images or video'));};
     let editing=null;const stage=h('div.composer-stage',{class:S.full?'full-frame':'preview-crop'},mediaNode(selected,true));
     if(content.length>1)stage.append(h('div.composer-paging',h('button',{type:'button','aria-label':'Previous slide',onclick:()=>{S.slide=(S.slide-1+content.length)%content.length;drawForm();}},'‹'),h('span',`${S.slide+1} / ${content.length}`),h('button',{type:'button','aria-label':'Next slide',onclick:()=>{S.slide=(S.slide+1)%content.length;drawForm();}},'›')));
-    const upload=h('input',{type:'file',accept:'image/*,video/*,application/pdf',multiple:true,'aria-label':'Import finished media',hidden:true,onchange:async()=>{for(const file of upload.files){try{const response=await fetch('/api/studio/library/upload?name='+encodeURIComponent(file.name),{method:'PUT',credentials:'same-origin',body:file});const r=await response.json();if(!response.ok)throw Error(r.error||'Import failed');await mediaAction('add',{asset:r.asset.id});}catch(e){setStatus(e.message,'bad');break;}}}});
     const pixelEditor=selected&&S.assets[selected.asset]?.kind==='image'?h('button',{type:'button',onclick:async()=>{try{await save.flush();if(S.dirty.size||S.saving)return;await openMedia(ctx,{asset:selected.asset,target:{post:postId,variant:v?.id||null,item:selected.id,expected_rev:S.post.rev},onAttached:async()=>{await load();}});}catch(e){ctx.toast(e.message,{error:true});}}},'Edit image'):null;
     if(pixelEditor)pixelEditor.setAttribute('aria-label','Edit image / applied crop');
-    strip.append(upload,stage,h('div.composer-media-tools',h('button',{type:'button',onclick:async()=>{if(!window.aveNative?.importLibrary){upload.click();return;}try{const r=await window.aveNative.importLibrary();for(const row of r.added)await mediaAction('add',{asset:row.asset.id});}catch(e){setStatus(e.message,'bad');}}},'Import media'),h('button',{type:'button',onclick:()=>pick('add')},'Add media'),pixelEditor||h('button',{type:'button',onclick:()=>{S.full=!S.full;drawForm();}},S.full?'Preview crop':'Full frame')));
+    strip.append(stage,h('div.composer-media-tools',h('button',{type:'button',onclick:async()=>{if(!window.aveNative?.importLibrary){setStatus('Importing needs the AVE Studio app: a browser cannot hand it files.','bad');return;}try{await importNative(id=>mediaAction('add',{asset:id}));}catch(e){setStatus(e.message,'bad');}}},'Import media'),h('button',{type:'button',onclick:()=>pick('add')},'Add media'),pixelEditor||h('button',{type:'button',onclick:()=>{S.full=!S.full;drawForm();}},S.full?'Preview crop':'Full frame')));
     mediaDnd.reset();const rail=h('div.composer-slides',{'aria-label':'Content slides'});let dragging=null;
     content.forEach((m,i)=>{const tile=h('div.composer-slide',{dataset:{item:m.id},class:i===S.slide?'active':'',draggable:true},h('button',{type:'button','aria-label':`Select slide ${i+1}`,onclick:()=>{S.slide=i;drawForm();}},mediaNode(m),h('span',String(i+1))));
       tile.addEventListener('dragstart',e=>{dragging=m.id;e.dataTransfer.setData('text/plain',m.id);});tile.addEventListener('dragover',e=>e.preventDefault());tile.addEventListener('drop',e=>{e.preventDefault();const id=dragging||e.dataTransfer.getData('text/plain');if(content.some(x=>x.id===id))mediaAction('move',{item:id,before:m.id},id);});
@@ -478,10 +428,7 @@ export function mountEditor(root, ctx, { postId, variantId = null, contextual = 
     const v = variant();
     clear(previewBox);
     if (!v) return;
-    const view = JSON.parse(JSON.stringify(S.post));
-    for (const [p, e] of S.dirty) setPath(view, p, e.value);
-    const vv = findVariant(view, v.id);
-    const model = previewModel(view, vv, { assets: S.assets, account: S.accounts[v.account] ? { id: v.account, label: S.accounts[v.account].label } : null, server: S.server[v.id], showHidden: S.showHidden });
+    const model = previewOf(S.post, S.dirty, v, { assets: S.assets, accounts: S.accounts, server: S.server[v.id], showHidden: S.showHidden });
     const toggle = h("label.st-check.ed-fold", h("input", { type: "checkbox", checked: S.showHidden, onchange: (e) => { S.showHidden = e.target.checked; drawPreview(); } }), "Show the text readers only see after tapping more");
     previewBox.append(h("h2", `${PLATFORM_NAMES[v.platform] || v.platform} preview`), toggle, buildPreview(model, S.cfg));
     const stats = captionStats(model, platformCfg(S.cfg, v.platform));
@@ -504,7 +451,7 @@ export function mountEditor(root, ctx, { postId, variantId = null, contextual = 
         (v.flags || []).filter((f) => FLAG_ORDER.includes(f)).map((f) => h("p.st-alert." + (f === "approval_expired" || f === "approval_stale" ? "bad" : "warn"), { role: "note", dataset: { flag: f } }, h("strong", flagInfo(f)[0] + ". "), flagInfo(f)[1])),
         h("p.st-hint", "Approval covers: ", bound.join(", "), ". It does not cover the time."),
         v.queue_sha ? h("p.st-hint", "Bytes: ", h("code", shortSha(v.queue_sha, 12))) : null,
-        v.status === "in_review" || v.status === "needs_rework" || v.status === "draft" ? h("a.st-btn.primary", { href: `#/review?post=${postId}&variant=${v.id}`, dataset: { act: "to-review" } }, "Review and approve") : null),
+        v.status === "in_review" ? h("a.st-btn.primary", { href: `/app/#/workspace/approvals`, dataset: { act: "to-review" } }, "Review and approve in the Workspace") : null),
       h("section.ed-license", { "aria-label": "Licences" }, h("h2", "Licences"), licenseList(v)),
       h("section.ed-disc", h("h2", "Disclosure"), h("p", S.post.disclosure && S.post.disclosure.ai_generated ? "Posts with an AI disclosure: this uses AI-generated media." : "No AI-generated media is used.")),
       h("details.ed-history", h("summary", `History (${S.events.length})`), deliveryReceipt(v), h("ol.st-timeline", S.events.slice().reverse().slice(0, 12).map((e) => h("li", h("time", fmtWhen(e.ts)), ` ${e.actor && e.actor.name || "?"} · ${e.op}`)))));

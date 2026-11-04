@@ -823,7 +823,7 @@ def validate_final_candidate(ep,doc,args,deps):
 def exact(ep,payload):
     if payload.get('stage') not in ('assembly','rough','final','select','short') or not re.fullmatch(r'[A-Za-z0-9_-]{1,40}',str(payload.get('name',''))):raise ValueError('Choose an exact episode edit')
     number(payload.get('version'),1,1000000,'Version',True)
-    p=R.regular(editdoc.path_for(ep,payload['stage'],payload['version'],payload['name']))
+    p=R.regular(editdoc.resolve(ep,payload['stage'],payload['version'],payload['name'],id=payload.get('id'),sha256=payload.get('sha256')))
     if sha256_file(p)!=payload.get('sha256'):raise ValueError('EditDoc bytes changed')
     return p,R.json_file(p)
 
@@ -878,17 +878,17 @@ def _construct_load(studio,eid,session,*,reader=None):
         transcript=ev['transcript'] or {};words=transcript.get('words',[])
         states={kind:status(studio,ep,row,C.latest(studio,eid,kind,'main' if kind=='speakers' else session)) for kind in C.KINDS if kind!='keep'}
         assemblies=[]
-        for v in editdoc.list_versions(ep,'assembly',session):
+        for v in editdoc.version_entries(ep,'assembly',session):
             p=editdoc.path_for(ep,'assembly',v,session);doc=R.json_file(p)
-            identity={'stage':'assembly','name':session,'version':v,'sha256':sha256_file(p)}
+            identity={'stage':'assembly','name':session,'version':int(v),'sha256':sha256_file(p)}
             render=next((a for a in reversed(results) if a.get('edit')==identity and a.get('kind')=='assembly'),None)
             current=reader.dependencies(doc.get('episode_inputs')) if reader else doc.get('episode_inputs')==_current_inputs(studio,ep,row,session,doc)
             assemblies.append({**identity,'duration':doc['duration'],'coverage':None if doc.get('combined_constituents') else assembly_coverage(doc,probes), 'constituents':copy.deepcopy(doc.get('combined_constituents',[])), 'excluded':doc.get('excluded',[]),'mode':editdoc.effective_mode(doc),'render':render,'inputs_current':current})
         roughs=[]
-        for v in editdoc.list_versions(ep,'rough',session):
+        for v in editdoc.version_entries(ep,'rough',session):
             p=editdoc.path_for(ep,'rough',v,session);doc=R.json_file(p)
             if not doc.get('rough_inputs'):continue
-            identity={'stage':'rough','name':session,'version':v,'sha256':sha256_file(p)}
+            identity={'stage':'rough','name':session,'version':int(v),'sha256':sha256_file(p)}
             render=next((a for a in reversed(results) if a.get('edit')==identity and a.get('kind')=='rough'),None)
             try:current=reader.dependencies(doc['rough_inputs']) if reader else rough_inputs(studio,ep,row,{'session':session,'assembly':doc['rough_inputs']['assembly']})==doc['rough_inputs']
             except (ValueError,OSError,KeyError):current=False
@@ -931,10 +931,10 @@ def _construct_load(studio,eid,session,*,reader=None):
             except (ValueError,OSError,KeyError):pass
             sequences.append({'job_id':job_id,'plan_sha256':plan_sha,'inputs_current':current,'args':args,'plan':snapshot.get('plan'),'mode':snapshot.get('mode'),'components':components,'asset_labels':labels,'excerpts':excerpts,'partial_words':partial_words})
         finals=[]
-        for v in editdoc.list_versions(ep,'final',session):
+        for v in editdoc.version_entries(ep,'final',session):
             p=editdoc.path_for(ep,'final',v,session);doc=R.json_file(p)
             if not doc.get('final_inputs'):continue
-            identity={'stage':'final','name':session,'version':v,'sha256':sha256_file(p)}
+            identity={'stage':'final','name':session,'version':int(v),'sha256':sha256_file(p)}
             render=next((a for a in reversed(results) if a.get('edit')==identity and a['kind']=='final'),None)
             try:current=reader.dependencies(doc['final_inputs']) if reader else final_inputs(studio,ep,row,doc['final_spec'])==doc['final_inputs']
             except (ValueError,OSError,KeyError):current=False

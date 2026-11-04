@@ -1,4 +1,4 @@
-"""Dedicated TLS editorial inbox. No authoring, approval, account or file routes.
+"""Dedicated TLS editorial inbox. No authoring, approval, account or file routes (project media moves by Syncthing).
 
 Serialization: canonical UTF-8 JSON (sorted keys, compact separators, no NaN).
 Pair transcript=v1 + invite ID + two fresh nonces + exact inviter/joiner public
@@ -16,9 +16,7 @@ import ipaddress
 import json
 import os
 from pathlib import Path
-import re
 import secrets
-import shutil
 import socket
 from socketserver import ThreadingMixIn
 import ssl
@@ -33,15 +31,9 @@ PORT=37091
 MAX_PENDING=32
 MAX_STORAGE=128*1024*1024
 PAIR_LIMIT=24*1024
-# Large files use their own route: sequential chunks, resumable from the receiver's durable size, hashed whole before release.
-CHUNK=C.MAX_BUNDLE_BYTES
-MAX_FILE=512*1024**3
-FILE_FLOOR=2*1024**3
-MAX_PARTIAL=4
-FILE_RETRIES=12
 RESPONSE_WAIT=120
-STALE_PARTIAL=24*3600
-_FILE_NAME=re.compile(r'[^\W_][\w .()-]{0,199}')
+# Large files are not sent here: Syncthing carries each project's media between members' computers (docs/sync.md). The large-file
+# channel built for preview 3 is retired; pairing, the six-digit code and editorial bundles stay.
 
 
 def durable(path,data):
@@ -92,19 +84,14 @@ class ExchangeStore:
         root=C._no_symlink(Path(root))
         if any(root==Path(x).resolve() or Path(x).resolve() in root.parents for x in excluded):raise ValueError('Exchange folder must be outside every live studio/raw folder')
         self.root=root/studio;self.studio=studio;self.lock=threading.RLock()
-        for name in ('outbox','inbox','partial','files','received'):C._no_symlink(self.root/name).mkdir(parents=True,exist_ok=True)
+        for name in ('outbox','inbox','partial'):C._no_symlink(self.root/name).mkdir(parents=True,exist_ok=True)
         os.chmod(self.root,0o700)
         self.state_path=self.root/'transport.json'
         self.state=C._read(self.state_path) if self.state_path.exists() else {'v':1,'app':uuid.uuid4().hex,'peer':None,'outbox':{}}
-        self.state.setdefault('files',{});self.state.setdefault('received',{})
+        self.state.pop('files',None);self.state.pop('received',None)          # the retired large-file channel's rows
         # Connecting/sending is interrupted work, never a delivery receipt.
         for row in self.state['outbox'].values():
             if row['state'] in ('connecting','sending'):row['state']='queued'
-        for row in self.state['files'].values():
-            if row['state'] in ('sending','verifying'):row.update(state='queued',offset=None)
-        for row in self.state['received'].values():
-            if row['state']=='verifying':row['state']='partial'     # the hash reruns when the sender finishes again
-            row.pop('busy',None)
         self.save()
         for p in (self.root/'partial').iterdir():
             C._no_symlink(p)
@@ -116,7 +103,7 @@ class ExchangeStore:
         if area not in ('inbox','outbox','partial') or not C._HEX.fullmatch(name):raise ValueError('invalid_storage_selector')
         return C._no_symlink(self.root/area/(name+'.json'))
     def capacity(self,size):
-        paths=[p for p in self.root.rglob('*') if not {'files','received'}&set(p.relative_to(self.root).parts)];total=0;count=0
+        paths=list(self.root.rglob('*'));total=0;count=0
         for p in paths:
             C._no_symlink(p)
             if p.is_file():total+=p.stat().st_size;count+=1
@@ -145,75 +132,6 @@ class ExchangeStore:
         return obj
 
 
-    def _part(self,digest):
-        sha(digest);return C._no_symlink(self.root/'files'/(digest+'.part'))
-    def file_status(self,digest,peer):
-        with self.lock:
-            row=self.state['received'].get(digest)
-            if not row:return {'state':'none','received':0}
-            if row['source']!=peer['studio']:raise ValueError('receipt_scope')
-            part=self._part(digest)
-            return {'state':row['state'],'received':part.stat().st_size if part.exists() else row['bytes'] if row['state']=='complete' else 0}
-    def file_chunk(self,digest,offset,total,length,reader,peer,recheck):
-        """Append one chunk. Only the next byte is accepted; anything that fails rolls the file back to `offset`."""
-        with self.lock:
-            sha(digest)
-            if total<1 or total>MAX_FILE or offset<0 or offset+length>total or not length:raise ValueError('invalid_range')
-            row=self.state['received'].get(digest)
-            if row and (row['source']!=peer['studio'] or row['bytes']!=total):raise ValueError('receipt_scope')
-            if row and (row['state']!='partial' or row.get('busy')):raise ValueError('file_state')
-            part=self._part(digest);have=part.stat().st_size if part.exists() else 0
-            if have!=offset:raise ValueError('offset_mismatch')
-            if shutil.disk_usage(self.root).free-(total-offset)<FILE_FLOOR:raise ValueError('exchange_disk_floor')
-            if not row:
-                self._expire_partials()
-                if sum(r['state']=='partial' for r in self.state['received'].values())>=MAX_PARTIAL:raise ValueError('exchange_quota')
-                row={'sha256':digest,'bytes':total,'source':peer['studio'],'state':'partial','name':None,'path':None};self.state['received'][digest]=row
-            row['busy']=True;row['touched']=time.time();self.save()
-        try:
-            with part.open('ab') as out:
-                try:
-                    remaining=length
-                    while remaining:
-                        data=reader(min(1024*1024,remaining))
-                        if not data:raise ValueError('short_body')
-                        out.write(data);remaining-=len(data)
-                    recheck();out.flush();os.fsync(out.fileno())
-                except BaseException:
-                    out.truncate(offset);raise
-        finally:
-            with self.lock:row.pop('busy',None);self.save()
-        return {'state':'partial','received':offset+length}
-    def drop_partial(self,digest):
-        self.state['received'].pop(digest,None);self._part(digest).unlink(missing_ok=True)
-    def _expire_partials(self):
-        for digest,row in list(self.state['received'].items()):
-            if row['state']=='partial' and not row.get('busy') and time.time()-row.get('touched',0)>STALE_PARTIAL:self.drop_partial(digest)
-    def file_finish(self,digest,name,total,peer):
-        """Hash the whole file off the request thread; the sender polls. Bytes land in received/, never in a studio."""
-        with self.lock:
-            row=self.state['received'].get(digest)
-            if not row or row['source']!=peer['studio'] or row['bytes']!=total:raise ValueError('receipt_scope')
-            if row['state'] in ('verifying','complete'):return {'state':row['state'],'received':total}
-            if not isinstance(name,str) or not _FILE_NAME.fullmatch(name) or len(name.encode())>255:raise ValueError('invalid_file_name')
-            part=self._part(digest)
-            if not part.exists() or part.stat().st_size!=total:raise ValueError('incomplete_file')
-            row.update(state='verifying',name=name);self.save()
-        threading.Thread(target=self._verify_file,args=(digest,),daemon=True).start()
-        return {'state':'verifying','received':total}
-    def _verify_file(self,digest):
-        part=self._part(digest)
-        try:good=C.sha256_file(part)==digest
-        except OSError:good=False
-        with self.lock:
-            row=self.state['received'][digest]
-            try:
-                if not good:raise ValueError('hash_mismatch')
-                folder=C._no_symlink(self.root/'received'/digest);folder.mkdir(exist_ok=True)
-                dest=folder/row['name'];os.replace(part,dest);sync_dir(folder);row.update(state='complete',path=str(dest))
-            except (OSError,ValueError):
-                part.unlink(missing_ok=True);row.update(state='partial')    # the sender's next status sees 0 and starts over
-            self.save()
 
 
 class Exchange:
@@ -317,10 +235,6 @@ class Exchange:
             self.store.state['peer']=None
             for row in self.store.state['outbox'].values():
                 if row['state']!='received':row['state']='blocked';row['error']='peer_revoked'
-            for row in self.store.state['files'].values():
-                if row['state']!='received':row['state']='blocked';row['error']='peer_revoked'
-            for digest,row in list(self.store.state['received'].items()):
-                if row['state']!='complete' and not row.get('busy'):self.store.drop_partial(digest)
             self.store.save()
             if p:
                 for suffix in (':in',':out'):self.secrets.delete(p['reference']+suffix)
@@ -383,71 +297,8 @@ class Exchange:
             row=self.store.state['outbox'][digest]
             if row['state']!='received':row['state']='cancelled'
             self.store.save()
-    def offer_file(self,path):
-        """One explicitly chosen file. It is read in place and only ever goes to the paired collaborator."""
-        path=C._no_symlink(Path(path).absolute())
-        if not path.is_file():raise ValueError('Choose a regular file')
-        st=path.stat();name=path.name
-        if st.st_size<1 or st.st_size>MAX_FILE:raise ValueError('File size is outside the sharing limit')
-        if not _FILE_NAME.fullmatch(name) or len(name.encode())>255:raise ValueError('Rename this file: letters, numbers, spaces, dots, dashes and brackets only')
-        with self.lock:
-            if not self.store.state['peer']:raise ValueError('Pair a collaborator first')
-        digest=C.sha256_file(path)
-        with self.lock:
-            rows=self.store.state['files']
-            if digest in rows and rows[digest]['state'] not in ('cancelled','blocked'):return copy_row(rows[digest])
-            if sum(r['state'] not in ('received','cancelled','blocked') for r in rows.values())>=MAX_PARTIAL:raise ValueError('Too many files are already waiting to send')
-            rows[digest]={'sha256':digest,'name':name,'path':str(path),'bytes':st.st_size,'mtime_ns':st.st_mtime_ns,'peer':self.store.state['peer']['descriptor']['studio'],
-                          'state':'queued','offset':None,'attempts':0,'next':0,'error':None}
-            self.store.save();return copy_row(rows[digest])
-    def cancel_file(self,digest):
-        with self.lock:
-            row=self.store.state['files'][digest]
-            if row['state']!='received':row['state']='cancelled'
-            self.store.save()
-    def _tick_file(self):
-        with self.lock:
-            if not self.enabled or not (p:=self.store.state['peer']):return
-            row=next((r for r in self.store.state['files'].values() if r['state'] in ('queued','sending','verifying','retry_wait') and r['next']<=time.time()),None)
-            if not row:return
-            peer=p['descriptor'];reference=p['reference'];digest=row['sha256']
-        route='/exchange/v1/files/'+digest
-        try:
-            bearer=self.secrets.get(reference+':out')
-            if not bearer:raise IdentityError('credential_unavailable')
-            source=C._no_symlink(Path(row['path']));st=source.stat()
-            if st.st_size!=row['bytes'] or st.st_mtime_ns!=row['mtime_ns']:raise IdentityError('source_changed')
-            if row['offset'] is None or row['state']=='verifying':
-                status=self.request(peer,'GET',route,bearer=bearer)
-                if status['state']=='complete':
-                    with self.lock:row.update(state='received',offset=row['bytes'],error=None);self.store.save()
-                    return
-                if status['state']=='verifying':
-                    with self.lock:row.update(state='verifying',next=time.time()+2);self.store.save()
-                    return
-                with self.lock:
-                    moved=status['received']>row.get('confirmed',0)
-                    row.update(offset=status['received'],state='sending',confirmed=status['received'],attempts=0 if moved else row['attempts']);self.store.save()
-            offset=row['offset']
-            if offset<row['bytes']:
-                with source.open('rb') as f:
-                    f.seek(offset);data=f.read(min(CHUNK,row['bytes']-offset))
-                result=self.request(peer,'PUT',f'{route}/{offset}/{row["bytes"]}',data=data,bearer=bearer)
-                with self.lock:
-                    if row['state']=='sending':row.update(offset=result['received'],attempts=0,error=None);self.store.save()
-            else:
-                self.request(peer,'POST',route,{'name':row['name'],'bytes':row['bytes']},bearer=bearer)
-                with self.lock:row.update(state='verifying',next=time.time()+1);self.store.save()
-        except IdentityError as exc:
-            with self.lock:row.update(state='blocked',error=str(exc));self.store.save()
-        except (OSError,ValueError):
-            with self.lock:
-                if row['state']=='cancelled':return
-                row['attempts']+=1;row['offset']=None
-                row.update(state='blocked',error='peer_refused') if row['attempts']>=FILE_RETRIES else row.update(state='retry_wait',error='peer_offline',next=time.time()+min(300,2**min(row['attempts'],8)))
-                self.store.save()
     def tick(self):
-        self._tick_bundle();self._tick_file()
+        self._tick_bundle()
     def _tick_bundle(self):
         with self.lock:
             if not self.enabled:return
@@ -532,25 +383,13 @@ class Handler(BaseHTTPRequestHandler):
             length=self.headers.get('Content-Length','')
             if not length.isascii() or not length.isdigit() or len(length)>10:raise ValueError('length_required')
             length=int(length)
-            files=self.path.startswith('/exchange/v1/files/')
-            if length>C.MAX_BUNDLE_BYTES or self.headers.get('Content-Type') not in (('application/json','application/octet-stream') if files else ('application/json',)):raise ValueError('unsupported_body')
+            if length>C.MAX_BUNDLE_BYTES or self.headers.get('Content-Type')!='application/json':raise ValueError('unsupported_body')
             ex=self.server.exchange;observed=ex.identity.peer_identity(self.connection);self.server.rate(observed['node'])
             if self.command=='POST' and self.path=='/exchange/v1/pair':
                 if length>PAIR_LIMIT:raise ValueError('pair_body_limit')
                 raw=self.rfile.read(length)
                 if len(raw)!=length:raise ValueError('short_body')
                 result=ex._pair(parse(raw,PAIR_LIMIT),observed,self.connection.getpeername()[0])
-            elif files:
-                bearer=self.headers.get('Authorization');peer=ex.authenticate(self.connection,bearer)
-                parts=self.path[len('/exchange/v1/files/'):].split('/');digest=parts[0];sha(digest)
-                if self.command=='GET' and len(parts)==1 and not length:result=ex.store.file_status(digest,peer)
-                elif self.command=='POST' and len(parts)==1:
-                    raw=self.rfile.read(length)
-                    if len(raw)!=length or length>PAIR_LIMIT:raise ValueError('short_body')
-                    obj=parse(raw,PAIR_LIMIT);require_keys(obj,('name','bytes'));result=ex.store.file_finish(digest,obj['name'],obj['bytes'],peer)
-                elif self.command=='PUT' and len(parts)==3 and all(x.isascii() and x.isdigit() and len(x)<16 for x in parts[1:]):
-                    result=ex.store.file_chunk(digest,int(parts[1]),int(parts[2]),length,self.rfile.read,peer,lambda:ex.authenticate(self.connection,bearer))
-                else:raise ValueError('unknown_route')
             else:
                 peer=ex.authenticate(self.connection,self.headers.get('Authorization'))
                 prefix='/exchange/v1/bundles/' if self.command=='PUT' else '/exchange/v1/receipts/'

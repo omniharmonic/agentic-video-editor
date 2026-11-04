@@ -37,8 +37,12 @@ import copy
 import hashlib
 import json
 import math
+import fcntl
+import os
 import re
+import threading
 import time
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -135,10 +139,13 @@ def load_stage_doc(ep: Episode, stage: str | None = None, version: int | None = 
     what = _label(stage, name)
     if not versions:
         raise SystemExit(f"No {what} edit for {ep.root.name}. Run the earlier pipeline stage first (see `ave resume`)." + sessions.hint(ep, name))
-    v = version or versions[-1]
+    v = version or editdoc.latest_version(ep, stage, name)     # a Version: names its own file even when two computers made that number
     if v not in versions:
         raise SystemExit(f"{what} v{v} does not exist (have {versions}).")
-    return editdoc.load(editdoc.path_for(ep, stage, v, name)), stage, v
+    try:
+        return editdoc.load(editdoc.path_for(ep, stage, v, name)), stage, v
+    except editdoc.AmbiguousVersion as exc:
+        raise SystemExit(str(exc)) from exc
 
 
 def norm_token(w: str) -> str:
@@ -631,7 +638,8 @@ def prepare(ep: Episode, stage: str | None = None, version: int | None = None, m
     ex = taste.exemplars(ep)
     data = {
         "version": 1, "made": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
-        "source": {"stage": stage, **({"name": name} if name else {}), "version": v,
+        "source": {"stage": stage, **({"name": name} if name else {}), "version": int(v),
+                   "id": editdoc.path_for(ep, stage, v, name).name[:-len(".json")],
                    "path": str(editdoc.path_for(ep, stage, v, name).relative_to(ep.root)),
                    "duration": doc["duration"], "fingerprint": S.fingerprint()},
         "params": {"min_s": min_s, "max_s": max_s, "max_candidates": cinfo.get("cap"), "floor": cinfo.get("floor"), "rubric": r["_path"],
@@ -1144,7 +1152,45 @@ _VERDICT_KIND = {"keep": "approve", "skip": "reject", "maybe": "maybe"}
 _KIND_VERDICT = {"approve": "keep", "reject": "skip", "maybe": "maybe"}
 
 
+DECIDE_LOCK = "clips_decide.lock"
+_DECIDE_LOCKS: dict[str, threading.Lock] = {}
+_DECIDE_GUARD = threading.Lock()
+_DECIDE_HELD = threading.local()
+
+
+@contextmanager
+def decide_lock(ep: Episode):
+    """Serialise every read-modify-write of clips.json for one episode: a thread lock for this process and an flock on
+    work/clips_decide.lock for every other process on this computer (the CLI, `ave ui`, the app's Room). Reentrant within a thread,
+    so a caller that holds it (to read a clip and decide on it in one step) can call `decide`."""
+    key = str(ep.root.resolve())
+    held = getattr(_DECIDE_HELD, "keys", None)
+    if held is None:
+        held = _DECIDE_HELD.keys = set()
+    if key in held:
+        yield
+        return
+    with _DECIDE_GUARD:
+        lock = _DECIDE_LOCKS.setdefault(key, threading.Lock())
+    with lock:
+        ep.work.mkdir(parents=True, exist_ok=True)
+        fd = os.open(ep.work / DECIDE_LOCK, os.O_RDWR | os.O_CREAT, 0o600)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX)
+            held.add(key)
+            yield
+        finally:
+            held.discard(key)
+            os.close(fd)
+
+
 def decide(ep: Episode, decisions: Any, name: str | None = None, by: str | None = None, source: str = "cli") -> dict:
+    """Apply human decisions (under `decide_lock`, so two callers at once never lose an update). See `_decide`."""
+    with decide_lock(ep):
+        return _decide(ep, decisions, name=name, by=by, source=source)
+
+
+def _decide(ep: Episode, decisions: Any, name: str | None = None, by: str | None = None, source: str = "cli") -> dict:
     """Apply human decisions. This is the ONE code path that writes a clip's status AND the learning ledger.
 
     Each item: {"id" (or "clip_id"), and either "verdict": "keep|maybe|skip" or the older "decision": "approve|reject|nudge|pending",
@@ -1181,7 +1227,7 @@ def decide(ep: Episode, decisions: Any, name: str | None = None, by: str | None 
         if verdict is not None:
             kind = _VERDICT_KIND.get(verdict, f"?{verdict}")
         reasons = dd.get("reasons") or []
-        rec = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "via": "ui" if source == "ui" else humanpresence.provenance(), "clip": cid, "decision": kind, "nudge": dd.get("nudge"), "note": dd.get("note")}
+        rec = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "via": source if source in ("ui", "relayed") else humanpresence.provenance(), "clip": cid, "decision": kind, "nudge": dd.get("nudge"), "note": dd.get("note")}
         err = None
         clip = by_id.get(cid)
         if clip is None:

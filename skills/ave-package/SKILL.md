@@ -19,7 +19,7 @@ Optional: `--audio mp3|aac|both`, `--new-version`, `--strict` (exit 2 if a requi
 **measured after encoding**, ID3 chapters, plus `chapters.txt` in YouTube's format), `thumbnails/` (1280x720, under 2 MB; an oversize PNG becomes a JPEG),
 `shorts/<platform>/` (approved clips, latest export per platform), `images/` (approved quote cards and carousels, alt text in the manifest and `copy/alt-text.md`),
 `copy/` (per-platform drafts + `copy.json`), `drafts/`, `manifest.json` (every file: size, sha256, duration, source stage and version, approval, license credits),
-`checksums.sha256`, `index.html` (players, thumbnails, copy buttons, sizes), `README.md`. The same checklist is written to `work/package/status.json` for `ave ui`.
+`checksums.sha256`, `index.html` (players, thumbnails, copy buttons, sizes), `README.md`. The same checklist is written to `work/package/status.json` for the app.
 
 ## What to tell the human, in this order
 

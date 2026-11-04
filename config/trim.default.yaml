@@ -13,6 +13,7 @@ tail_s: 0.6                 # a proposed `out` sits this far after the last word
 settle_min_words: 10        # after the last slate phrase, the real start is the first sentence of at least this many words
 cluster_s: 90               # sign-off / stop-recording phrases closer together than this are one cluster (the cluster's start is the out)
 short_sentence_words: 3     # phrases under `short_only` count only inside a sentence this short ("Cut." yes, "...cut the budget" no)
+draft_min_confidence: 0.6   # `ave trim propose` (drafts only) applies an end only when its suggestion is at least this sure; weaker ends stay untrimmed
 
 slate:                      # setup talk before the show: the real start comes after the last of these
   - take one
