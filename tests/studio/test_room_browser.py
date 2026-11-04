@@ -254,7 +254,10 @@ def test_every_visible_button_does_something(page, room_server):
             continue                                    # a control that an earlier click legitimately removed (the offer closed)
         before = page.evaluate(SIGNATURE)
         btn.click()
-        page.wait_for_function(f"() => ({SIGNATURE})() !== {json.dumps(before)}", timeout=5000 * CI_SLOW)
+        try:
+            page.wait_for_function(f"() => ({SIGNATURE})() !== {json.dumps(before)}", timeout=5000 * CI_SLOW)
+        except Exception:
+            raise AssertionError(f"clicking {name!r} changed nothing on the page") from None
         if name == "Go back":
             page.locator(".offer").wait_for(state="hidden")         # the reply lands after the button's busy state shows
         page.keyboard.press("Escape")                   # close a popover the click opened

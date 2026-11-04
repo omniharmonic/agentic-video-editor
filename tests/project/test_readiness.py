@@ -17,6 +17,7 @@ from pathlib import Path
 import sqlite3
 
 import pytest
+from conftest import CI_SLOW
 
 from ave import editdoc
 from ave.project import Project, readiness as R
@@ -513,7 +514,7 @@ def test_arriving_version_cannot_be_opened(page, room_server):
 
     # the files arrive: no reload, the Room opens it by itself
     put(project.root, "edits/rough.v1~jos0.json", edit)
-    page.get_by_text("Rough cut, version 1 has arrived").wait_for(timeout=15_000)
+    page.get_by_text("Rough cut, version 1 has arrived").wait_for(timeout=15_000 * CI_SLOW)
     page.get_by_role("heading", name="No render of this version yet").wait_for()
     assert page.locator(".room-arrive").is_hidden()
     assert page.locator(".tl-seg").count() >= 1 or page.locator(".room-strip").count() >= 1
@@ -523,7 +524,7 @@ def test_arriving_version_cannot_be_opened(page, room_server):
     imani_made(project, "rough.v2~jos0", {"edits/rough.v2~jos0.json": edit})
     put(project.root, "edits/rough.v2~jos0.json", wrong)
     room_server.offer("rough.v2~jos0", artifact="ep", summary="Opens on the question")
-    page.get_by_role("heading", name="This version arrived damaged").wait_for(timeout=15_000)
+    page.get_by_role("heading", name="This version arrived damaged").wait_for(timeout=15_000 * CI_SLOW)
     assert page.get_by_text("Ask Imani to resend it.", exact=False).first.is_visible()
     assert page.locator(".room-arrive").inner_text() == "Damaged"
     assert page.get_by_role("button", name="Keep this").is_disabled()
@@ -549,7 +550,7 @@ def test_arriving_version_cannot_be_opened(page, room_server):
     # the mark follows the version the cell shows: v2 kept, Imani's v3 still copying, the cell says version 3 and is marked
     project.log.append("version.kept", "art_ep", {"version": "rough.v2~jos0"})
     imani_made(project, "rough.v3~jos0", {"edits/rough.v3~jos0.json": edit})
-    page.locator(".c-version", has_text="Rough cut, version 3").locator(".ready-mark").wait_for(timeout=15_000)
+    page.locator(".c-version", has_text="Rough cut, version 3").locator(".ready-mark").wait_for(timeout=15_000 * CI_SLOW)
     assert page.locator(".c-version .ready-mark").get_attribute("aria-label") == "Arriving from Imani…"
 
 
