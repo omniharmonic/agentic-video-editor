@@ -47,7 +47,7 @@ def load_speakers(ep: Episode | None) -> list[dict]:
 
 
 def find(speakers: list[dict], attribution: str) -> dict | None:
-    """The one speaker an attribution refers to: an exact alias ("Tomas", "maren okafor" when full_name says so) or the
+    """The one speaker an attribution refers to: an exact alias ("Imani", "maren okafor" when full_name says so) or the
     attribution's first word being a speaker's first name ("Maren Okafor" -> Maren). None when absent or ambiguous."""
     a = _fold(attribution)
     if not a:

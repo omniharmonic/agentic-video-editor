@@ -4,7 +4,7 @@ Settings holds what the old Accounts (Connections), Alerts and Collaborate scree
 sheets). The approval sheet holds publishing approval and trim approval: the page shows exactly what is approved and hands only
 its identity to the app (aveNative.approvePublish / approveTrim), where the native sheet, the device-owner check and the PIN
 live (tests/studio/test_security_gates.py covers that side). The world is the Workspace's planner world: a two-brand studio with
-posts in review (real queue items), an episode project with Tomas and Sam, and Claude's draft trim on that episode.
+posts in review (real queue items), an episode project with Imani and Sam, and Claude's draft trim on that episode.
 """
 
 from __future__ import annotations
@@ -25,9 +25,9 @@ NATIVE = TEST_FLAG + """ window.__asked = []; Object.defineProperty(window, 'ave
         refused: items.filter((x) => bad.includes(x.post)).map((x) => ({post: x.post, variant: x.variant, reason: 'the media changed since you reviewed it: view it again'}))}; },
     ackAlert: async (id) => { window.__asked.push(['ackAlert', id]); return {op: 'ack', alert: id}; },
     approveTrim: async (...a) => { window.__asked.push(['approveTrim', ...a]); return {state: 'confirmed'}; },
-    shareProject: async (id) => { window.__asked.push(['share', id]); return {state: 'shared', person: 'Tomas', title: 'Episode 12'}; },
+    shareProject: async (id) => { window.__asked.push(['share', id]); return {state: 'shared', person: 'Imani', title: 'Episode 12'}; },
     joinProject: async () => { window.__asked.push(['join']); return {state: 'joined', title: 'The Long Table'}; },
-    removeMember: async (id) => { window.__asked.push(['remove', id]); return {state: 'removed', message: 'Tomas is no longer on Episode 12.'}; },
+    removeMember: async (id) => { window.__asked.push(['remove', id]); return {state: 'removed', message: 'Imani is no longer on Episode 12.'}; },
     handOverPublishing: async (id) => { window.__asked.push(['handover', id]); return {state: 'handed_over', message: 'Sam publishes Episode 12 now.'}; },
     openResolve: async () => { window.__asked.push(['resolve']); return {}; },
     agentConfig: async () => { window.__asked.push(['agent']); return {}; },
@@ -201,7 +201,7 @@ def test_people_lists_members_in_words_and_changes_go_through_the_app(browser, w
     sec = pg.locator(f'.set-project[data-project="{world.ep.project_id}"]')
     sec.wait_for()
     text = sec.inner_text()
-    assert "Tomas" in text and "review proxies plus what they work on" in text and "Sam" in text and "all the media" in text
+    assert "Imani" in text and "review proxies plus what they work on" in text and "Sam" in text and "all the media" in text
     assert sec.locator('tr[data-person="Maren"]').get_by_text("You").is_visible()
     assert "dev-" not in pg.content()                                                     # no device ids, ever
     _shot(pg, "settings-people")

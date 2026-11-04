@@ -30,9 +30,9 @@ def test_the_early_window_after_connecting_is_syncing_not_up_to_date():
 
 
 def test_a_member_not_sharing_yet_or_offline_is_waited_for():
-    s = decide(IDLE, ["J"], {"J"}, {"J": {**DONE, "remoteState": "notSharing"}}, {"J"}, lambda d: "tomas")
-    assert s.state == "waiting" and s.waiting_for == ["tomas"]
-    s = decide(IDLE, ["J", "K"], {"J"}, {"J": DONE}, {"J"}, {"J": "tomas", "K": "kai"}.get)
+    s = decide(IDLE, ["J"], {"J"}, {"J": {**DONE, "remoteState": "notSharing"}}, {"J"}, lambda d: "imani")
+    assert s.state == "waiting" and s.waiting_for == ["imani"]
+    s = decide(IDLE, ["J", "K"], {"J"}, {"J": DONE}, {"J"}, {"J": "imani", "K": "kai"}.get)
     assert s.state == "waiting" and s.waiting_for == ["kai"]
 
 
@@ -79,23 +79,23 @@ SID_J = "JJJJJJJ-JJJJJJJ-JJJJJJJ-JJJJJJJ-JJJJJJJ-JJJJJJJ-JJJJJJJ-JJJJJJJ"
 
 
 def test_every_state_has_plain_words_with_names_never_device_ids():
-    names = {SID_J: "tomas", "K": "kai"}.get
+    names = {SID_J: "imani", "K": "kai"}.get
     off = W.say(decide(IDLE, [SID_J], set(), {}, set(), names))
-    assert off["text"] == "Waiting for Tomas (offline)" and off["members"][0]["text"] == "Waiting for Tomas (offline)"
+    assert off["text"] == "Waiting for Imani (offline)" and off["members"][0]["text"] == "Waiting for Imani (offline)"
     sending = W.say(decide(IDLE, [SID_J], {SID_J}, {SID_J: {**DONE, "completion": 40, "needItems": 3, "needBytes": 3_200_000}},
                            {SID_J}, names))
-    assert sending["text"] == "Sending 3 files to Tomas" and sending["detail"] == "3.2 MB to go." and sending["tone"] == "busy"
+    assert sending["text"] == "Sending 3 files to Imani" and sending["detail"] == "3.2 MB to go." and sending["tone"] == "busy"
     one = W.say(decide(IDLE, [SID_J], {SID_J}, {SID_J: {**DONE, "completion": 90, "needItems": 1}}, {SID_J}, names))
-    assert one["text"] == "Sending 1 file to Tomas"
+    assert one["text"] == "Sending 1 file to Imani"
     recv = W.say(decide({**IDLE, "needTotalItems": 2, "needBytes": 5}, [SID_J], {SID_J}, {SID_J: DONE}, {SID_J}, names))
-    assert recv["text"] == "Receiving 2 files from Tomas"
+    assert recv["text"] == "Receiving 2 files from Imani"
     ok = W.say(decide(IDLE, [SID_J], {SID_J}, {SID_J: DONE}, {SID_J}, names))
     assert ok["text"] == "Up to date" and ok["tone"] == "ok" and ok["members"] == [
-        {"name": "Tomas", "state": "up_to_date", "text": "Tomas is up to date"}]
+        {"name": "Imani", "state": "up_to_date", "text": "Imani is up to date"}]
     two = W.say(decide(IDLE, [SID_J, "K"], set(), {}, set(), names))
-    assert two["text"] == "Waiting for Tomas and Kai (offline)"
+    assert two["text"] == "Waiting for Imani and Kai (offline)"
     joining = W.say(decide(IDLE, [SID_J], {SID_J}, {SID_J: {**DONE, "remoteState": "notSharing"}}, {SID_J}, names))
-    assert joining["text"] == "Waiting for Tomas to join"
+    assert joining["text"] == "Waiting for Imani to join"
     low = W.say(SyncStatus("low_disk", free_bytes=2_400_000_000, min_free_bytes=5_000_000_000))
     assert low["text"] == "Paused: the drive is low on space"
     assert low["detail"] == "2.4 GB free, and sync needs at least 5.0 GB. Nothing new arrives until there is room."
@@ -109,7 +109,7 @@ def test_every_state_has_plain_words_with_names_never_device_ids():
     both = W.say(decide({**IDLE, "needTotalItems": 2}, [SID_J], {SID_J}, {SID_J: {**DONE, "completion": 50, "needItems": 4}},
                         {SID_J}, names))
     # Work both ways: the headline is what is arriving here; what goes out is on the member's own line.
-    assert both["text"] == "Receiving 2 files from Tomas" and both["members"][0]["text"] == "Sending 4 files to Tomas"
+    assert both["text"] == "Receiving 2 files from Imani" and both["members"][0]["text"] == "Sending 4 files to Imani"
     mac = W.say(SyncStatus("low_disk", error="insufficient space on disk for database (/x): current 1 GB", free_bytes=10**9))
     assert mac["text"] == "Paused: this Mac is low on space" and "this Mac's disk" in mac["next"]
     for w in (off, sending, recv, ok, two, joining, low, gone, ts, denied, both, mac):
@@ -125,7 +125,7 @@ def test_tailscale_off_is_said_for_shared_projects_only(tmp_path):
         assert m.state == "waiting_for_tailscale"
         shared = tmp_path / "shared"
         H.write_project_json(shared, "prj_SH", "Shared", "flat", [{"person": "maren", "devices": ["dev_A"]},
-                                                                {"person": "tomas", "devices": ["dev_B"]}], "dev_A")
+                                                                {"person": "imani", "devices": ["dev_B"]}], "dev_A")
         solo = tmp_path / "solo"
         H.write_project_json(solo, "prj_SO", "Solo", "flat", [{"person": "maren", "devices": ["dev_A"]}], "dev_A")
         assert m.status(shared).state == "tailscale_off"
@@ -138,7 +138,7 @@ def test_tailscale_off_is_said_for_shared_projects_only(tmp_path):
 def _side(base, side, pid, paths=(), layout="numbered"):
     root = base / side / pid
     H.write_project_json(root, pid, pid, layout, [{"person": "maren", "devices": ["dev_A"], "media": "full"},
-                                                     {"person": "tomas", "devices": ["dev_B"], "media": "full"}], "dev_A")
+                                                     {"person": "imani", "devices": ["dev_B"], "media": "full"}], "dev_A")
     H.write_tree(root, list(paths))
     return root
 
@@ -228,8 +228,8 @@ def test_low_disk_pauses_with_a_clear_reason(sync_pair, tmp_path):
     assert not (rb / "01_PROJECT" / "edits" / "rough.v2.json").exists()
     # The computer with the file says plainly what it is waiting to send.
     sending = H.wait_until(lambda: (x := W.say(a.manager.status(ra)))["text"].startswith("Sending") and x, what="sending words")
-    n = next(m for m in a.manager.status(ra).members if m.name == "tomas").need_items
-    assert n >= 1 and re.fullmatch(r"Sending \d+ files? to Tomas", sending["text"]), sending
+    n = next(m for m in a.manager.status(ra).members if m.name == "imani").need_items
+    assert n >= 1 and re.fullmatch(r"Sending \d+ files? to Imani", sending["text"]), sending
     # Room again (the floor back to normal): sync carries on by itself.
     b.manager.min_disk_free = {"value": 1, "unit": "%"}
     b.manager.share(rb, [a.peer])
@@ -283,7 +283,7 @@ def ws(tmp_path, monkeypatch):
     p = Project.create(sp.root / "commons", "The Long Table", person="Maren")
     p.log.append("artifact.created", artifact="art_ep", data={"kind": "episode", "title": "Episode 12", "stage": "Draft"}, actor="human")
     fake = FakeSync()
-    fake.now["commons"] = SyncStatus("waiting", waiting_for=["tomas"], members=[MemberStatus("tomas", "offline")])
+    fake.now["commons"] = SyncStatus("waiting", waiting_for=["imani"], members=[MemberStatus("imani", "offline")])
     srv = StudioServer(open_studio(sp.root), pin="424242")
     srv.workspace.sync = lambda: fake
     t = threading.Thread(target=srv.serve_forever, daemon=True)
@@ -310,19 +310,19 @@ def page(browser, ws):
 
 
 def test_status_words_are_plain(page, ws):
-    assert page.get_by_text("Waiting for Tomas").is_visible()
+    assert page.get_by_text("Waiting for Imani").is_visible()
     pill = page.locator(f'.grp .sync-pill[data-sync="{ws.pid}"]')
-    assert pill.inner_text().strip() == "Waiting for Tomas (offline)"
+    assert pill.inner_text().strip() == "Waiting for Imani (offline)"
     assert pill.get_attribute("data-tone") == "wait"
     pill.click()
     pop = page.get_by_role("dialog", name="Sync for The Long Table")
     assert pop.get_by_text("Changes go across when you are both online.").is_visible()
     assert not pop.locator(".sync-members").count()          # one member saying what the headline says: not repeated
-    assert pill.get_attribute("data-tip") == "Waiting for Tomas (offline)"
+    assert pill.get_attribute("data-tip") == "Waiting for Imani (offline)"
     page.keyboard.press("Escape")
-    # Live, with no reload: Tomas comes online and is sent three files, then the drive goes away.
-    ws.fake.now["commons"] = SyncStatus("syncing", members=[MemberStatus("tomas", "sending", 3, 4_100_000)])
-    page.wait_for_function(f"() => document.querySelector('.grp .sync-pill[data-sync=\"{ws.pid}\"]')?.textContent === 'Sending 3 files to Tomas'")
+    # Live, with no reload: Imani comes online and is sent three files, then the drive goes away.
+    ws.fake.now["commons"] = SyncStatus("syncing", members=[MemberStatus("imani", "sending", 3, 4_100_000)])
+    page.wait_for_function(f"() => document.querySelector('.grp .sync-pill[data-sync=\"{ws.pid}\"]')?.textContent === 'Sending 3 files to Imani'")
     assert pill.get_attribute("data-tone") == "busy"
     ws.fake.now["commons"] = SyncStatus("drive_missing", error="folder path missing")
     page.wait_for_function(f"() => document.querySelector('.grp .sync-pill[data-sync=\"{ws.pid}\"]')?.textContent === 'Drive not connected'")
@@ -356,14 +356,14 @@ def test_names_never_fall_back_to_ids(tmp_path):
     for raw in ("", "dev_01JABCDEF", "ave-join:x1:dev_B:100.64.0.2", SID_J, SID_J[:7]):
         m._peer_names[SID_J] = raw
         assert m._name_of(SID_J) == SOMEONE, raw
-    m._peer_names[SID_J] = "tomas"
-    assert m._name_of(SID_J) == "tomas"
+    m._peer_names[SID_J] = "imani"
+    assert m._name_of(SID_J) == "imani"
     # The person comes from project.json's members and devices before anything Syncthing says.
     root = tmp_path / "p"
     meta = H.write_project_json(root, "prj_NM", "N", "flat", [{"person": "maren", "devices": ["dev_A"]},
-                                                           {"person": "tomas", "devices": ["dev_B"]}], "dev_A")
+                                                           {"person": "imani", "devices": ["dev_B"]}], "dev_A")
     (root / ".ave" / "project.json").write_text(json.dumps({**meta, "devices": {"dev_B": {"sync_id": SID_J, "address": "x"}}}))
-    assert m._people(root) == {SID_J: "tomas"}
+    assert m._people(root) == {SID_J: "imani"}
 
 
 def test_unshared_projects_stay_neutral_when_sync_is_down(tmp_path):
@@ -371,7 +371,7 @@ def test_unshared_projects_stay_neutral_when_sync_is_down(tmp_path):
     m = SyncManager(tmp_path / "st", ave_device="dev_A")          # never started: "stopped"
     shared = tmp_path / "shared"
     H.write_project_json(shared, "prj_SH", "S", "flat", [{"person": "maren", "devices": ["dev_A"]},
-                                                        {"person": "tomas", "devices": ["dev_B"]}], "dev_A")
+                                                        {"person": "imani", "devices": ["dev_B"]}], "dev_A")
     solo = tmp_path / "solo"
     H.write_project_json(solo, "prj_SO", "S", "flat", [{"person": "maren", "devices": ["dev_A"]}], "dev_A")
     assert m.status(solo).state == "not_shared"
@@ -489,7 +489,7 @@ def test_a_status_look_gives_up_quickly_on_a_syncthing_that_does_not_answer(tmp_
                                        restarts=0, wait_ready=lambda t=30: (_ for _ in ()).throw(AssertionError("waited")))
         shared = tmp_path / "w" / "shared"
         H.write_project_json(shared, "prj_SH", "S", "flat", [{"person": "maren", "devices": ["dev_A"]},
-                                                            {"person": "tomas", "devices": ["dev_B"]}], "dev_A")
+                                                            {"person": "imani", "devices": ["dev_B"]}], "dev_A")
         solo = tmp_path / "w" / "solo"
         H.write_project_json(solo, "prj_SO", "S", "flat", [{"person": "maren", "devices": ["dev_A"]}], "dev_A")
         ws = Workspace(None, roots=lambda: [shared, solo], sync=lambda: m)

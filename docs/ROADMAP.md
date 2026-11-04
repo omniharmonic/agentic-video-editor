@@ -8,7 +8,7 @@ Detailed evidence lives in [field-notes/](field-notes/) (working notes from the 
 
 The local studio is AVE Studio: the Room and the Workspace (with Calendar, Previews, Sources, Approvals and Jobs), bounded text intake, optional native desktop shell, stdio MCP for external agents, and offline editorial/media bundle exchange with explicit conflict recovery. Sofia's book-launch workflow adds a bright visual planner, phone profile/post previews, a pipeline board/table, and exact-media manual publishing packs. Details and the handoff: [shared-studio.md](shared-studio.md), [manual-publishing.md](manual-publishing.md), and the feature comparison/mobile roadmap.
 
-These additions are synthetic/local validation, not live production certification. The macOS Finder artifact is an unsigned launcher for the local installation; standalone signing/notarization, Tomas's device, actual Tailscale transfer, live Canva export and first platform posts are still unverified. Raw episode/Resolve sharing is not implemented. The MCP surface covers orientation and draft text; media jobs use the existing CLI and skills. Do not infer that the complete vision is finished from these additions.
+These additions are synthetic/local validation, not live production certification. The macOS Finder artifact is an unsigned launcher for the local installation; standalone signing/notarization, Imani's device, actual Tailscale transfer, live Canva export and first platform posts are still unverified. Raw episode/Resolve sharing is not implemented. The MCP surface covers orientation and draft text; media jobs use the existing CLI and skills. Do not infer that the complete vision is finished from these additions.
 
 ## Status at a glance
 

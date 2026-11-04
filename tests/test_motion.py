@@ -243,11 +243,11 @@ def test_place_targets_a_named_session_edit(synth_episode):
     base = editdoc.load_latest(ep, "assembly")
     editdoc.save_new_version(ep, editdoc.clone(base), "s2")
     unnamed_before = editdoc.list_versions(ep, "assembly")
-    res = motion.place(ep, "lower-third", {"name": "Tomas", "title": "CO-HOST"}, at=1.0, dur=1.5, fps=10, name="s2")
+    res = motion.place(ep, "lower-third", {"name": "Imani", "title": "CO-HOST"}, at=1.0, dur=1.5, fps=10, name="s2")
     assert editdoc.list_versions(ep, "assembly", "s2") == [1, 2]
     assert editdoc.list_versions(ep, "assembly") == unnamed_before            # the unnamed episode edit is untouched
     assert res["doc"].endswith("assembly.s2.v2.json")
-    assert editdoc.load(res["doc"])["tracks"]["overlays"][-1]["props"]["name"] == "Tomas"
+    assert editdoc.load(res["doc"])["tracks"]["overlays"][-1]["props"]["name"] == "Imani"
     with pytest.raises(SystemExit):                                              # a session with no edit says so
         motion.place(ep, "lower-third", {"name": "A"}, at=1, dur=1, fps=10, name="s9")
 

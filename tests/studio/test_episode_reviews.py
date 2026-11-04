@@ -175,7 +175,7 @@ def test_jobs_run_list_and_cancel_from_the_workspace(world):
     finally:
         J.CHILD_CODE = J_code
     s, out = _req(world.srv, "POST", f"/api/workspace/jobs/{world.pid}/{slow['id']}/cancel", {})
-    assert s == 200 and out["status"] == "stopping"
+    assert s == 200 and out["status"] in ("stopping", "cancelled")       # a slow machine may finish the stop first
     r = world.srv.episodes._runner(world.pid)[1]
     end = time.time() + 30
     while r.jobs[slow["id"]]["status"] != "cancelled" and time.time() < end:

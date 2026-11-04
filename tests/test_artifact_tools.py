@@ -108,10 +108,10 @@ def test_parts_are_flagged_when_a_parent_reopens(mcp, ep_with_short):
 
 
 def test_decision_is_listed_at_review(mcp, art):
-    rec = mcp.call('decision_record', artifact=art, summary='Which camera on the laugh', options=['wide', 'Tomas close-up'],
+    rec = mcp.call('decision_record', artifact=art, summary='Which camera on the laugh', options=['wide', 'Imani close-up'],
                    chosen='wide', reason='her camera was soft', request_id='d-1')
     assert rec['status'] == 'open' and mcp.call('decision_record', artifact=art, summary='Which camera on the laugh',
-                                                options=['wide', 'Tomas close-up'], chosen='wide', reason='her camera was soft',
+                                                options=['wide', 'Imani close-up'], chosen='wide', reason='her camera was soft',
                                                 request_id='d-1')['replayed'] is True
     with pytest.raises(ValueError, match='options'):
         mcp.call('decision_record', artifact=art, summary='x', options=['a', 'b'], chosen='c')
@@ -129,7 +129,7 @@ def test_decision_is_listed_at_review(mcp, art):
         mcp.call('decision_resolve', decision=rec['decision'], choice='wide', quote='Which camera on the laugh')   # a copy of the summary
     with pytest.raises(ValueError):
         mcp.call('decision_resolve', decision=rec['decision'], choice='wide')            # needs the director's words
-    done = mcp.call('decision_resolve', decision=rec['decision'], choice='Tomas close-up', quote='use her close-up')
+    done = mcp.call('decision_resolve', decision=rec['decision'], choice='Imani close-up', quote='use her close-up')
     assert done['status'] == 'resolved' and done['relayed_by'] == 'claude'
     assert mcp.call('artifact_get', artifact=art)['decisions_resolved'][0]['relayed'] is True
     assert mcp.call('artifact_get', artifact=art)['decisions_open'] == []
@@ -139,11 +139,11 @@ def test_decision_is_listed_at_review(mcp, art):
 
 
 def test_artifacts_and_tasks_are_written_to_the_log_and_replay(mcp, art):
-    made = mcp.call('artifact_create', kind='post', title='Teaser', request_id='c-1', fields={'owner': 'Tomas'})
-    again = mcp.call('artifact_create', kind='post', title='Teaser', request_id='c-1', fields={'owner': 'Tomas'})
+    made = mcp.call('artifact_create', kind='post', title='Teaser', request_id='c-1', fields={'owner': 'Imani'})
+    again = mcp.call('artifact_create', kind='post', title='Teaser', request_id='c-1', fields={'owner': 'Imani'})
     assert again['replayed'] and again['artifact'] == made['artifact']
     with pytest.raises(ValueError, match='request_id'):
-        mcp.call('artifact_create', kind='post', title='Other', request_id='c-1', fields={'owner': 'Tomas'})
+        mcp.call('artifact_create', kind='post', title='Other', request_id='c-1', fields={'owner': 'Imani'})
     with pytest.raises(ValueError, match='stage'):
         mcp.call('artifact_update', artifact=art, fields={'stage': 'Out'})
     mcp.call('artifact_update', artifact=art, fields={'due': '2026-12-01', 'title': 'Episode 12: the van'})

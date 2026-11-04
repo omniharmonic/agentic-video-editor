@@ -16,7 +16,7 @@ CLIP_TEXT = ("Okay so here is the thing about soil. A goal is a wish and a syste
              "for a generation.")
 CLIP2_TEXT = ("People keep asking me for the one big idea. There is not one. There is a practice of small repairs, done "
               "again and again, by people who stay.")
-SPEAKERS = {"S1": {"name": "Maren Okafor", "channel": "left"}, "S2": {"name": "Tomas", "channel": "right"}}
+SPEAKERS = {"S1": {"name": "Maren Okafor", "channel": "left"}, "S2": {"name": "Imani", "channel": "right"}}
 
 from browser_cache import playwright_cache_dir  # noqa: E402
 

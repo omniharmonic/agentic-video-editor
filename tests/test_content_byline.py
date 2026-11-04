@@ -1,6 +1,6 @@
 """Regression: the show name prints ONCE per graphic, and the speaker's name has its title (CO-HOST) beneath it.
 
-The creator's feedback on the first drafts: "it still has the double 'The Long Table' and should have CO-HOST as the title beneath Tomas and
+The creator's feedback on the first drafts: "it still has the double 'The Long Table' and should have CO-HOST as the title beneath Imani and
 my names, with The Long Table on top." Root cause: the stored ContentDoc carried role == show == "The Long Table", the drafts on disk were
 rendered before the blank-the-duplicate fix, and the doc could not be re-rendered at all because the clips had been renumbered
 (`Sources changed since the plan was made`). Covered here for every template, with real browser measurements of the DOM text.
@@ -25,7 +25,7 @@ from content_helpers import cep, content_env, make_episode  # noqa: F401
 
 SHOW = "The Long Table"
 Q = "So no further amount of counting the trees one by one is going to help us see the whole forest grow back in a healthy way."
-SPEAKERS = {"S1": {"name": "Maren", "channel": "left"}, "S2": {"name": "Tomas", "channel": "right"}}
+SPEAKERS = {"S1": {"name": "Maren", "channel": "left"}, "S2": {"name": "Imani", "channel": "right"}}
 
 
 def _set_speakers(ep: Episode, speakers: dict) -> None:
@@ -92,8 +92,8 @@ def test_every_template_prints_the_show_name_exactly_once_even_when_slots_repeat
 
 
 def test_quote_card_shows_the_show_once_at_the_top_then_the_name_with_co_host_beneath(kit):
-    """ink 4:5, paper 1:1, clay 9:16 (the three real drafts): show mark on top, 'Maren'/'Tomas', 'CO-HOST' directly beneath the name."""
-    for style, fmt, who in (("ink", "4x5", "Maren"), ("paper", "1x1", "Tomas"), ("clay", "9x16", "Tomas")):
+    """ink 4:5, paper 1:1, clay 9:16 (the three real drafts): show mark on top, 'Maren'/'Imani', 'CO-HOST' directly beneath the name."""
+    for style, fmt, who in (("ink", "4x5", "Maren"), ("paper", "1x1", "Imani"), ("clay", "9x16", "Imani")):
         # stored the way the first drafts had it: full surname attribution and the show repeated as the role
         shot, props = _shoot(kit, "quote-post", style, fmt, {"quote": Q, "attribution": f"{who} Life" if who == "Maren" else who,
                                                               "role": SHOW, "show": SHOW})
@@ -129,13 +129,13 @@ def test_render_item_records_one_show_name_for_a_clean_item_and_alt_text_names_i
 # ---- who is named, and how ------------------------------------------------------------------------------
 
 def test_speaker_names_and_titles_come_from_episode_json(cep):
-    _set_speakers(cep, {"S1": {"name": "Maren", "full_name": "Maren Okafor"}, "S2": {"name": "Tomas", "display_name": "Tomas R.", "title": "PRODUCER"},
+    _set_speakers(cep, {"S1": {"name": "Maren", "full_name": "Maren Okafor"}, "S2": {"name": "Imani", "display_name": "Imani R.", "title": "PRODUCER"},
                         "S3": {"name": "Rosa", "guest": True}})
     spk = people.load_speakers(cep)
     assert people.byline(spk, "Maren Okafor") == ("Maren", "CO-HOST")       # full_name matches; it is never printed
     assert people.byline(spk, "maren") == ("Maren", "CO-HOST")
-    assert people.byline(spk, "Tomas") == ("Tomas R.", "PRODUCER")              # display_name prints, title overrides the default
-    assert people.byline(spk, "S2") == ("Tomas R.", "PRODUCER")
+    assert people.byline(spk, "Imani") == ("Imani R.", "PRODUCER")              # display_name prints, title overrides the default
+    assert people.byline(spk, "S2") == ("Imani R.", "PRODUCER")
     assert people.byline(spk, "Rosa") == ("Rosa", "")                         # a guest has no default title
     assert people.byline(spk, "Rosa", "Soil ecologist") == ("Rosa", "Soil ecologist")   # an explicit title wins
     assert people.byline(spk, "Someone Else", "") == ("Someone Else", "")       # unknown people are left as written
@@ -150,10 +150,10 @@ def test_two_speakers_sharing_a_first_name_are_never_guessed(cep):
 def test_effective_slots_strip_the_show_from_bylines_in_nested_slots_but_never_from_quotes():
     tpl = R.load_registry().get("carousel")
     slots = {"show": SHOW, "cover": {"title": "t" * 5, "subtitle": f"Maren, {SHOW}"},
-             "slides": [{"kind": "quote", "quote": f"What {SHOW} means to me is simple", "attribution": f"Tomas - {SHOW}", "title": SHOW}],
+             "slides": [{"kind": "quote", "quote": f"What {SHOW} means to me is simple", "attribution": f"Imani - {SHOW}", "title": SHOW}],
              "closing": {"line": "Thanks for listening", "cta": SHOW}}
     eff = R.effective_slots(tpl.slots, slots)
-    assert eff["cover"]["subtitle"] == "Maren" and eff["slides"][0]["attribution"] == "Tomas" and eff["slides"][0]["title"] == ""
+    assert eff["cover"]["subtitle"] == "Maren" and eff["slides"][0]["attribution"] == "Imani" and eff["slides"][0]["title"] == ""
     assert eff["closing"]["cta"] == "" and SHOW in eff["slides"][0]["quote"]
     assert sorted(R.show_duplicates(slots, tpl.slots)) == ["closing.cta", "cover.subtitle", "slides[0].attribution", "slides[0].title"]
 
@@ -165,8 +165,8 @@ def test_legacy_role_is_the_title_and_template_declares_title(cep):
     assert eff["title"] == "Soil ecologist" and eff["role"] == ""
     assert R.effective_slots(tpl.slots, {"quote": Q, "role": "Soil ecologist", "title": "CO-HOST"})["title"] == "CO-HOST"
     spk = people.load_speakers(cep)
-    norm = R.normalize_slots(tpl.slots, {"quote": Q, "attribution": "Tomas", "role": SHOW, "show": SHOW}, spk)
-    assert norm == {"quote": Q, "attribution": "Tomas", "title": "CO-HOST", "show": SHOW}
+    norm = R.normalize_slots(tpl.slots, {"quote": Q, "attribution": "Imani", "role": SHOW, "show": SHOW}, spk)
+    assert norm == {"quote": Q, "attribution": "Imani", "title": "CO-HOST", "show": SHOW}
 
 
 def test_propose_fills_the_hosts_name_and_title_and_still_rejects_a_repeat(cep):
@@ -175,11 +175,11 @@ def test_propose_fills_the_hosts_name_and_title_and_still_rejects_a_repeat(cep):
     _set_speakers(cep, SPEAKERS)
     pick = pick_quote()
     pick["slots"].pop("role", None)
-    pick["slots"]["attribution"] = "Tomas"
+    pick["slots"]["attribution"] = "Imani"
     out = P.propose(cep, [pick], allow_unapproved=True)
     assert not out["rejected"], out
     slots = M.load_latest(cep)["items"][0]["slots"]
-    assert slots["attribution"] == "Tomas" and slots["title"] == "CO-HOST"
+    assert slots["attribution"] == "Imani" and slots["title"] == "CO-HOST"
     bad = pick_quote()
     bad["slots"]["title"] = SHOW.lower()
     assert "repeats the show name" in P.propose(cep, [bad], allow_unapproved=True)["rejected"][-1]["problems"][-1]
@@ -209,7 +209,7 @@ def test_canva_brief_prints_the_final_palette_fonts_and_names(cep, capsys):
     assert brief["palette"]["clay"] == "#b9825a" and brief["styles"]["ink"]["bg"].startswith("#1b1814")
     assert brief["fonts"]["serif"]["family"] == "Newsreader" and brief["fonts"]["serif"]["files"][0]["bundled"]
     assert brief["fonts"]["sans"]["license_file"] == "OFL-Inter.txt" and brief["fonts"]["serif"]["license"].startswith("SIL Open Font")
-    assert [(s["prints_as"], s["title"]) for s in brief["names"]["speakers"]] == [("Maren", "CO-HOST"), ("Tomas", "CO-HOST")]
+    assert [(s["prints_as"], s["title"]) for s in brief["names"]["speakers"]] == [("Maren", "CO-HOST"), ("Imani", "CO-HOST")]
     assert any("ONCE" in x for x in brief["card_layout"]["quote_post"])
     assert C.brand_brief()["names"]["speakers"] == []                           # no project given: no names, no crash
 

@@ -19,20 +19,20 @@ from ave.syncthing.members import add_member, canonical
 pytestmark = pytest.mark.timeout(60)
 
 BEN_SYNC = "-".join(["AAAAAAA"] * 8)
-TOMAS_SYNC = "-".join(["BBBBBBB"] * 8)
-COPY = "sync-conflict-20261102-101500-BBBBBBB"          # a conflict copy Tomas's computer made
+IMANI_SYNC = "-".join(["BBBBBBB"] * 8)
+COPY = "sync-conflict-20261102-101500-BBBBBBB"          # a conflict copy Imani's computer made
 
 
 @pytest.fixture
 def project(tmp_path):
-    """Maren's episode project, shared with Tomas (dev_B): an episode.json and a home artifact."""
+    """Maren's episode project, shared with Imani (dev_B): an episode.json and a home artifact."""
     root = tmp_path / "ep12"
     root.mkdir()
     (root / "episode.json").write_text(json.dumps({"title": "Episode 12", "layout": "flat", "tz": "UTC",
                                                    "show": {"host": "Maren", "season": 2}}, indent=2) + "\n")
     p = Project.create(root, "Episode 12", person="maren")
     meta = add_member(p.meta, "maren", p.device.id, "full", BEN_SYNC, "100.64.0.1")
-    meta = add_member(meta, "tomas", "dev_B", "proxies", TOMAS_SYNC, "100.64.0.2")
+    meta = add_member(meta, "imani", "dev_B", "proxies", IMANI_SYNC, "100.64.0.2")
     (root / ".ave" / "project.json").write_bytes(canonical(meta))
     p = Project.open(root)
     p.log.append("artifact.created", artifact="art_ep", data={"kind": "episode", "title": "Episode 12", "stage": "Plan"})
@@ -40,9 +40,9 @@ def project(tmp_path):
     return p
 
 
-def _tomas(project: Project, wall=None) -> Log:
+def _imani(project: Project, wall=None) -> Log:
     kw = {"wall": wall} if wall else {}
-    return Log(project.log_dir, "dev_B", "tomas", lock_dir=project.local_dir / "locks", **kw)
+    return Log(project.log_dir, "dev_B", "imani", lock_dir=project.local_dir / "locks", **kw)
 
 
 def _ep(project) -> dict:
@@ -97,18 +97,18 @@ def test_unrelated_setting_changes_merge(project):
     assert conflicts.check(root).to_dict() == _empty()
     base = _ep(project)
     maren = {**base, "title": "Episode 12: the van"}
-    tomas = {k: v for k, v in {**base, "tz": "America/Denver", "show": {**base["show"], "season": 3},
+    imani = {k: v for k, v in {**base, "tz": "America/Denver", "show": {**base["show"], "season": 3},
                                "draft": True}.items() if k != "layout"}
     _write(root / "episode.json", maren)
     copy = root / f"episode.{COPY}.json"
-    _write(copy, tomas)
+    _write(copy, imani)
 
     rep = conflicts.check(root)
     (asked,) = rep.asked
-    assert _ep(project) == maren and json.loads(copy.read_text()) == tomas           # nothing applied, nothing deleted
+    assert _ep(project) == maren and json.loads(copy.read_text()) == imani           # nothing applied, nothing deleted
     d = _decision(project, asked["decision"])
-    assert d["data"]["summary"] == "Maren and Tomas both changed episode.json (Title, Layout, Time zone, Show and more)"
-    assert d["data"]["options"] == ["Use all of Maren's", "Use all of Tomas's"]
+    assert d["data"]["summary"] == "Maren and Imani both changed episode.json (Title, Layout, Time zone, Show and more)"
+    assert d["data"]["options"] == ["Use all of Maren's", "Use all of Imani's"]
     assert d["data"]["keys"] == [
         {"key": "title", "label": "Title", "file": "“Episode 12: the van”", "copy": "“Episode 12”"},
         {"key": "layout", "label": "Layout", "file": "“flat”", "copy": "(not set)"},
@@ -120,7 +120,7 @@ def test_unrelated_setting_changes_merge(project):
 
     ws = _ws(project)
     (dec,) = _home_row(ws)["decisions"]
-    assert dec["kind"] == "setting" and dec["file_who"] == "Maren" and dec["copy_who"] == "Tomas" and len(dec["keys"]) == 5
+    assert dec["kind"] == "setting" and dec["file_who"] == "Maren" and dec["copy_who"] == "Imani" and len(dec["keys"]) == 5
     with pytest.raises(Exception, match="every setting"):
         ws.patch(_home_row(ws)["key"], {"resolve": d["id"], "choice": conflicts.PER_KEY, "picks": {"tz": "copy"}})
     picks = {"title": "file", "layout": "file", "tz": "copy", "show": "copy", "draft": "file"}
@@ -135,13 +135,13 @@ def test_unrelated_setting_changes_merge(project):
     pj = root / ".ave" / "project.json"
     mine = json.loads(pj.read_text())
     other = {**mine, "title": "Episode 12 (shared)", "publisher_device": "dev_E",
-             "members": [m for m in mine["members"] if m["person"] != "tomas"] + [{"person": "eve", "devices": ["dev_E"], "media": "full"}]}
+             "members": [m for m in mine["members"] if m["person"] != "imani"] + [{"person": "eve", "devices": ["dev_E"], "media": "full"}]}
     (root / ".ave" / f"project.{COPY}.json").write_bytes(canonical(other))
     (asked,) = conflicts.check(root).asked
     d = _decision(project, asked["decision"])
     assert [k["key"] for k in d["data"]["keys"]] == ["title"]
-    AgentApp.for_board(root).board("decision_resolve", {"request_id": "pj", "decision": d["id"], "choice": "Use all of Tomas's",
-                                                       "quote": "take Tomas's"})
+    AgentApp.for_board(root).board("decision_resolve", {"request_id": "pj", "decision": d["id"], "choice": "Use all of Imani's",
+                                                       "quote": "take Imani's"})
     assert conflicts.drain()
     now = json.loads(pj.read_text())
     assert now["title"] == "Episode 12 (shared)" and now["members"] == mine["members"]
@@ -156,11 +156,11 @@ def test_same_setting_asks_a_person(project):
     _write(copy, {**base, "title": "Van stories"})
     (asked,) = conflicts.check(root).asked
     d = _decision(project, asked["decision"])
-    assert d["data"]["summary"] == "Maren and Tomas both changed episode.json (Title)"
+    assert d["data"]["summary"] == "Maren and Imani both changed episode.json (Title)"
     assert d["data"]["keys"] == [{"key": "title", "label": "Title", "file": "“The van”", "copy": "“Van stories”"}]
 
     ws = _ws(project)
-    ws.patch(_home_row(ws)["key"], {"resolve": d["id"], "choice": "Use all of Tomas's"})       # on the board
+    ws.patch(_home_row(ws)["key"], {"resolve": d["id"], "choice": "Use all of Imani's"})       # on the board
     assert conflicts.drain()
     assert _ep(project)["title"] == "Van stories" and not copy.exists()
     assert not _home_row(ws)["decisions"]
@@ -173,24 +173,24 @@ def test_same_setting_asks_a_person(project):
     (asked,) = conflicts.check(root).asked
     app = AgentApp.for_board(root)
     with pytest.raises(ValueError, match="one of the options"):
-        app.board("decision_resolve", {"request_id": "r1", "decision": asked["decision"], "choice": "Denver", "quote": "Tomas's"})
+        app.board("decision_resolve", {"request_id": "r1", "decision": asked["decision"], "choice": "Denver", "quote": "Imani's"})
     with pytest.raises(ValueError, match="every key"):
         app.board("decision_resolve", {"request_id": "r2", "decision": asked["decision"], "choice": conflicts.PER_KEY,
-                                       "quote": "Tomas's time zone", "picks": {}})
+                                       "quote": "Imani's time zone", "picks": {}})
     out = app.board("decision_resolve", {"request_id": "r3", "decision": asked["decision"], "choice": conflicts.PER_KEY,
-                                         "quote": "Tomas's time zone", "picks": {"tz": "copy"}})
+                                         "quote": "Imani's time zone", "picks": {"tz": "copy"}})
     assert out["status"] == "resolved"
     assert conflicts.drain()
     assert _ep(project)["tz"] == "America/Denver" and conflicts.find(root) == []
 
 
-@pytest.mark.parametrize("ben_edit,tomas_edit", [
+@pytest.mark.parametrize("ben_edit,imani_edit", [
     (lambda b: {**b, "title": "The van", "tz": "Europe/Paris"}, lambda b: {**b, "title": "Van stories"}),
     (lambda b: {**b, "title": "The van"}, lambda b: {k: v for k, v in b.items() if k != "tz"}),
 ], ids=["same-key", "removal"])
-def test_with_sync_running_the_losers_computer_asks_and_changes_nothing(project, ben_edit, tomas_edit):
+def test_with_sync_running_the_losers_computer_asks_and_changes_nothing(project, ben_edit, imani_edit):
     """break1: the real Syncthing order with a manager. Maren's version loses: Syncthing renames it to the copy under his own
-    id and writes Tomas's pulled version as the file. The pass that follows asks; it changes and deletes nothing."""
+    id and writes Imani's pulled version as the file. The pass that follows asks; it changes and deletes nothing."""
     root, m, ep = project.root, FakeSync(), project.root / "episode.json"
     m.mod["episode.json"] = "BBBBBBB"
     conflicts.check(root, manager=m, items=["episode.json"])
@@ -199,7 +199,7 @@ def test_with_sync_running_the_losers_computer_asks_and_changes_nothing(project,
     _write(ep, maren)
     m.mod["episode.json"] = "AAAAAAA"
     conflicts.check(root, manager=m)
-    jos = tomas_edit(dict(base))
+    jos = imani_edit(dict(base))
     copy = root / f"episode.{LOSER}.json"
     ep.rename(copy)
     _write(ep, jos)
@@ -208,7 +208,7 @@ def test_with_sync_running_the_losers_computer_asks_and_changes_nothing(project,
     assert len(rep.asked) == 1 and rep.settled == []
     assert _ep(project) == jos and json.loads(copy.read_text()) == maren
     d = _decision(project, rep.asked[0]["decision"])
-    assert (d["data"]["file_who"], d["data"]["copy_who"]) == ("Tomas", "Maren")       # who last wrote each copy
+    assert (d["data"]["file_who"], d["data"]["copy_who"]) == ("Imani", "Maren")       # who last wrote each copy
     assert conflicts.check(root, manager=m).asked[0]["decision"] == d["id"]          # and a later pass still only asks
     assert _ep(project) == jos and copy.exists() and board_open(d["id"], project)
 
@@ -268,8 +268,8 @@ def test_a_file_that_changes_during_the_pass_is_never_overwritten(project, monke
     copy = root / f"episode.{COPY}.json"
     _write(copy, {**base, "tz": "America/Denver"})
     (asked,) = conflicts.check(root).asked
-    _tomas(project).append("decision.resolved", artifact="art_ep",
-                           data={"decision": asked["decision"], "choice": "Use all of Tomas's"})
+    _imani(project).append("decision.resolved", artifact="art_ep",
+                           data={"decision": asked["decision"], "choice": "Use all of Imani's"})
     meanwhile = {**base, "title": "The van, again"}                    # an editor saves just before the replace
 
     def save(path):
@@ -295,7 +295,7 @@ def test_synced_copies_are_applied_by_the_owners_computer(tmp_path):
     root.mkdir()
     (root / "studio.json").write_text(json.dumps({"title": "The Long Table"}) + "\n")
     p = Project.create(root, "The Long Table", person="maren", kind="studio", layout="flat")
-    meta = add_member(add_member(p.meta, "maren", p.device.id, "full", BEN_SYNC, "a"), "tomas", "dev_B", "full", TOMAS_SYNC, "b")
+    meta = add_member(add_member(p.meta, "maren", p.device.id, "full", BEN_SYNC, "a"), "imani", "dev_B", "full", IMANI_SYNC, "b")
     (root / ".ave" / "project.json").write_bytes(canonical(meta))
     p = Project.open(root)
     p.log.append("artifact.created", artifact="art_studio", data={"kind": "studio", "title": "The Long Table"})
@@ -307,16 +307,16 @@ def test_synced_copies_are_applied_by_the_owners_computer(tmp_path):
     pin = root / ".ave" / "local" / "owner.json"
     pin.parent.mkdir(parents=True, exist_ok=True)
 
-    pin.write_text(json.dumps({"device": "dev_B", "person": "tomas"}))        # this computer is not the owner
+    pin.write_text(json.dumps({"device": "dev_B", "person": "imani"}))        # this computer is not the owner
     (asked,) = conflicts.check(root).asked                                   # it may still ask
-    p.log.append("decision.resolved", artifact="art_studio", data={"decision": asked["decision"], "choice": "Use all of Tomas's"})
+    p.log.append("decision.resolved", artifact="art_studio", data={"decision": asked["decision"], "choice": "Use all of Imani's"})
     rep = conflicts.check(root, items=[])
     assert rep.waiting == [{"file": "posts/launch.json", "conflict": f"posts/launch.{COPY}.json", "decision": asked["decision"],
-                            "owner": "Tomas", "text": "The two copies of launch.json are answered. Waiting for Tomas's "
+                            "owner": "Imani", "text": "The two copies of launch.json are answered. Waiting for Imani's "
                                                       "computer to apply this."}]
     assert json.loads(post.read_text())["text"] == "Out now" and copy.exists()
     ws = Workspace(None, roots=lambda: [root])
-    assert ws.board()["projects"][0]["notices"][0]["text"].endswith("Waiting for Tomas's computer to apply this.")
+    assert ws.board()["projects"][0]["notices"][0]["text"].endswith("Waiting for Imani's computer to apply this.")
     assert AgentApp.for_board(root).board("artifact_list", {})["waiting_for_owner"][0]["file"] == "posts/launch.json"
 
     pin.write_text(json.dumps({"device": p.device.id}))                      # the owner's computer applies the answer
@@ -329,7 +329,7 @@ def _studio(root: Path, owner_device: str) -> Project:
     root.mkdir()
     (root / "studio.json").write_text(json.dumps({"title": "The Long Table"}) + "\n")
     p = Project.create(root, "The Long Table", person="maren", kind="studio", layout="flat")
-    meta = add_member(add_member(p.meta, "maren", p.device.id, "full", BEN_SYNC, "a"), "tomas", "dev_B", "full", TOMAS_SYNC, "b")
+    meta = add_member(add_member(p.meta, "maren", p.device.id, "full", BEN_SYNC, "a"), "imani", "dev_B", "full", IMANI_SYNC, "b")
     (root / ".ave" / "project.json").write_bytes(canonical(meta))
     p = Project.open(root)
     p.log.append("artifact.created", artifact="art_studio", data={"kind": "studio", "title": "The Long Table"})
@@ -342,18 +342,18 @@ def _studio(root: Path, owner_device: str) -> Project:
 
 
 def test_the_owner_applies_an_answer_it_never_asked(tmp_path):
-    """Tomas's computer (not the owner) asks and the answer is given there; the owner's computer, whose own record knows
+    """Imani's computer (not the owner) asks and the answer is given there; the owner's computer, whose own record knows
     nothing about it, applies it on the pass after the log arrives, without waiting for the sweep."""
     import shutil
-    tomass = _studio(tmp_path / "tomas", "dev_OWNER")
-    (asked,) = conflicts.check(tomass.root).asked
-    tomass.log.append("decision.resolved", artifact="art_studio", data={"decision": asked["decision"], "choice": "Use all of Tomas's"})
-    assert conflicts.check(tomass.root, items=[]).waiting
+    imanis = _studio(tmp_path / "imani", "dev_OWNER")
+    (asked,) = conflicts.check(imanis.root).asked
+    imanis.log.append("decision.resolved", artifact="art_studio", data={"decision": asked["decision"], "choice": "Use all of Imani's"})
+    assert conflicts.check(imanis.root, items=[]).waiting
 
     owners = tmp_path / "owner"
-    shutil.copytree(tomass.root, owners, ignore=shutil.ignore_patterns("local"))      # what sync brings: no local state
+    shutil.copytree(imanis.root, owners, ignore=shutil.ignore_patterns("local"))      # what sync brings: no local state
     (owners / ".ave" / "local").mkdir()
-    (owners / ".ave" / "local" / "owner.json").write_text(json.dumps({"device": tomass.device.id}))
+    (owners / ".ave" / "local" / "owner.json").write_text(json.dumps({"device": imanis.device.id}))
     rep = conflicts.check(owners, items=[".ave/log/dev_B.jsonl"])
     assert rep.settled and json.loads((owners / "posts" / "launch.json").read_text())["text"] == "Out today"
     assert not (owners / "posts" / f"launch.{COPY}.json").exists()
@@ -366,7 +366,7 @@ def test_an_answer_that_no_longer_fits_is_asked_again_and_says_so(project):
     copy = root / f"episode.{COPY}.json"
     _write(copy, {**base, "title": "Van stories"})
     (asked,) = conflicts.check(root).asked
-    _tomas(project).append("decision.resolved", artifact="art_ep", data={"decision": asked["decision"], "choice": "Use all of Someone's"})
+    _imani(project).append("decision.resolved", artifact="art_ep", data={"decision": asked["decision"], "choice": "Use all of Someone's"})
     (again,) = conflicts.check(root).asked
     d = _decision(project, again["decision"])
     assert d["data"]["supersedes"] == asked["decision"] and d["status"] == "open"
@@ -386,7 +386,7 @@ def test_a_broken_project_json_copy_can_only_be_set_aside(project):
     d = _decision(project, asked["decision"])
     assert d["data"]["whole"] and d["data"]["options"] == ["Keep this file"]
     assert d["data"]["texts"]["copy"].startswith('[{"members"') and '"project_id"' in d["data"]["texts"]["file"]
-    _tomas(project).append("decision.resolved", artifact="art_ep", data={"decision": d["id"], "choice": "Use the other copy"})
+    _imani(project).append("decision.resolved", artifact="art_ep", data={"decision": d["id"], "choice": "Use the other copy"})
     conflicts.check(root, items=[])
     assert pj.read_bytes() == before and copy.exists()                              # a forged answer writes nothing
     (now,) = conflicts.check(root, items=[]).asked
@@ -414,7 +414,7 @@ def test_a_file_missing_at_question_time_is_checked_again_before_writing(project
     (asked,) = conflicts.check(root).asked
     d = _decision(project, asked["decision"])
     assert d["data"]["options"] == ["Keep it removed", "Use the other copy"] and d["data"]["texts"]["file"] == "(no file)"
-    _tomas(project).append("decision.resolved", artifact="art_ep", data={"decision": d["id"], "choice": "Use the other copy"})
+    _imani(project).append("decision.resolved", artifact="art_ep", data={"decision": d["id"], "choice": "Use the other copy"})
     _write(root / "episode.json", {**base, "title": "Made again"})                 # the file appears before the pass
     (again,) = conflicts.check(root).asked
     assert _decision(project, again["decision"])["data"]["supersedes"] == d["id"]
@@ -519,19 +519,19 @@ def test_three_members_get_labels_fixed_in_the_record(project):
     (asked,) = conflicts.check(root).asked
     d = _decision(project, asked["decision"])["data"]
     assert d["summary"] == "episode.json was changed on two computers at once (Title)"
-    assert (d["file_label"], d["copy_label"]) == ("This computer's copy", "Tomas's file")
-    assert d["options"] == ["Use all of this computer's copy", "Use all of Tomas's"] and d["people"] == ["Tomas"]
+    assert (d["file_label"], d["copy_label"]) == ("This computer's copy", "Imani's file")
+    assert d["options"] == ["Use all of this computer's copy", "Use all of Imani's"] and d["people"] == ["Imani"]
 
     ws = _ws(project)
     (dec,) = _home_row(ws)["decisions"]
-    assert (dec["file_label"], dec["copy_label"]) == ("This computer's copy", "Tomas's file")
+    assert (dec["file_label"], dec["copy_label"]) == ("This computer's copy", "Imani's file")
     # every computer renders what was recorded: a later project.json (two members again) changes nothing shown
     two = {**meta, "members": [m for m in meta["members"] if m["person"] != "eve"]}
     (root / ".ave" / "project.json").write_bytes(canonical(two))
     (dec,) = _home_row(_ws(project))["decisions"]
-    assert (dec["file_label"], dec["copy_label"], dec["options"]) == ("This computer's copy", "Tomas's file", d["options"])
+    assert (dec["file_label"], dec["copy_label"], dec["options"]) == ("This computer's copy", "Imani's file", d["options"])
     (root / ".ave" / "project.json").write_bytes(canonical(meta))
-    ws.patch(_home_row(ws)["key"], {"resolve": asked["decision"], "choice": "Use all of Tomas's"})
+    ws.patch(_home_row(ws)["key"], {"resolve": asked["decision"], "choice": "Use all of Imani's"})
     assert conflicts.drain() and _ep(project)["title"] == "Van stories"
 
     m = NamedSync({"-".join(["SSSSSSS"] * 8): "Studio Mac"})       # with sync running: Syncthing says Eve wrote the file
@@ -557,7 +557,7 @@ def test_a_copy_that_changes_after_an_answer_says_why_it_is_asked_again(project)
     copy = root / f"episode.{COPY}.json"
     _write(copy, {**base, "title": "Van stories"})
     (asked,) = conflicts.check(root).asked
-    _tomas(project).append("decision.resolved", artifact="art_ep", data={"decision": asked["decision"], "choice": "Use all of Tomas's"})
+    _imani(project).append("decision.resolved", artifact="art_ep", data={"decision": asked["decision"], "choice": "Use all of Imani's"})
     _write(copy, {**base, "title": "Van stories 2"})
     rep = conflicts.check(root)
     (again,) = rep.asked
@@ -598,7 +598,7 @@ def test_claude_reads_both_whole_files_and_answers_them(project):
     got = app.board("artifact_get", {"artifact": "art_ep"})
     (d,) = [x for x in got["decisions_open"] if x["decision"] == asked["decision"]]
     assert d["whole"] and d["texts"]["copy"] == '{"title": "Episode 12", "tz": "America/Den'
-    assert '"layout": "flat"' in d["texts"]["file"] and (d["file_label"], d["copy_label"]) == ("Maren's file", "Tomas's file")
+    assert '"layout": "flat"' in d["texts"]["file"] and (d["file_label"], d["copy_label"]) == ("Maren's file", "Imani's file")
     from ave.project import board
     assert len(board._capped("x" * 10_000)) < 2100
     with pytest.raises(ValueError, match="whole-file question"):
@@ -608,7 +608,7 @@ def test_claude_reads_both_whole_files_and_answers_them(project):
     assert "Keep this file" in desc and "Picked setting by setting" in desc and "texts" in desc
     with pytest.raises(ValueError, match='"Keep this file"'):          # not an object: the copy is never offered
         app.board("decision_resolve", {"request_id": "w2", "decision": asked["decision"], "choice": "Use the other copy",
-                                       "quote": "use Tomas's"})
+                                       "quote": "use Imani's"})
     assert copy.exists() and _ep(project)["layout"] == "flat"
     app.board("decision_resolve", {"request_id": "w3", "decision": asked["decision"], "choice": "Keep this file",
                                    "quote": "keep mine"})
@@ -620,13 +620,13 @@ def test_the_sync_managers_sweep_applies_an_answer(tmp_path, monkeypatch):
     window is open: the owner's computer applies an answer recorded elsewhere from that sweep alone."""
     import shutil
     from ave.syncthing import SyncManager
-    tomass = _studio(tmp_path / "tomas", "dev_OWNER")
-    (asked,) = conflicts.check(tomass.root).asked
-    tomass.log.append("decision.resolved", artifact="art_studio", data={"decision": asked["decision"], "choice": "Use all of Tomas's"})
+    imanis = _studio(tmp_path / "imani", "dev_OWNER")
+    (asked,) = conflicts.check(imanis.root).asked
+    imanis.log.append("decision.resolved", artifact="art_studio", data={"decision": asked["decision"], "choice": "Use all of Imani's"})
     owners = tmp_path / "owner"
-    shutil.copytree(tomass.root, owners, ignore=shutil.ignore_patterns("local"))
+    shutil.copytree(imanis.root, owners, ignore=shutil.ignore_patterns("local"))
     (owners / ".ave" / "local").mkdir()
-    (owners / ".ave" / "local" / "owner.json").write_text(json.dumps({"device": tomass.device.id}))
+    (owners / ".ave" / "local" / "owner.json").write_text(json.dumps({"device": imanis.device.id}))
     m = SyncManager(tmp_path / "st", ave_device="dev_A")
     monkeypatch.setattr(m, "_folders", lambda: [{"id": "f1", "path": str(owners)}, {"id": "f2", "path": str(tmp_path / "nothing")}])
     queued = []
@@ -651,7 +651,7 @@ def test_conflict_file_outside_settings_alerts(project):
     rep = conflicts.check(root, items=[f"edits/rough.v1.{COPY}.json"])      # Syncthing finished the copy
     (alert,) = rep.alerts
     assert alert["file"] == "edits/rough.v1.json" and alert["zone"] == "permanent"
-    assert "changed on two computers at once" in alert["text"] and "Tomas's" in alert["text"]
+    assert "changed on two computers at once" in alert["text"] and "Imani's" in alert["text"]
     assert "Nothing was merged: both copies are kept" in alert["text"]
     assert rep.settled == rep.asked == []
     assert copy.exists() and json.loads((root / "edits" / "rough.v1.json").read_text()) == {"stage": "rough"}
@@ -702,15 +702,15 @@ def test_presence_expires(project):
     assert len(writes) == 3 and writes[-1]["data"]["until"] == t0 + 200_000 + presence.TTL_S * 1000
     assert presence.active(reduce(p.read_events()), t0 + 200_000 + 599_999)          # ten minutes after the last work
 
-    # Tomas, on her computer, opens the Room on the cut
-    _tomas(p, wall=lambda: t0 + 5_000).append("presence.set", artifact="art_ep",
+    # Imani, on her computer, opens the Room on the cut
+    _imani(p, wall=lambda: t0 + 5_000).append("presence.set", artifact="art_ep",
                                                data={"view": "cut", "at": t0 + 5_000, "until": t0 + 5_000 + 600_000})
     ws = _ws(p, clock=lambda: clock["now"])
     row = lambda: next(r for r in ws.board()["projects"][0]["artifacts"] if r["artifact"] == "art_ep")
     clock["now"] = t0 + 60_000
-    assert row()["presence"] == [{"person": "Tomas", "where": "Cut", "text": "Tomas is in Cut", "until": t0 + 605_000}]
-    assert row()["updated_by"]["name"] != "tomas"                 # being there is not a change to the artifact
-    assert ws.room_info("art_ep")["presence"][0]["text"] == "Tomas is in Cut"
+    assert row()["presence"] == [{"person": "Imani", "where": "Cut", "text": "Imani is in Cut", "until": t0 + 605_000}]
+    assert row()["updated_by"]["name"] != "imani"                 # being there is not a change to the artifact
+    assert ws.room_info("art_ep")["presence"][0]["text"] == "Imani is in Cut"
     clock["now"] = t0 + 604_999
     assert row()["presence"]
     clock["now"] = t0 + 605_000
@@ -720,7 +720,7 @@ def test_presence_expires(project):
     assert presence.active(reduce(p.read_events()), t0 + 200_000 + 600_000) == []
 
     # an `until` beyond the ten minutes is never believed
-    _tomas(p, wall=lambda: t0 + 700_000).append("presence.set", artifact="art_ep",
+    _imani(p, wall=lambda: t0 + 700_000).append("presence.set", artifact="art_ep",
                                                 data={"view": "selects", "at": t0 + 700_000, "until": t0 + 99_000_000})
     clock["now"] = t0 + 1_300_001
     assert row()["presence"] == []
@@ -731,7 +731,7 @@ def test_stage_conflict_is_resolved_in_chat_or_board(project, monkeypatch):
     for k in humanpresence.AGENT_MARKERS:                    # the board's pick below comes through the app
         monkeypatch.delenv(k, raising=False)
     p = project
-    tomas = _tomas(p)
+    imani = _imani(p)
     ws = _ws(p)
 
     def clash():
@@ -741,7 +741,7 @@ def test_stage_conflict_is_resolved_in_chat_or_board(project, monkeypatch):
         fr = {d: h for d, h in st.frontier.items()}
         nxt = {"Plan": "Draft", "Draft": "Refine", "Refine": "Finish"}[base]
         p.log.append("stage.signed_off", artifact="art_ep", data={"from": base, "to": nxt}, seen=fr)
-        tomas.append("stage.reopened" if base != "Plan" else "stage.signed_off", artifact="art_ep",
+        imani.append("stage.reopened" if base != "Plan" else "stage.signed_off", artifact="art_ep",
                      data={"from": base, "to": "Plan" if base != "Plan" else "Refine"}, seen=fr)
         return base
 
@@ -752,15 +752,15 @@ def test_stage_conflict_is_resolved_in_chat_or_board(project, monkeypatch):
     row = next(r for r in ws.board()["projects"][0]["artifacts"] if r["artifact"] == "art_ep")
     assert row["waiting"] == "you"
     c = row["conflict"]
-    assert c["text"] == "Maren and Tomas both changed Plan"
-    assert [(ch["stage"], ch["who"]) for ch in c["choices"]] == [("Draft", "Maren"), ("Refine", "Tomas")]
-    assert c["choices"][1]["label"] == "Refine, as Tomas set it"
-    assert ws.room_info("art_ep")["conflict"]["text"] == "Maren and Tomas both changed Plan"
+    assert c["text"] == "Maren and Imani both changed Plan"
+    assert [(ch["stage"], ch["who"]) for ch in c["choices"]] == [("Draft", "Maren"), ("Refine", "Imani")]
+    assert c["choices"][1]["label"] == "Refine, as Imani set it"
+    assert ws.room_info("art_ep")["conflict"]["text"] == "Maren and Imani both changed Plan"
 
     # Claude cannot sign off past it, nor settle it without the person's words, nor to a stage nobody chose
     app = AgentApp.for_board(p.root)
     got = app.board("artifact_get", {"artifact": "art_ep"})
-    assert got["stage_conflict"]["text"] == "Maren and Tomas both changed Plan" and "stage_settle" in got["summary"]
+    assert got["stage_conflict"]["text"] == "Maren and Imani both changed Plan" and "stage_settle" in got["summary"]
     with pytest.raises(ValueError, match="two computers"):
         app.board("stage_sign_off", {"request_id": "s0", "artifact": "art_ep", "stage": "Plan", "quote": "lock it"})
     with pytest.raises(ValueError, match="quote"):
@@ -769,7 +769,7 @@ def test_stage_conflict_is_resolved_in_chat_or_board(project, monkeypatch):
         app.board("stage_settle", {"request_id": "s2", "artifact": "art_ep", "stage": "Finish", "quote": "Finish"})
 
     # in chat: the person said which one
-    out = app.board("stage_settle", {"request_id": "s3", "artifact": "art_ep", "stage": "Refine", "quote": "Tomas's right, Refine"})
+    out = app.board("stage_settle", {"request_id": "s3", "artifact": "art_ep", "stage": "Refine", "quote": "Imani's right, Refine"})
     assert out["stage"] == "Refine"
     st = reduce(p.read_events())
     assert not st.conflicts and st.artifacts["art_ep"].stage == "Refine"
@@ -778,16 +778,16 @@ def test_stage_conflict_is_resolved_in_chat_or_board(project, monkeypatch):
     row = next(r for r in ws.board()["projects"][0]["artifacts"] if r["artifact"] == "art_ep")
     assert row["conflict"] is None
     (rel,) = row["relayed"]
-    assert rel["type"] == "settle" and rel["quote"] == "Tomas's right, Refine" and rel["can_undo"]
+    assert rel["type"] == "settle" and rel["quote"] == "Imani's right, Refine" and rel["can_undo"]
     assert app.board("stage_settle", {"request_id": "s3", "artifact": "art_ep", "stage": "Refine",
-                                      "quote": "Tomas's right, Refine"})["replayed"]
+                                      "quote": "Imani's right, Refine"})["replayed"]
     with pytest.raises(ValueError, match="no stage changed on two computers"):
         app.board("stage_settle", {"request_id": "s4", "artifact": "art_ep", "stage": "Refine", "quote": "Refine"})
 
     # on the board: the next disagreement is settled by picking one, which is a new log event that saw both
     base = clash()
     row = next(r for r in ws.board()["projects"][0]["artifacts"] if r["artifact"] == "art_ep")
-    assert row["conflict"]["text"] == "Maren and Tomas both changed Refine"
+    assert row["conflict"]["text"] == "Maren and Imani both changed Refine"
     assert [ch["stage"] for ch in row["conflict"]["choices"]] == ["Plan", "Finish"]
     n = len(p.read_events())
     ws.patch(row["key"], {"stage": "Finish"}, via="app")
@@ -830,13 +830,13 @@ def test_an_answered_settings_conflict_is_not_applied_in_a_read_only_project(pro
     _write(copy, {**base, "title": "Van stories"})
     (asked,) = conflicts.check(root).asked
     ws = _ws(project)
-    with monkeypatch.context() as m:                         # the answer is recorded; its apply runs below, after Tomas's write
+    with monkeypatch.context() as m:                         # the answer is recorded; its apply runs below, after Imani's write
         m.setattr(conflicts, "queue", lambda *a, **k: None)
-        ws.patch(_home_row(ws)["key"], {"resolve": asked["decision"], "choice": "Use all of Tomas's"})
-    with monkeypatch.context() as m:                         # Tomas's computer, on a newer release, writes to the project
+        ws.patch(_home_row(ws)["key"], {"resolve": asked["decision"], "choice": "Use all of Imani's"})
+    with monkeypatch.context() as m:                         # Imani's computer, on a newer release, writes to the project
         m.setattr(ave, "__version__", "99.0.0")
         m.setattr(sys, "frozen", True, raising=False)
-        _tomas(project).append("note.added", data={"text": "from the newer app"})
+        _imani(project).append("note.added", data={"text": "from the newer app"})
     before = (root / "episode.json").read_bytes()
     conflicts.drain()
     conflicts.check(root)
@@ -860,7 +860,7 @@ def test_undoing_a_relayed_settings_answer_puts_both_copies_back(project, monkey
     theirs = copy.read_bytes()
     (asked,) = conflicts.check(root).asked
     AgentApp.for_board(root).board("decision_resolve", {"request_id": "u1", "decision": asked["decision"],
-                                                       "choice": "Use all of Tomas's", "quote": "take Tomas's"})
+                                                       "choice": "Use all of Imani's", "quote": "take Imani's"})
     assert conflicts.drain()
     assert _ep(project)["title"] == "Van stories" and not copy.exists()                     # applied at once, copy removed
     kept = conflicts.archived(root, asked["decision"])
@@ -891,7 +891,7 @@ def test_settling_a_stage_on_finish_waits_for_the_directors_trim(project):
     p.log.append("stage.signed_off", artifact="art_ep", data={"from": "Draft", "to": "Refine"})
     fr = dict(reduce(p.read_events()).frontier)
     p.log.append("stage.signed_off", artifact="art_ep", data={"from": "Refine", "to": "Finish"}, seen=fr)
-    _tomas(p).append("stage.reopened", artifact="art_ep", data={"from": "Refine", "to": "Draft"}, seen=fr)
+    _imani(p).append("stage.reopened", artifact="art_ep", data={"from": "Refine", "to": "Draft"}, seen=fr)
     assert reduce(p.read_events()).conflicts
     app = AgentApp.for_board(p.root)
     with pytest.raises(ValueError, match="cannot settle on Finish yet: a trim needs the director's confirmation"):

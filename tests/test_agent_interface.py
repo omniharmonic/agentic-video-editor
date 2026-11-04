@@ -65,7 +65,7 @@ def test_revision_conflict_and_projection(app):
     assert edited['post']['rev'] == 2 and edited['post']['copy']['base'] == 'The first draft'
     from ave.studio.model import RevConflict
     with pytest.raises(RevConflict):
-        call(app,'edit_draft',post_id=p['id'],expected_rev=1,fields={'base':'Overwrites Tomas'})
+        call(app,'edit_draft',post_id=p['id'],expected_rev=1,fields={'base':'Overwrites Imani'})
     assert call(app,'get_post',post_id=p['id'])['post']['copy']['base'] == 'The first draft'
 
 
@@ -221,14 +221,14 @@ def test_startup_failure_has_no_protocol_stdout(tmp_path):
 
 
 def test_future_revision_cannot_erase_a_concurrent_variant(app, monkeypatch):
-    p=call(app,'create_draft',request_id='future-race',idea='Keep Tomas’s work')['post']
+    p=call(app,'create_draft',request_id='future-race',idea='Keep Imani’s work')['post']
     original_read=app._post
 
     def read_then_concurrent_variant(pid):
         stale=original_read(pid)
         concurrent=json.loads(json.dumps(stale))
-        concurrent['variants']=[new_variant(account='tomas',platform='manual',post_type='text')]
-        store.save_post(app.studio.sp,concurrent,expected_rev=1,actor=Actor('human','Tomas'),op='variant_add')
+        concurrent['variants']=[new_variant(account='imani',platform='manual',post_type='text')]
+        store.save_post(app.studio.sp,concurrent,expected_rev=1,actor=Actor('human','Imani'),op='variant_add')
         return stale
 
     monkeypatch.setattr(app,'_post',read_then_concurrent_variant)
@@ -236,7 +236,7 @@ def test_future_revision_cannot_erase_a_concurrent_variant(app, monkeypatch):
         call(app,'edit_draft',post_id=p['id'],expected_rev=2,fields={'base':'A stale snapshot'})
     current=store.load_post(app.studio.sp,p['id'])
     assert current['rev']==2
-    assert current['variants'][0]['account']=='tomas'
+    assert current['variants'][0]['account']=='imani'
     assert current['copy']['base']==''
 
 

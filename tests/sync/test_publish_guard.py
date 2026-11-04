@@ -34,8 +34,8 @@ from ave.studio import dispatch
 
 from . import harness as H
 
-BEN_AND_TOMAS = [{"person": "maren", "devices": ["dev_A"], "media": "full"},
-                 {"person": "tomas", "devices": ["dev_B"], "media": "full"}]
+BEN_AND_IMANI = [{"person": "maren", "devices": ["dev_A"], "media": "full"},
+                 {"person": "imani", "devices": ["dev_B"], "media": "full"}]
 
 
 def be(monkeypatch, base: Path, device: str) -> Path:
@@ -49,7 +49,7 @@ def be(monkeypatch, base: Path, device: str) -> Path:
     return home
 
 
-def _project_json(root: Path, publisher: str | None = "dev_A", members=BEN_AND_TOMAS, owner: str | None = "dev_A") -> None:
+def _project_json(root: Path, publisher: str | None = "dev_A", members=BEN_AND_IMANI, owner: str | None = "dev_A") -> None:
     H.write_project_json(root, "prj_PUBGUARD", "The Long Table", "flat", members, publisher)
     meta = json.loads((root / ".ave" / "project.json").read_text())
     if publisher is None:
@@ -59,7 +59,7 @@ def _project_json(root: Path, publisher: str | None = "dev_A", members=BEN_AND_T
     (root / ".ave" / "project.json").write_text(json.dumps(meta, indent=2) + "\n")
 
 
-def _episode(root: Path, publisher: str | None = "dev_A", members=BEN_AND_TOMAS, owner: str | None = "dev_A") -> Episode:
+def _episode(root: Path, publisher: str | None = "dev_A", members=BEN_AND_IMANI, owner: str | None = "dev_A") -> Episode:
     _project_json(root, publisher, members, owner)
     (root / "exports").mkdir(parents=True, exist_ok=True)
     (root / "exports" / "final.mp4").write_bytes(b"the reviewed episode\n" * 64)
@@ -124,7 +124,7 @@ def test_only_the_publisher_has_a_queue(project_a, project_b, tmp_path, monkeypa
     assert queue.not_publisher(ep_b) == said
     # no queue arrived, and none can be made here
     assert not ep_b.publish.exists() and queue.list_items(ep_b) == []
-    (project_b / "exports" / "short.mp4").write_bytes(b"tomas's cut\n")
+    (project_b / "exports" / "short.mp4").write_bytes(b"imani's cut\n")
     with pytest.raises(ValueError) as e:
         queue.create(ep_b, video=project_b / "exports" / "short.mp4", platforms=["youtube"], title="x", publishers=_pubs())
     assert str(e.value) == said
@@ -149,7 +149,7 @@ def test_only_the_publisher_has_a_queue(project_a, project_b, tmp_path, monkeypa
     assert p["youtube"].publish_calls == 0
     assert queue.send_blockers(ep_b, forged) == [said]
     with pytest.raises(ValueError, match="^Publishing happens on Maren's computer"):
-        queue.approve(ep_b, item["id"], "tomas", forged["sha256"][:12], publishers=p)
+        queue.approve(ep_b, item["id"], "imani", forged["sha256"][:12], publishers=p)
     variant = {"id": "v1", "account": "acct1", "platform": "youtube", "queue": {"root": ".", "id": item["id"]},
                "result": {"state": "approved"}}
     got = dispatch.blockers(SimpleNamespace(root=project_b), {"id": "p1", "variants": [variant]}, variant,
@@ -157,12 +157,12 @@ def test_only_the_publisher_has_a_queue(project_a, project_b, tmp_path, monkeypa
     assert [(b.code, b.message) for b in got] == [("not_publisher", said)]
     assert json.loads((ep_b.publish / "queue" / f"{item['id']}.json").read_text()) == forged      # nothing was written
 
-    # ...and never suppresses a send on the publisher: Tomas's computer saying "published" for Maren's next post changes nothing there.
+    # ...and never suppresses a send on the publisher: Imani's computer saying "published" for Maren's next post changes nothing there.
     be(monkeypatch, tmp_path, "dev_A")
     nxt = queue_item(ep_a, ep_a.exports / "final.mp4", title="Next Episode")
     from ave.project.model import Device, Project
-    tomas = Project(project_b, json.loads((project_b / ".ave" / "project.json").read_text()), Device("dev_B", "B"))
-    tomas.log.append("publish.noted", data={"item": nxt["id"], "title": "Next Episode", "platforms": ["youtube"], "post": None,
+    imani = Project(project_b, json.loads((project_b / ".ave" / "project.json").read_text()), Device("dev_B", "B"))
+    imani.log.append("publish.noted", data={"item": nxt["id"], "title": "Next Episode", "platforms": ["youtube"], "post": None,
                                             "status": "published", "schedule": None, "sent": ["youtube"], "sending": []}, actor="human")
     shutil.copy2(project_b / ".ave" / "log" / "dev_B.jsonl", ep_a.root / ".ave" / "log" / "dev_B.jsonl")
     p2 = _pubs()
@@ -216,7 +216,7 @@ def test_sync_never_carries_keys_or_dispatch_history(sync_pair, tmp_path, monkey
     sig = item["approvals"][-1]["sig"]
     assert sig not in text and item["results"]["youtube"]["id"] not in text and "https://x/" not in text
     assert queue.dispatch_key(item, "youtube") not in text and queue.content_hash(item) not in text
-    # Tomas's computer shows it read-only and says where publishing happens.
+    # Imani's computer shows it read-only and says where publishing happens.
     be(monkeypatch, tmp_path, "dev_B")
     view = queue.overview(Episode(rb))
     assert view["read_only"] and view["message"].startswith("Publishing happens on Maren's computer.")
@@ -487,8 +487,8 @@ def test_a_new_publisher_treats_what_the_old_one_sent_as_sent_elsewhere(tmp_path
 
     one = post(ep_a, "studio:p1:v1", "One")
     assert queue.run(ep_a, one["id"], send=True, publishers=_pubs())["ok"]
-    assert "Tomas's computer now publishes" in M.hand_over(ra, "tomas", device_id="dev_A")
-    assert queue.not_publisher(ep_a).startswith("Publishing happens on Tomas's computer.")
+    assert "Imani's computer now publishes" in M.hand_over(ra, "imani", device_id="dev_A")
+    assert queue.not_publisher(ep_a).startswith("Publishing happens on Imani's computer.")
     _sync_by_hand(ra, rb, "dev_A")
 
     be(monkeypatch, tmp_path, "dev_B")
@@ -500,7 +500,7 @@ def test_a_new_publisher_treats_what_the_old_one_sent_as_sent_elsewhere(tmp_path
     rep = queue.run(ep_b, again["id"], send=True, publishers=p)
     assert p["youtube"].publish_calls == 0 and rep["platforms"]["youtube"]["outcome"] == "sent_elsewhere"
     assert rep["blocked"][0].startswith("Maren's computer reported this as sent to youtube") and "--send-again" in rep["blocked"][0]
-    two = post(ep_b, "studio:p2:v1", "Two")                             # Tomas's own new post goes out
+    two = post(ep_b, "studio:p2:v1", "Two")                             # Imani's own new post goes out
     assert queue.run(ep_b, two["id"], send=True, publishers=_pubs())["ok"]
 
     assert "Maren's computer now publishes" in M.hand_over(rb, "maren", device_id="dev_B")
@@ -511,12 +511,12 @@ def test_a_new_publisher_treats_what_the_old_one_sent_as_sent_elsewhere(tmp_path
     two_again = post(ep_a, "studio:p2:v1", "Two")
     p = _pubs()
     rep = queue.run(ep_a, two_again["id"], send=True, publishers=p)
-    assert p["youtube"].publish_calls == 0 and rep["blocked"][0].startswith("Tomas's computer reported this as sent to youtube")
+    assert p["youtube"].publish_calls == 0 and rep["blocked"][0].startswith("Imani's computer reported this as sent to youtube")
     one_again = post(ep_a, "studio:p1:v1", "One")                       # Maren's own earlier post, rebuilt: his record has it
     p = _pubs()
     assert queue.run(ep_a, one_again["id"], send=True, publishers=p)["platforms"]["youtube"]["outcome"] == "already_sent"
     assert p["youtube"].publish_calls == 0
-    queue.resolve(ep_a, two_again["id"], "youtube", send_again=True, by="maren")    # Maren checked: Tomas's post is not there
+    queue.resolve(ep_a, two_again["id"], "youtube", send_again=True, by="maren")    # Maren checked: Imani's post is not there
     approve_item(ep_a, two_again["id"], _pubs())
     p = _pubs()
     assert queue.run(ep_a, two_again["id"], send=True, publishers=p)["ok"] and p["youtube"].publish_calls == 1
@@ -549,11 +549,11 @@ def test_who_publishes_fails_closed(tmp_path, monkeypatch):
     edited = _episode(tmp_path / "edited")
     assert queue.not_publisher(edited) is None                          # Maren's computer pins its owner on first look
     meta = json.loads((edited.root / ".ave" / "project.json").read_text())
-    (edited.root / ".ave" / "project.json").write_text(json.dumps({**meta, "publisher_device": "dev_B"}))   # Tomas's hand edit
+    (edited.root / ".ave" / "project.json").write_text(json.dumps({**meta, "publisher_device": "dev_B"}))   # Imani's hand edit
     for dev in ("dev_A", "dev_B"):
         be(monkeypatch, tmp_path, dev)
         why = queue.not_publisher(edited)
-        assert why == ("Publishing is on hold: this project's settings say Tomas's computer publishes, but no handover from Maren's "
+        assert why == ("Publishing is on hold: this project's settings say Imani's computer publishes, but no handover from Maren's "
                        "computer has reached this computer. If it does not arrive once sync is up to date, hand publishing over "
                        "again from Maren's computer."), dev
     with pytest.raises(M.MemberError, match="Only the computer that publishes"):
@@ -583,7 +583,7 @@ def test_a_computer_that_does_not_publish_offers_no_episode_post_to_approve_or_r
     assert view["read_only"] and view["message"].startswith("Publishing happens on Maren's computer.")
     assert [i["id"] for i in view["items"]] == [item["id"]]
     proj = Project.open(project_b)
-    eps = Episodes(SimpleNamespace(projects=lambda: [proj]), "tomas")
+    eps = Episodes(SimpleNamespace(projects=lambda: [proj]), "imani")
     assert eps.publish() == []
     with pytest.raises(EpisodeError):
         eps.publish_reject(proj.project_id, item["id"], "no")
@@ -625,7 +625,7 @@ def test_a_later_publishers_send_holds_the_post_over_this_computers_older_row(tm
     one = post(ep_a, "studio:p1:v1", "One")
     assert queue.run(ep_a, one["id"], send=True, publishers=_pubs(behavior="refuse"))["platforms"]["youtube"]["outcome"] == "failed"
     assert queue.record_mark(ep_a, queue.load(ep_a, one["id"]), "youtube")[0] == "not_sent"
-    M.hand_over(ra, "tomas", device_id="dev_A")
+    M.hand_over(ra, "imani", device_id="dev_A")
     _sync_by_hand(ra, rb, "dev_A")
     be(monkeypatch, tmp_path, "dev_B")
     ep_b = Episode(rb)
@@ -639,7 +639,7 @@ def test_a_later_publishers_send_holds_the_post_over_this_computers_older_row(tm
     pa = _pubs()
     rep = queue.run(ep_a, back["id"], send=True, publishers=pa)
     assert pa["youtube"].publish_calls == 0 and rep["platforms"]["youtube"]["outcome"] == "sent_elsewhere"
-    assert "Tomas's computer reported this as sent to youtube" in rep["blocked"][0]
+    assert "Imani's computer reported this as sent to youtube" in rep["blocked"][0]
     assert "ave studio resolve p1 v1 --send-again --studio " in rep["blocked"][0]       # the command that works for a studio post
     plain = queue.create(ep_a, video=ep_a.exports / "final.mp4", platforms=["youtube"], title="Plain", ai_disclosure=False,
                          publishers=_pubs())
@@ -647,7 +647,7 @@ def test_a_later_publishers_send_holds_the_post_over_this_computers_older_row(tm
     assert queue.send_again_command(ep_a, plain, "youtube") == f"ave publish resolve {shlex.quote(str(ra))} {plain['id']} youtube --send-again"
     spaced = Episode(tmp_path / "My Drive" / "Ep 1")
     assert "'" + str(spaced.root) + "'" in queue.send_again_command(spaced, plain, "youtube")
-    # once a person sends it again here, the row is newer than Tomas's note and the hold clears
+    # once a person sends it again here, the row is newer than Imani's note and the hold clears
     queue.resolve(ep_a, back["id"], "youtube", send_again=True, by="maren")
     approve_item(ep_a, back["id"], _pubs())
     pa = _pubs()

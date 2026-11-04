@@ -48,8 +48,8 @@ def ws(tmp_path, monkeypatch):
                    data={"decision": "dec_wide", "summary": "Opened on the wide shot", "options": ["Wide shot", "Close-up"],
                          "chosen": "Wide shot"})
     p12.log.append("decision.recorded", artifact="art_ep", actor="scheduler",
-                   data={"decision": "dec_set", "kind": "setting", "summary": "Maren and Tomas both changed episode.json",
-                         "options": ["Use all of Maren's", "Use all of Tomas's"], "chosen": None, "keys": [], "whole": False})
+                   data={"decision": "dec_set", "kind": "setting", "summary": "Maren and Imani both changed episode.json",
+                         "options": ["Use all of Maren's", "Use all of Imani's"], "chosen": None, "keys": [], "whole": False})
     p13 = Project.create(sp.root / "ep13", "Episode 13", person="Maren")
     p13.log.append("artifact.created", artifact="art_ep", data={"kind": "episode", "title": "Episode 13", "stage": "Plan"}, actor="human")
     srv = StudioServer(open_studio(sp.root), pin="424242")
@@ -118,7 +118,7 @@ def test_room_token_fields_updates_new_artifacts_answers_and_reopens_are_claudes
     assert [r["type"] for r in got["row"]["relayed"]] == ["resolution"]                    # to confirm or undo
     assert _patch(ws, ws.ep12, {"reopen_decision": "dec_wide"})[0] == 200
     assert _last(ws.p12)["actor"] == "claude"
-    status, _ = _patch(ws, ws.ep12, {"resolve": "dec_set", "choice": "Use all of Tomas's"})  # a settings answer: relayed too
+    status, _ = _patch(ws, ws.ep12, {"resolve": "dec_set", "choice": "Use all of Imani's"})  # a settings answer: relayed too
     assert status == 200 and _last(ws.p12)["actor"] == "claude" and _last(ws.p12)["data"]["relayed_by"] == "claude"
     # an undo over the token is Claude's too, in a browser as in the app
     assert _patch(ws, ws.ep12, {"undo": e["id"]})[0] in (200, 409)
@@ -172,22 +172,22 @@ def test_a_settings_answer_through_the_app_takes_the_device_owner_check(ws):
     ws.srv.workspace.authority = a
     sheets = _bridge(ws)
     args = approval_args("boardWrite", {"method": "PATCH", "path": "/api/workspace/artifact/" + quote(ws.ep12, safe=""),
-                                        "body": {"resolve": "dec_set", "choice": "Use all of Tomas's"}})
+                                        "body": {"resolve": "dec_set", "choice": "Use all of Imani's"}})
     req = sheets.board_request(args)
     assert req["kind"] == "protected" and req["action"] == "answerDecision" and req["keys"] == [f"{ws.ep12}/dec_set"]
-    assert "Use all of Tomas's" in req["detail"]
+    assert "Use all of Imani's" in req["detail"]
     before = len(ws.p12.read_events())
     with pytest.raises(ValueError):
         sheets.board_write(req)                                                               # never without its sheet
     with pytest.raises(StudioError):
-        ws.srv.workspace.patch(ws.ep12, {"resolve": "dec_set", "choice": "Use all of Tomas's"}, via="app")   # no grant
+        ws.srv.workspace.patch(ws.ep12, {"resolve": "dec_set", "choice": "Use all of Imani's"}, via="app")   # no grant
     other = a._mint("answerDecision", [f"{ws.ep12}/dec_other"])
     with pytest.raises(StudioError):
         sheets.run_protected(req, other)                                                     # a check for something else
     assert len(ws.p12.read_events()) == before
     sheets.run_protected(req, a._mint(req["action"], req["keys"]))
     e = _last(ws.p12)
-    assert e["op"] == "decision.resolved" and e["actor"] == "human" and e["data"]["choice"] == "Use all of Tomas's"
+    assert e["op"] == "decision.resolved" and e["actor"] == "human" and e["data"]["choice"] == "Use all of Imani's"
 
 
 # ---------------------------------------------------------------------------------------------------- M3

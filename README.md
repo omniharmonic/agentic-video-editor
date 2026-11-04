@@ -13,7 +13,7 @@ uv sync --all-extras
 
 Run the desktop command yourself in Terminal; it prints your private review PIN. The native window needs the optional desktop runtime. The browser alternative is `ave studio ui ~/Movies/MyShow/studio --open`. Neither window sends posts.
 
-[Desktop installation](docs/desktop.md) · [Connect Claude, Codex or Hermes](docs/agents.md) · [Collaborate with Tomas, including offline](docs/collaboration.md) · [First shared studio](docs/shared-studio.md)
+[Desktop installation](docs/desktop.md) · [Connect Claude, Codex or Hermes](docs/agents.md) · [Collaborate with Imani, including offline](docs/collaboration.md) · [First shared studio](docs/shared-studio.md)
 
 The desktop launcher is unsigned and tied to your Python installation. Collaboration exchanges drafts and bounded library media, with explicit conflicts; it does not synchronize raw footage or Resolve projects. Platform adapters have synthetic tests, but live publishing, Canva exports and cross-device use still need supervised verification. See the [readiness record](docs/ROADMAP.md).
 

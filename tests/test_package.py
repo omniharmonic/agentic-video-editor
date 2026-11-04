@@ -330,7 +330,7 @@ def test_nothing_is_linked(full):
 
 # ---- post copy: voice, limits ------------------------------------------------------------------
 
-def facts(quotes, title="The Long Table 00", show="The Long Table", people=("Maren Okafor", "Tomas"), chapters=()):
+def facts(quotes, title="The Long Table 00", show="The Long Table", people=("Maren Okafor", "Imani"), chapters=()):
     meta = {"title": title, "show": show, "speakers": {f"S{i}": {"name": n} for i, n in enumerate(people, 1)}}
     return P.make_facts(meta, [{"text": q, "speaker": "Maren Okafor", "source": "t"} for q in quotes], [], list(chapters), [])
 
@@ -382,7 +382,7 @@ def test_the_critic_flags_cheesy_corporate_copy_but_not_the_speakers_own_words(p
     probs = " ".join(P.critique(bad, "linkedin", policy))
     for needle in ("thrilled", "game-changer", "unlock", "dive in", "tune in", "exclamation", "emoji", "capitals", "question"):
         assert needle in probs.lower(), needle
-    assert P.critique("“What a game-changer this is!” — Tomas\n\nThe Long Table 00. With Maren Okafor and Tomas.", "linkedin", policy) == []
+    assert P.critique("“What a game-changer this is!” — Imani\n\nThe Long Table 00. With Maren Okafor and Imani.", "linkedin", policy) == []
     assert P.critique("#a #b #c #d", "x", policy)                                    # too many hashtags for x
 
 

@@ -1,7 +1,7 @@
 """Share one project with one person: invitations, the six-digit check, membership and publisher handover.
 
 The owner's side                                          The invitee's side
-    text = invite(project, "tomas", "proxies", manager=m)     (the owner sends `text` directly: Messages, a call...)
+    text = invite(project, "imani", "proxies", manager=m)     (the owner sends `text` directly: Messages, a call...)
                                                               project = accept(text, folder, manager=m)
                                                               join_code(project) -> "123456", shown only here, read aloud
     confirm_invitee(project, "123456", manager=m)             confirm_join(project, manager=m)

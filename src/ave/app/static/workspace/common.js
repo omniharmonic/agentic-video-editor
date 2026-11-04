@@ -228,7 +228,7 @@ export function settingItem(row, d, act, onClose) {
       picks: (picks, btn) => act.resolvePicks(row, d, picks, btn).then(onClose) }));
 }
 
-// Two copies of a settings file, side by side: one row per setting that differs ("Maren's file: X / Tomas's file: Y", "(not
+// Two copies of a settings file, side by side: one row per setting that differs ("Maren's file: X / Imani's file: Y", "(not
 // set)" where a file has none), a choice per row, or all of one file. Nothing is written until the person applies.
 export const PER_KEY = "Picked setting by setting";
 // The side labels are the record's own words ("Maren's file", "This computer's copy"), fixed when the question was asked:
@@ -271,7 +271,7 @@ export function settingChooser(d, { all, picks }) {
     h("div", { class: "pop-actions pop-actions-wrap" }, optionButtons, apply));
 }
 
-// A stage changed on two computers: "Maren and Tomas both changed Refine", and the stage each one chose.
+// A stage changed on two computers: "Maren and Imani both changed Refine", and the stage each one chose.
 export function conflictItem(row, act, onClose) {
   const c = row.conflict;
   const choices = (c.choices || c.options.map((s) => ({ stage: s, who: "", label: s }))).filter((ch) => ch.stage !== "Out");

@@ -20,10 +20,10 @@ On Maren's computer (substitute your actual studio paths):
 ```sh
 mkdir -p ~/Movies/AVE-Exchange
 ave collaborate export ~/Movies/AVE-Exchange/maren-001.json \
-  --studio ~/Movies/MyShow/studio --peer tomas --include-media
+  --studio ~/Movies/MyShow/studio --peer imani --include-media
 ```
 
-On Tomas's computer, initialize her independent studio and import the transferred file:
+On Imani's computer, initialize her independent studio and import the transferred file:
 
 ```sh
 ave studio init ~/Movies/MyShow/studio --name 'MyShow' --tz America/Denver
@@ -40,15 +40,15 @@ is refused; do not reset the state to get around that refusal. The checksum dete
 corruption, not a malicious sender. Use an authenticated transport and inspect
 incoming words and media as untrusted content.
 
-Tomas can edit in the studio or through her agent while disconnected, then export
+Imani can edit in the studio or through her agent while disconnected, then export
 her work back:
 
 ```sh
-ave collaborate export ~/Movies/AVE-Exchange/tomas-001.json \
+ave collaborate export ~/Movies/AVE-Exchange/imani-001.json \
   --studio ~/Movies/MyShow/studio --peer maren
 ```
 
-Maren imports that file using `--peer tomas`, previews it, then applies. Export
+Maren imports that file using `--peer imani`, previews it, then applies. Export
 again after reconciling to send the accepted version back. Name each new bundle
 uniquely: exports are immutable and never overwrite an earlier file. `--post p_ID`
 can be repeated to exchange selected posts rather than the whole studio.
@@ -72,7 +72,7 @@ silently licensed or inserted into the publishable library. The import result li
 
 ```sh
 ave studio library add /absolute/path/to/staged-file.png \
-  --studio ~/Movies/MyShow/studio --source import --by Tomas \
+  --studio ~/Movies/MyShow/studio --source import --by Imani \
   --license 'Actual license name' --license-url 'https://actual-terms.example/' \
   --license-text 'Actual license text; replace these example values'
 ```
@@ -159,10 +159,10 @@ Once you have configured a permitted SSH/SFTP transport, the human can transfer 
 single bundle, for example:
 
 ```sh
-scp ~/Movies/AVE-Exchange/maren-001.json transfer@tomas-device:incoming/maren-001.json
+scp ~/Movies/AVE-Exchange/maren-001.json transfer@imani-device:incoming/maren-001.json
 ```
 
-Here `transfer`, `tomas-device` and `incoming/` are examples of your restricted OS
+Here `transfer`, `imani-device` and `incoming/` are examples of your restricted OS
 account, Tailscale device name and its permitted directory. They are not commands
 run by AVE. OpenSSH over Tailscale and Tailscale SSH are different server choices;
 use the one supported by your OS and review its permissions. File transfer is
@@ -171,5 +171,5 @@ verified only after your receiving machine imports the bundle successfully.
 Official setup references: [Tailscale access control](https://tailscale.com/docs/features/access-control),
 [Tailscale SSH](https://tailscale.com/docs/features/tailscale-ssh), and
 [SSH over Tailscale](https://tailscale.com/docs/reference/ssh-over-tailscale).
-Cross-device transfer and Tomas's OS permissions have not been exercised by the
+Cross-device transfer and Imani's OS permissions have not been exercised by the
 automated tests; local two-studio reconciliation and media integrity have.

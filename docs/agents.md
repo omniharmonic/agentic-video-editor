@@ -11,7 +11,7 @@ ave agent context --studio /absolute/path/to/studio
 ave agent mcp-config --studio /absolute/path/to/studio --by claude
 ```
 
-The second command prints a configuration entry using this installation's absolute Python executable and your studio path. Merge the `ave-studio` entry into your agent host's `mcpServers` configuration alongside any existing Canva and Resolve servers. It does not change the host's settings or overwrite `.mcp.json`. Each collaborator generates their own entry on their own computer; do not copy Maren's Python or drive paths to Tomas's machine.
+The second command prints a configuration entry using this installation's absolute Python executable and your studio path. Merge the `ave-studio` entry into your agent host's `mcpServers` configuration alongside any existing Canva and Resolve servers. It does not change the host's settings or overwrite `.mcp.json`. Each collaborator generates their own entry on their own computer; do not copy Maren's Python or drive paths to Imani's machine.
 
 The server command behind that configuration is:
 

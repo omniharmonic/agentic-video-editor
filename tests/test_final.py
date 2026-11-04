@@ -49,13 +49,13 @@ def test_from_final_keeps_overlays_placed_after_the_first_final(synth_episode):
     `ave final`. --from-final continues the latest final (overlays kept, captions regenerated)."""
     from ave import motion
     final.build_final(synth_episode, render=False)
-    motion.place(synth_episode, "lower-third", {"name": "Tomas", "title": "CO-HOST"}, at=1.0, dur=1.5, stage="final", fps=10)
+    motion.place(synth_episode, "lower-third", {"name": "Imani", "title": "CO-HOST"}, at=1.0, dur=1.5, stage="final", fps=10)
     # the default path starts from rough/assembly again: overlay gone (documented behaviour)
     final.build_final(synth_episode, render=False)
     assert not editdoc.load_latest(synth_episode, "final")["tracks"]["overlays"]
-    motion.place(synth_episode, "lower-third", {"name": "Tomas", "title": "CO-HOST"}, at=1.0, dur=1.5, stage="final", fps=10)
+    motion.place(synth_episode, "lower-third", {"name": "Imani", "title": "CO-HOST"}, at=1.0, dur=1.5, stage="final", fps=10)
     rep = final.build_final(synth_episode, render=False, from_final=True)
     doc = editdoc.load_latest(synth_episode, "final")
-    assert [o["props"]["name"] for o in doc["tracks"]["overlays"]] == ["Tomas"] and doc["captions"]["srt"] and rep["edit"]
+    assert [o["props"]["name"] for o in doc["tracks"]["overlays"]] == ["Imani"] and doc["captions"]["srt"] and rep["edit"]
     with pytest.raises(SystemExit, match="from-final"):
         final.build_final(synth_episode, render=False, from_final=True, name="nope")

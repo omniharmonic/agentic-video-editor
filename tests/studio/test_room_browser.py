@@ -19,7 +19,7 @@ from ave.room import cut as room_cut
 from ave.studio.project import StudioProject
 from ave.studio.service import open_studio
 from ave.studio.ui.server import StudioServer
-from conftest import needs_ffmpeg
+from conftest import CI_SLOW, needs_ffmpeg
 
 from . import board_bridge
 
@@ -658,7 +658,7 @@ def test_a_long_transcript_renders_and_scrolls_smoothly(browser, room_server, lo
             return n > 500 && document.querySelectorAll('mark.sc-hit').length === n; }""", timeout=10_000)
         pg.wait_for_timeout(300)
         long = pg.evaluate("window.__long")
-        assert not [d for d in long if d > 50], long
+        assert not [d for d in long if d > 50 * CI_SLOW], long
         assert "Speaker 1" in pg.locator(".sc-line").first.inner_text()          # no names in episode.json or the transcript
     finally:
         pg.close()
@@ -795,7 +795,7 @@ def test_a_review_copy_that_never_finishes_offers_try_again(browser, room_server
         assert pg.get_by_text("stopped making progress", exact=False).is_visible()
         pg.unroute("**/api/room/review", stuck)
         pg.locator(".script .viewer").get_by_role("button", name="Try again").click()
-        pg.wait_for_function("() => document.querySelector('.script video').readyState >= 1", timeout=30_000)
+        pg.wait_for_function("() => document.querySelector('.script video').readyState >= 1", timeout=30_000 * CI_SLOW)
     finally:
         pg.close()
 

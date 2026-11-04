@@ -14,6 +14,7 @@ import time
 from types import SimpleNamespace
 
 import pytest
+from conftest import CI_SLOW
 
 from ave.project import Project
 from ave.studio.project import StudioProject
@@ -516,15 +517,15 @@ def test_500_rows_without_jank(browser, tmp_path):
         pg, errors = _open(browser, srv)
         pg.wait_for_function("() => document.querySelectorAll('.ws-row[data-key]').length === 500", timeout=20000)
         first = pg.evaluate("window.__ws.renderMs")
-        assert first < 1500, f"first render took {first} ms"
+        assert first < 1500 * CI_SLOW, f"first render took {first} ms"
         frames = pg.evaluate("""async () => {
             const sc = document.querySelector('.ws-view'); const times = []; let last = performance.now();
             for (let i = 0; i < 90; i++) { sc.scrollTop += 120; await new Promise(r => requestAnimationFrame(r));
               const now = performance.now(); times.push(now - last); last = now; }
             times.sort((a, b) => a - b); return {p95: times[Math.floor(times.length * .95)], max: times.at(-1)}; }""")
-        assert frames["p95"] < 50, frames
+        assert frames["p95"] < 50 * CI_SLOW, frames
         ms = pg.evaluate("""async () => { const t = performance.now(); await window.__ws.reload(); return performance.now() - t; }""")
-        assert ms < 1500, f"a live update of 500 rows took {ms} ms"
+        assert ms < 1500 * CI_SLOW, f"a live update of 500 rows took {ms} ms"
         assert not errors
         pg.close()
     finally:
@@ -638,8 +639,8 @@ def test_long_project_names_keep_the_end_that_tells_them_apart(browser, tmp_path
     sp = StudioProject(tmp_path / "series")
     sp.create(title="Series", tz="UTC")
     for n in (12, 13, 14):
-        p = Project.create(sp.root / f"ep{n}", f"The Long Table, episode {n}", person="Maren")
-        _new(p, "art_ep", f"The Long Table, episode {n}", "episode", "Plan")
+        p = Project.create(sp.root / f"ep{n}", f"Neighbourhood Assembly, episode {n}", person="Maren")
+        _new(p, "art_ep", f"Neighbourhood Assembly, episode {n}", "episode", "Plan")
     srv, t = _serve(sp.root)
     try:
         pg, errors = _open(browser, srv)
@@ -649,9 +650,9 @@ def test_long_project_names_keep_the_end_that_tells_them_apart(browser, tmp_path
         for i, n in enumerate((12, 13, 14)):
             lab = items.nth(i).locator(".rail-label")
             text = lab.inner_text()
-            assert text.startswith("Commons") and "\u2026" in text and text.endswith(f"episode {n}"), text
+            assert text.startswith("Neighbour") and "\u2026" in text and text.endswith(f"episode {n}"), text
             assert lab.evaluate("e => e.scrollWidth <= e.clientWidth + 1")       # the end that differs is on screen, not clipped
-        assert [items.nth(i).get_attribute("title") for i in range(3)] == [f"The Long Table, episode {n}" for n in (12, 13, 14)]
+        assert [items.nth(i).get_attribute("title") for i in range(3)] == [f"Neighbourhood Assembly, episode {n}" for n in (12, 13, 14)]
         assert [items.nth(i).locator(".rail-swatch").inner_text() for i in range(3)] == ["12", "13", "14"]
         assert not errors
         pg.close()
@@ -862,16 +863,16 @@ def test_a_route_change_ends_a_drag(page, ws):
 
 # ---------------------------------------------------------------------------------------------------- Task 16: sharing
 SHARE_STUB = TEST_FLAG + """ window.__asked = []; Object.defineProperty(window, 'aveNative', {configurable: true, value: {
-    shareProject: async (id) => { window.__asked.push(['share', id]); return {state: 'shared', person: 'Tomas', title: 'Episode 12'}; },
+    shareProject: async (id) => { window.__asked.push(['share', id]); return {state: 'shared', person: 'Imani', title: 'Episode 12'}; },
     joinProject: async () => { window.__asked.push(['join']); return {state: 'joined', title: 'The Long Table'}; },
-    removeMember: async (id) => { window.__asked.push(['remove', id]); return {state: 'removed', message: 'Tomas is no longer on Episode 12. They keep everything they already received.'}; },
+    removeMember: async (id) => { window.__asked.push(['remove', id]); return {state: 'removed', message: 'Imani is no longer on Episode 12. They keep everything they already received.'}; },
     handOverPublishing: async (id) => { window.__asked.push(['handover', id]); throw new Error('Publishing stays with this computer'); },
     selectEpisode: async () => ({})}});"""
 
 
 def test_share_a_project_goes_through_the_app(browser, ws):
     meta = json.loads(ws.p12.project_json.read_text())
-    meta["members"].append({"person": "Tomas", "devices": ["dev_B"], "media": "proxies"})
+    meta["members"].append({"person": "Imani", "devices": ["dev_B"], "media": "proxies"})
     ws.p12.project_json.write_text(json.dumps(meta, indent=2) + "\n")
     pg = browser.new_page(viewport={"width": 1440, "height": 900})
     errors = []
@@ -884,7 +885,7 @@ def test_share_a_project_goes_through_the_app(browser, ws):
     share.click()
     pg.wait_for_function("() => window.__asked.length === 1")
     assert pg.evaluate("window.__asked") == [["share", ws.p12.project_id]]          # the page names the project, nothing else
-    assert pg.get_by_text("Tomas is on Episode 12 now").is_visible()
+    assert pg.get_by_text("Imani is on Episode 12 now").is_visible()
     pg.get_by_role("button", name="Board options").click()
     pg.get_by_role("menuitem", name="Join a shared project").click()
     pg.wait_for_function("() => window.__asked.length === 2")
@@ -918,16 +919,16 @@ def test_share_without_the_app_says_why(page, ws):
 
 
 def test_membership_changes_read_plainly_in_activity(ws):
-    ws.p12.log.append("member.added", data={"person": "Tomas", "device": "dev_B", "media": "proxies"})
-    ws.p12.log.append("project.publisher_changed", data={"from": "a", "to": "dev_B", "person": "Tomas"})
+    ws.p12.log.append("member.added", data={"person": "Imani", "device": "dev_B", "media": "proxies"})
+    ws.p12.log.append("project.publisher_changed", data={"from": "a", "to": "dev_B", "person": "Imani"})
     texts = [a["text"] for a in ws.srv.workspace.board()["activity"]]
-    assert "shared the project with Tomas" in texts and "handed publishing to Tomas" in texts
+    assert "shared the project with Imani" in texts and "handed publishing to Imani" in texts
 
 
 # ==================================================================================================== Calendar, Previews and Sources
 # Ported from the old screens' tests (test_planner_ui.py, test_visual_planner.py, the Library tests in test_ui_panels.py and
 # test_ux_regressions.py), now against the Workspace's views. The world is the planner rig's two-brand studio (fixed clock: Mon
-# 19 Oct 2026, 10:00 in Denver) made a Workspace project with two other members, Tomas (review proxies only) and Sam (all the
+# 19 Oct 2026, 10:00 in Denver) made a Workspace project with two other members, Imani (review proxies only) and Sam (all the
 # media), plus an episode folder with footage, and an artifact due on Thu 22 Oct.
 
 from .planner_rig import build as _build_rig, retry as _retry                             # noqa: E402
@@ -949,18 +950,18 @@ def build_plan_world(tmp_path, browser=None):
     rig = _build_rig(tmp_path, browser)
     sp = rig.w.sp
     studio = Project.create(sp.root, "Acme Bakery", person="Maren")
-    _join(studio, ("Tomas", "proxies"), ("Sam", "full"))
+    _join(studio, ("Imani", "proxies"), ("Sam", "full"))
     _new(studio, "art_launch", "Launch film", "episode", "Draft", due="2026-10-22")
     ep = Project.create(sp.root / "ep12", "Episode 12", person="Maren")
-    _join(ep, ("Tomas", "proxies"), ("Sam", "full"))
+    _join(ep, ("Imani", "proxies"), ("Sam", "full"))
     _new(ep, "art_ep", "Episode 12", "episode", "Refine")
     for rel, data in (("raw/cam-a/A001.mov", b"a" * 2048), ("raw/cam-a/A002.mov", b"b" * 1024), ("raw/proxies/cam-a/A001.mov", b"p"),
                       ("work/music/bed.wav", b"m" * 512), ("work/cache/render.mp4", b"c"), ("raw/._A001.mov", b"x")):
         f = ep.root / rel
         f.parent.mkdir(parents=True, exist_ok=True)
         f.write_bytes(data)
-    # Episode 13 is Tomas's on this computer, which keeps review proxies only: the originals are on Maren's computer
-    jo = Project.create(sp.root / "ep13", "Episode 13", person="Tomas")
+    # Episode 13 is Imani's on this computer, which keeps review proxies only: the originals are on Maren's computer
+    jo = Project.create(sp.root / "ep13", "Episode 13", person="Imani")
     meta = json.loads(jo.project_json.read_text())
     meta["members"][0]["media"] = "proxies"
     meta["members"].append({"person": "Maren", "devices": ["dev-maren-7f3a"], "media": "full"})
@@ -1656,7 +1657,7 @@ def test_without_the_app_the_publication_report_says_why_and_sends_nothing(brows
 
 
 # ---------------------------------------------------------------------------------------------------- sources
-DEVICE_IDS = ("dev-tomas-7f3a", "dev-sam-7f3a")
+DEVICE_IDS = ("dev-imani-7f3a", "dev-sam-7f3a")
 
 
 def _src(browser, plan, **kw):
@@ -1672,10 +1673,10 @@ def _src_row(pg, name):
 def test_sources_say_where_each_file_is_in_plain_words(browser, plan):
     pg, errors = _src(browser, plan)
     ep = pg.locator(".src-group", has=pg.locator(".src-gtitle", has_text="Episode 12"))
-    assert "With Tomas and Sam" in ep.locator(".src-ghead").inner_text()
-    assert _src_row(pg, "A001.mov").locator(".where").inner_text() == "Shared with Sam · Proxies only on Tomas's computer"
-    assert _src_row(pg, "A002.mov").locator(".where").inner_text() == "Shared with Sam · Not on Tomas's computer: no proxy yet"
-    assert _src_row(pg, "bed.wav").locator(".where").inner_text() == "Shared with Tomas and Sam"
+    assert "With Imani and Sam" in ep.locator(".src-ghead").inner_text()
+    assert _src_row(pg, "A001.mov").locator(".where").inner_text() == "Shared with Sam · Proxies only on Imani's computer"
+    assert _src_row(pg, "A002.mov").locator(".where").inner_text() == "Shared with Sam · Not on Imani's computer: no proxy yet"
+    assert _src_row(pg, "bed.wav").locator(".where").inner_text() == "Shared with Imani and Sam"
     assert ep.locator(".src-name", has_text="render.mp4").count() == 0                     # renders and caches are not sources
     assert ep.locator(".src-name", has_text="._A001").count() == 0 and ep.locator(".src-row[data-key]").count() == 3
     # the studio's library: licences, and a library file is shared with everyone (permanent zone)
@@ -1685,7 +1686,7 @@ def test_sources_say_where_each_file_is_in_plain_words(browser, plan):
     assert lib.count() == len(store.read_assets(plan.sp))
     loose = _src_row(pg, "A flour sack on a shelf.")
     assert loose.locator(".lic").inner_text() == "No licence" and "is-missing" in loose.locator(".lic").get_attribute("class")
-    assert loose.locator(".where").inner_text() == "Shared with Tomas and Sam"
+    assert loose.locator(".where").inner_text() == "Shared with Imani and Sam"
     assert studio.locator(".lic.is-ok", has_text="Owned").count() >= 6
     text = pg.locator(".src").inner_text()
     for dev in DEVICE_IDS:
@@ -1701,7 +1702,7 @@ def test_a_file_opens_its_details_with_each_persons_copy(browser, plan):
     pop = pg.locator(".popover .src-pop")
     pop.wait_for()
     t = pop.inner_text()
-    assert "Tomas" in t and "has the review proxy" in t and "Sam" in t and "has it" in t and "Review proxy" in t and "Made" in t
+    assert "Imani" in t and "has the review proxy" in t and "Sam" in t and "has it" in t and "Review proxy" in t and "Made" in t
     pg.keyboard.press("Escape")
     _src_row(pg, "A flour sack on a shelf.").locator(".src-name").click()
     t = pg.locator(".popover .src-pop").inner_text()

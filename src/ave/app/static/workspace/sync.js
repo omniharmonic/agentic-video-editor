@@ -1,5 +1,5 @@
-// Each project's sync state as a status pill, in the words people use: "Up to date", "Sending 3 files to Tomas",
-// "Waiting for Tomas (offline)", "Paused: the drive is low on space", "Drive not connected", "Tailscale is off".
+// Each project's sync state as a status pill, in the words people use: "Up to date", "Sending 3 files to Imani",
+// "Waiting for Imani (offline)", "Paused: the drive is low on space", "Drive not connected", "Tailscale is off".
 // The words come from the app (ave.syncthing.words); this file only shows them. The first read is GET /api/workspace/sync,
 // then `sync` events on the Room's stream carry every change, so a pill never needs a reload.
 //

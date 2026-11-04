@@ -46,7 +46,7 @@ def setup(tmp_path, monkeypatch):
     (root / "episode.json").write_text(json.dumps({"title": "Episode 13", "tz": "UTC", "draft": True}, indent=2) + "\n")
     p = Project.create(root, "Episode 13", person="maren")
     meta = add_member(p.meta, "maren", p.device.id, "full", "-".join(["AAAAAAA"] * 8), "a")
-    meta = add_member(meta, "tomas", "dev_B", "proxies", "-".join(["BBBBBBB"] * 8), "b")
+    meta = add_member(meta, "imani", "dev_B", "proxies", "-".join(["BBBBBBB"] * 8), "b")
     (root / ".ave" / "project.json").write_bytes(canonical(meta))
     p = Project.open(root)
     p.log.append("artifact.created", artifact="art_ep", data={"kind": "episode", "title": "Episode 13", "stage": "Plan"})
@@ -124,14 +124,14 @@ def test_three_members_read_the_records_own_labels(browser, setup):
     waiting.click()
     pg.locator(".pick-row").first.wait_for()
     assert pg.locator(".pick-key").all_inner_texts() == ["Title"]
-    assert pg.locator(".pick .pick-who").all_inner_texts() == ["This computer's copy", "Tomas's file"]
+    assert pg.locator(".pick .pick-who").all_inner_texts() == ["This computer's copy", "Imani's file"]
     assert pg.get_by_role("button", name="Use all of this computer's copy").count() == 1
-    assert pg.get_by_role("button", name="Use all of Tomas's").count() == 1
+    assert pg.get_by_role("button", name="Use all of Imani's").count() == 1
     text = pg.locator(".pop-list").inner_text()
     assert "This file" not in text and "'s file's" not in text and "copy's file" not in text
     assert "episode.json was changed on two computers at once (Title)" in text
     assert pg.evaluate("document.documentElement.scrollWidth") <= 1024 and not errors
-    pg.get_by_role("button", name="Use all of Tomas's").click()
+    pg.get_by_role("button", name="Use all of Imani's").click()
     end = time.time() + 5
     while time.time() < end and copy2.exists():
         conflicts.drain(1)

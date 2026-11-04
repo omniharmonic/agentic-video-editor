@@ -45,4 +45,4 @@ Limits: Apple Silicon only. Music analysis, OpenCV face checks and direct publis
 
 Open the generated app in Finder. It opens Terminal to preserve the human launch check, then opens the native studio window. It does not remove agent environment markers, manufacture a terminal, or install a background sender.
 
-This is an **unsigned launcher tied to this Python installation**, not a standalone installer. Give Tomas the wheel or repository and have her install dependencies and build a launcher on her own machine. Do not share your launcher as a portable application, credentials, approval keys, or account attestations. Use the standalone app above to share with someone else.
+This is an **unsigned launcher tied to this Python installation**, not a standalone installer. Give Imani the wheel or repository and have her install dependencies and build a launcher on her own machine. Do not share your launcher as a portable application, credentials, approval keys, or account attestations. Use the standalone app above to share with someone else.

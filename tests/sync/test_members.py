@@ -23,7 +23,7 @@ SID = {k: "-".join([k * 7] * 8) for k in "ABCDEFGHIJX"}
 
 @pytest.fixture
 def sync_trio(short):
-    homes = [H.make_home(short, n, d) for n, d in (("maren", "dev_A"), ("tomas", "dev_B"), ("cara", "dev_C"))]
+    homes = [H.make_home(short, n, d) for n, d in (("maren", "dev_A"), ("imani", "dev_B"), ("cara", "dev_C"))]
     for h in homes:
         h.manager.start()
     yield homes
@@ -47,15 +47,15 @@ def _events(root, op):
     return [e for e in read_logs(root / ".ave" / "log") if e["op"] == op]
 
 
-def _join(a, b, owner_root, tmp_path, person="tomas", media=PROXIES):
+def _join(a, b, owner_root, tmp_path, person="imani", media=PROXIES):
     """The whole invitation: invite, accept, compare the code both ways, both confirm. Returns the invitee's folder."""
     text = M.invite(owner_root, person, media, manager=a.manager)
     (tmp_path / "B").mkdir(exist_ok=True)
     joined = M.accept(text, tmp_path / "B", manager=b.manager)
-    code_b = M.join_code(joined)                                        # only Tomas's screen shows it
+    code_b = M.join_code(joined)                                        # only Imani's screen shows it
     H.wait_until(lambda: M.answers(owner_root, manager=a.manager), timeout=60, what="the invitee to answer")
-    M.confirm_invitee(owner_root, code_b, manager=a.manager)            # Maren types what Tomas read aloud
-    M.confirm_join(joined, manager=b.manager)                           # Tomas's side checks it is Maren's computer
+    M.confirm_invitee(owner_root, code_b, manager=a.manager)            # Maren types what Imani read aloud
+    M.confirm_join(joined, manager=b.manager)                           # Imani's side checks it is Maren's computer
     return joined.root
 
 
@@ -82,18 +82,18 @@ def test_invitation_covers_one_project_only(sync_pair, tmp_path):
     assert [f["id"] for f in b.manager.api.get("/rest/config/folders")] == ["prj_SHARE"]
     assert "prj_OTHER" not in (b.manager.api.get("/rest/cluster/pending/folders") or {})
     meta = json.loads((shared / ".ave" / "project.json").read_text())
-    tomas = next(m for m in meta["members"] if m["person"] == "tomas")
-    assert tomas == {"person": "tomas", "devices": ["dev_B"], "media": PROXIES}
+    imani = next(m for m in meta["members"] if m["person"] == "imani")
+    assert imani == {"person": "imani", "devices": ["dev_B"], "media": PROXIES}
     assert meta["devices"]["dev_B"]["sync_id"] == b.manager.device_id()
     added = _events(shared, "member.added")
     assert [(e["data"]["person"], e["data"]["device"], e["person"]) for e in added] == [("maren", "dev_A", "maren"),
-                                                                                        ("tomas", "dev_B", "maren")]
+                                                                                        ("imani", "dev_B", "maren")]
 
 
 def test_only_the_invitee_shows_the_code(sync_pair, tmp_path):
     a, b = sync_pair
     root = _owner_project(tmp_path)
-    text = M.invite(root, "tomas", PROXIES, manager=a.manager)
+    text = M.invite(root, "imani", PROXIES, manager=a.manager)
     (tmp_path / "B").mkdir()
     joined = M.accept(text, tmp_path / "B", manager=b.manager)
     code = M.join_code(joined)
@@ -108,7 +108,7 @@ def test_only_the_invitee_shows_the_code(sync_pair, tmp_path):
     assert _folder_devices(a.manager, "prj_SHARE") in (None, {a.manager.device_id()})
     assert b.manager.api.get("/rest/config/folders") == []
     assert M.joining(joined)["inviter"] == "maren"
-    # Tomas's side cannot confirm on its own: it waits for Maren's computer to offer the project
+    # Imani's side cannot confirm on its own: it waits for Maren's computer to offer the project
     with pytest.raises(M.MemberError, match="not confirmed yet"):
         M.confirm_join(joined, manager=b.manager, wait_s=2)
     assert b.manager.api.get("/rest/config/folders") == []
@@ -120,7 +120,7 @@ def test_the_owners_sheet_shows_no_code():
     import re as _re
     from ave import desktop_native as N
     for n in (1, 3):
-        words = N.inviter_code_words("Tomas", n)
+        words = N.inviter_code_words("Imani", n)
         assert not _re.search(r"\d{3}\s?\d{3}", words) and "type it here" in words
     assert "123 456" in N.invitee_code_words("Maren", "123456")
     src = inspect.getsource(N)
@@ -129,13 +129,13 @@ def test_the_owners_sheet_shows_no_code():
 
 def test_a_third_partys_code_adds_only_that_third_party(sync_trio, tmp_path):
     """Mallory saw the invitation and answered too. Whatever code Maren types decides: Mallory's code adds Mallory's computer
-    only, and Tomas's computer is never shared with."""
+    only, and Imani's computer is never shared with."""
     a, b, c = sync_trio
     root = _owner_project(tmp_path)
-    text = M.invite(root, "tomas", PROXIES, manager=a.manager)
+    text = M.invite(root, "imani", PROXIES, manager=a.manager)
     for side in ("B", "C"):
         (tmp_path / side).mkdir()
-    tomas = M.accept(text, tmp_path / "B", manager=b.manager)
+    imani = M.accept(text, tmp_path / "B", manager=b.manager)
     mallory = M.accept(text, tmp_path / "C", manager=c.manager)
     H.wait_until(lambda: len(M.answers(root, manager=a.manager)) == 2, timeout=60, what="two answers")
     M.confirm_invitee(root, M.join_code(mallory), manager=a.manager)
@@ -143,17 +143,17 @@ def test_a_third_partys_code_adds_only_that_third_party(sync_trio, tmp_path):
     added = _events(root, "member.added")
     assert [e["data"]["sync_id"] for e in added if e["data"]["device"] != "dev_A"] == [c.manager.device_id()]
     with pytest.raises(M.MemberError, match="not confirmed yet"):
-        M.confirm_join(tomas, manager=b.manager, wait_s=3)
+        M.confirm_join(imani, manager=b.manager, wait_s=3)
     assert b.manager.api.get("/rest/config/folders") == []
     with pytest.raises(M.MemberError):
-        M.confirm_invitee(root, M.join_code(tomas), manager=a.manager)  # the invitation is used up
+        M.confirm_invitee(root, M.join_code(imani), manager=a.manager)  # the invitation is used up
 
 
 def test_invitation_expires(sync_pair, tmp_path):
     a, b = sync_pair
     root = _owner_project(tmp_path)
     t0 = time.time()
-    text = M.invite(root, "tomas", PROXIES, manager=a.manager, now=t0)
+    text = M.invite(root, "imani", PROXIES, manager=a.manager, now=t0)
     inv = M.parse_invitation(text, now=t0 + 599, allow_loopback=True)
     assert inv["expires"] == t0 + M.INVITE_TTL_S and M.INVITE_TTL_S == 600
     (tmp_path / "B").mkdir()
@@ -176,7 +176,7 @@ def test_invitation_expires(sync_pair, tmp_path):
 def test_wrong_code_is_refused_and_shares_nothing(sync_pair, tmp_path):
     a, b = sync_pair
     root = _owner_project(tmp_path)
-    text = M.invite(root, "tomas", PROXIES, manager=a.manager)
+    text = M.invite(root, "imani", PROXIES, manager=a.manager)
     (tmp_path / "B").mkdir()
     joined = M.accept(text, tmp_path / "B", manager=b.manager)
     right = M.join_code(joined)
@@ -193,7 +193,7 @@ def test_wrong_code_is_refused_and_shares_nothing(sync_pair, tmp_path):
     assert _folder_devices(a.manager, "prj_SHARE") in (None, {a.manager.device_id()})
     assert b.manager.api.get("/rest/config/folders") == []
     assert [e["data"]["device"] for e in _events(root, "member.added")] == ["dev_A"]     # only Maren himself
-    # the right code still works afterwards; until Tomas confirms too, nothing reaches her
+    # the right code still works afterwards; until Imani confirms too, nothing reaches her
     M.confirm_invitee(root, right, manager=a.manager)
     time.sleep(3)
     assert b.manager.api.get("/rest/config/folders") == [] and not (joined.root / "edits").exists()
@@ -207,7 +207,7 @@ def test_removing_a_member_stops_new_data(sync_pair, tmp_path):
     rb = _join(a, b, root, tmp_path)
     H.wait_until(lambda: (rb / "edits" / "rough.v1.json").is_file(), what="first sync")
     a.manager.wait(root, "up_to_date", 60)
-    said = M.remove(root, "Tomas", manager=a.manager)
+    said = M.remove(root, "Imani", manager=a.manager)
     assert "keep everything they already received" in said and "Nothing new reaches" in said and "other members" in said
     assert _folder_devices(a.manager, "prj_SHARE") == {a.manager.device_id()}
     assert b.manager.device_id() not in {d["deviceID"] for d in a.manager.api.get("/rest/config/devices")}
@@ -215,13 +215,13 @@ def test_removing_a_member_stops_new_data(sync_pair, tmp_path):
     assert [m["person"] for m in meta["members"]] == ["maren"] and "dev_B" not in meta["devices"]
     removed = _events(root, "member.removed")
     assert [(e["data"]["person"], e["data"]["devices"], e["data"]["sync_ids"]) for e in removed] == \
-        [("tomas", ["dev_B"], [b.manager.device_id()])]
+        [("imani", ["dev_B"], [b.manager.device_id()])]
     (root / "edits" / "rough.v2.json").write_text("after removal\n")
     a.manager.rescan(root)
     time.sleep(8)
     assert not (rb / "edits" / "rough.v2.json").exists()                # nothing new arrives
     assert (rb / "edits" / "rough.v1.json").is_file()                   # what she had stays with her
-    assert "keep everything" in M.remove(root, "tomas", manager=a.manager)    # a retry is safe and still unshares
+    assert "keep everything" in M.remove(root, "imani", manager=a.manager)    # a retry is safe and still unshares
     assert _folder_devices(a.manager, "prj_SHARE") == {a.manager.device_id()}
     with pytest.raises(M.MemberError, match="not on this project"):
         M.remove(root, "nobody", manager=a.manager)
@@ -230,7 +230,7 @@ def test_removing_a_member_stops_new_data(sync_pair, tmp_path):
 def test_studio_project_joins_with_studio_rules(sync_pair, tmp_path):
     a, b = sync_pair
     root = _owner_project(tmp_path, "prj_STUDIO", "Grounded", kind="studio", studio=True)
-    text = M.invite(root, "tomas", "full", manager=a.manager)
+    text = M.invite(root, "imani", "full", manager=a.manager)
     (tmp_path / "B").mkdir()
     joined = M.accept(text, tmp_path / "B", manager=b.manager)
     rb = joined.root
@@ -257,17 +257,17 @@ def test_media_choice_regenerates_the_ignores(sync_pair, tmp_path):
     after = (rb / ".stignore").read_text()
     assert after != before and after == zones.stignore(zones.project_rules(rb, "dev_B"))
     meta = json.loads((rb / ".ave" / "project.json").read_text())
-    assert next(m for m in meta["members"] if m["person"] == "tomas")["media"] == "full"
+    assert next(m for m in meta["members"] if m["person"] == "imani")["media"] == "full"
 
 
 def test_shared_tailscale_node_is_accepted():
     obj = {"Node": {"StableID": "nShared1", "User": 7, "MachineAuthorized": True, "Addresses": ["100.101.102.103/32"],
-                    "Sharer": 99, "ComputedName": "tomass-macbook"},
+                    "Sharer": 99, "ComputedName": "imanis-macbook"},
            "UserProfile": {"ID": 7}}
     with pytest.raises(IdentityError):
         whois(obj, "100.101.102.103")                                   # the old editorial transport still refuses it
     got = whois(obj, "100.101.102.103", shared_ok=True)
-    assert got["node"] == "nShared1" and got["shared"] is True and got["name"] == "tomass-macbook"
+    assert got["node"] == "nShared1" and got["shared"] is True and got["name"] == "imanis-macbook"
     tagged = {**obj, "Node": {**obj["Node"], "Sharer": None, "Tags": ["tag:studio"]}}
     assert whois(tagged, "100.101.102.103", shared_ok=True)["shared"] is False
     # sync never asks Tailscale who a peer is before connecting: any Tailscale address is a valid peer address
@@ -279,13 +279,13 @@ def test_publisher_handover_needs_a_new_approval(tmp_path):
     root = tmp_path / "proj"
     H.write_project_json(root, "prj_PUB", "The Long Table", "flat",
                          [{"person": "maren", "devices": ["dev_A"], "media": "full"},
-                          {"person": "tomas", "devices": ["dev_B"], "media": "full"}], "dev_A")
+                          {"person": "imani", "devices": ["dev_B"], "media": "full"}], "dev_A")
     maren = Project(root, json.loads((root / ".ave" / "project.json").read_text()), Device("dev_A", short_id("dev_A")))
     old_approval = time.strftime("%Y-%m-%dT%H:%M:%S%z", time.localtime(time.time() - 3600))
     assert M.publish_blockers(root, old_approval, "dev_A") == []        # no handover yet: nothing changes
     with pytest.raises(M.MemberError, match="Only the computer that publishes"):
-        M.hand_over(root, "tomas", device_id="dev_B")
-    said = M.hand_over(maren, "tomas")
+        M.hand_over(root, "imani", device_id="dev_B")
+    said = M.hand_over(maren, "imani")
     assert "approves it again" in said
     meta = json.loads((root / ".ave" / "project.json").read_text())
     assert meta["publisher_device"] == "dev_B"
@@ -294,7 +294,7 @@ def test_publisher_handover_needs_a_new_approval(tmp_path):
     st = reduce(read_logs(root / ".ave" / "log"))
     assert [m["op"] for m in st.membership] == ["project.publisher_changed"] and not st.warnings
     # the old publisher can no longer send at all
-    assert "moved to tomas's computer" in M.publish_blockers(root, old_approval, "dev_A")[0]
+    assert "moved to imani's computer" in M.publish_blockers(root, old_approval, "dev_A")[0]
     # the new publisher's approvals from before the handover do not count
     assert "Approve this again here" in M.publish_blockers(root, old_approval, "dev_B")[0]
     assert M.publish_blockers(root, None, "dev_B")
@@ -305,16 +305,16 @@ def test_publisher_handover_needs_a_new_approval(tmp_path):
     assert M.publish_blockers(root, fresh, "dev_B", approval_device="dev_A")
     assert M.note_publisher(root, "dev_B")["since"] == since            # noticed once, on this computer's clock
     with pytest.raises(M.MemberError, match="publishes this project"):
-        M.remove(root, "tomas", manager=FakeManager(root, "dev_A"))
+        M.remove(root, "imani", manager=FakeManager(root, "dev_A"))
 
 
 def test_the_handover_gate_holds_before_the_event_arrives(tmp_path):
     """project.json can arrive before the owner's log: the gate keys on publisher_device itself."""
     root = tmp_path / "proj"
     H.write_project_json(root, "prj_PUB", "P", "flat", [{"person": "maren", "devices": ["dev_A"], "media": "full"},
-                                                     {"person": "tomas", "devices": ["dev_B"], "media": "full"}], "dev_A")
+                                                     {"person": "imani", "devices": ["dev_B"], "media": "full"}], "dev_A")
     old = time.strftime("%Y-%m-%dT%H:%M:%S%z", time.localtime(time.time() - 3600))
-    assert M.publish_blockers(root, old, "dev_B", approval_device="dev_B") == []     # Tomas's computer sees Maren publish
+    assert M.publish_blockers(root, old, "dev_B", approval_device="dev_B") == []     # Imani's computer sees Maren publish
     meta = json.loads((root / ".ave" / "project.json").read_text())
     meta["publisher_device"] = "dev_B"
     M.write_meta(root, meta)                                             # only project.json has arrived; no event yet
@@ -325,7 +325,7 @@ def test_the_handover_gate_holds_before_the_event_arrives(tmp_path):
     # a computer seeing the project for the first time with a publisher other than its creator treats it as moved too
     other = tmp_path / "other"
     H.write_project_json(other, "prj_O", "O", "flat", [{"person": "maren", "devices": ["dev_A"], "media": "full"},
-                                                    {"person": "tomas", "devices": ["dev_B"], "media": "full"}], "dev_B")
+                                                    {"person": "imani", "devices": ["dev_B"], "media": "full"}], "dev_B")
     m2 = json.loads((other / ".ave" / "project.json").read_text())
     m2["owner_device"] = "dev_A"
     M.write_meta(other, m2)
@@ -337,8 +337,8 @@ def test_handover_blocks_the_publish_queue(tmp_path, monkeypatch):
     from ave.publish import queue
     root = tmp_path / "proj"
     H.write_project_json(root, "prj_Q", "Q", "flat", [{"person": "maren", "devices": ["dev_A"], "media": "full"},
-                                                    {"person": "tomas", "devices": ["dev_B"], "media": "full"}], "dev_A")
-    M.hand_over(root, "tomas", device_id="dev_A")
+                                                    {"person": "imani", "devices": ["dev_B"], "media": "full"}], "dev_A")
+    M.hand_over(root, "imani", device_id="dev_A")
     monkeypatch.setattr(Device, "load", classmethod(lambda cls: Device("dev_B", short_id("dev_B"))))
     ep = type("Ep", (), {"root": root})()
     old = {"approvals": [{"at": time.strftime("%Y-%m-%dT%H:%M:%S%z", time.localtime(time.time() - 60)), "device": "dev_B"}]}
@@ -379,7 +379,7 @@ def test_native_sharing_requests_name_a_project_only():
     for action in ("shareProject", "removeMember", "handOverPublishing"):
         rid, act, args = N.native_message({"id": "1", "action": action, "args": {"project": "prj_ABC"}}, origin, origin)
         assert N.sharing_args(act, args) == "prj_ABC"
-        for bad in ({}, {"project": "../etc"}, {"project": "prj_ABC", "person": "tomas"}, {"project": 7}):
+        for bad in ({}, {"project": "../etc"}, {"project": "prj_ABC", "person": "imani"}, {"project": 7}):
             with pytest.raises(ValueError):
                 N.sharing_args(action, bad)
     assert N.sharing_args("joinProject", {}) is None
@@ -387,10 +387,10 @@ def test_native_sharing_requests_name_a_project_only():
         N.sharing_args("joinProject", {"text": "AVE-INVITE-1.x"})
     for name in ("shareProject:", "joinProject:", "removeMember:", "handOverPublishing:"):
         assert name in N.BRIDGE_SCRIPT
-    assert "keeps everything already received" in N.removal_words("Tomas", "The Long Table")
-    assert "other members" in N.removal_words("Tomas", "The Long Table")
-    assert "approves it again" in N.handover_words("Tomas", "The Long Table")
-    assert "10 minutes" in N.share_words("Tomas", "The Long Table", "proxies")
+    assert "keeps everything already received" in N.removal_words("Imani", "The Long Table")
+    assert "other members" in N.removal_words("Imani", "The Long Table")
+    assert "approves it again" in N.handover_words("Imani", "The Long Table")
+    assert "10 minutes" in N.share_words("Imani", "The Long Table", "proxies")
 
 
 def test_a_project_json_change_from_another_member_regenerates_the_ignores(sync_pair, tmp_path):
@@ -476,21 +476,21 @@ def _answer(tag, device, letter, t):
 
 def test_membership_comes_only_from_the_owners_log(tmp_path):
     maren = {"person": "maren", "devices": ["dev_A"], "media": "full"}
-    tomas = {"person": "tomas", "devices": ["dev_B"], "media": "full"}
+    imani = {"person": "imani", "devices": ["dev_B"], "media": "full"}
     cara = {"person": "cara", "devices": ["dev_C"], "media": "full"}
-    root = _plain_project(tmp_path, [maren, tomas, cara])
+    root = _plain_project(tmp_path, [maren, imani, cara])
     meta = json.loads((root / ".ave" / "project.json").read_text())
     meta["devices"] = {}
     meta["owner_device"] = "dev_A"
     M.write_meta(root, meta)
     _log_as(root, "dev_A", "member.added", _added("dev_A", "maren", "A"))
-    _log_as(root, "dev_A", "member.added", _added("dev_B", "tomas", "B"))
+    _log_as(root, "dev_A", "member.added", _added("dev_B", "imani", "B"))
     _log_as(root, "dev_A", "member.added", _added("dev_C", "cara", "C"))
-    _log_as(root, "dev_A", "member.removed", {"person": "tomas", "devices": ["dev_B"], "sync_ids": [SID["B"]]})
-    # Tomas re-adds herself and a stranger; her events are not the owner's, so they count for nothing
-    _log_as(root, "dev_B", "member.added", _added("dev_B", "tomas", "B"))
+    _log_as(root, "dev_A", "member.removed", {"person": "imani", "devices": ["dev_B"], "sync_ids": [SID["B"]]})
+    # Imani re-adds herself and a stranger; her events are not the owner's, so they count for nothing
+    _log_as(root, "dev_B", "member.added", _added("dev_B", "imani", "B"))
     _log_as(root, "dev_B", "member.added", _added("dev_X", "stranger", "X"))
-    # a stale or concurrent project.json still lists Tomas and the stranger
+    # a stale or concurrent project.json still lists Imani and the stranger
     meta["members"].append({"person": "stranger", "devices": ["dev_X"], "media": "full"})
     meta["devices"] = {"dev_B": {"sync_id": SID["B"], "address": "tcp://127.0.0.1:5066"},
                        "dev_X": {"sync_id": SID["X"], "address": "tcp://127.0.0.1:5088"}}
@@ -504,8 +504,8 @@ def test_membership_comes_only_from_the_owners_log(tmp_path):
         M.invite(root, "mallory", "full", manager=cara_mgr)
     with pytest.raises(M.MemberError, match="owns this project"):
         M.remove(root, "maren", manager=cara_mgr)
-    # the owner adding Tomas again after the removal does count
-    _log_as(root, "dev_A", "member.added", _added("dev_B", "tomas", "B"))
+    # the owner adding Imani again after the removal does count
+    _log_as(root, "dev_A", "member.added", _added("dev_B", "imani", "B"))
     assert [p.sync_id for p in M.share_list(root, cara_mgr)] == [SID["A"], SID["B"]]
 
 
@@ -515,7 +515,7 @@ def test_answers_that_claim_a_known_device_are_refused(tmp_path):
     mgr = FakeManager(root, "dev_A", folder=[])
     _log_as(root, "dev_A", "member.added", _added("dev_D", "dora", "D"))
     _log_as(root, "dev_A", "member.removed", {"person": "dora", "devices": ["dev_D"], "sync_ids": [SID["D"]]})
-    text = M.invite(root, "tomas", PROXIES, manager=mgr)
+    text = M.invite(root, "imani", PROXIES, manager=mgr)
     tag = M._tag(M.parse_invitation(text, allow_loopback=True)["nonce"])
     mgr.pending = dict([_answer(tag, "dev_C", "E", "1"), _answer(tag, "dev_D", "F", "2"), _answer(tag, "dev_J", "J", "3")])
     got = {a.device: a for a in M.answers(root, manager=mgr)}
@@ -531,7 +531,7 @@ def test_answers_that_claim_a_known_device_are_refused(tmp_path):
 def test_at_most_five_answers_and_a_shared_code_is_refused(tmp_path, monkeypatch):
     root = _plain_project(tmp_path, [{"person": "maren", "devices": ["dev_A"], "media": "full"}])
     mgr = FakeManager(root, "dev_A", folder=[])
-    text = M.invite(root, "tomas", PROXIES, manager=mgr)
+    text = M.invite(root, "imani", PROXIES, manager=mgr)
     tag = M._tag(M.parse_invitation(text, allow_loopback=True)["nonce"])
     mgr.pending = dict(_answer(tag, f"dev_{k}", k, str(i)) for i, k in enumerate("BCDEFGH"))
     got = M.answers(root, manager=mgr)
@@ -545,24 +545,24 @@ def test_at_most_five_answers_and_a_shared_code_is_refused(tmp_path, monkeypatch
 def test_a_legacy_project_keeps_its_members_when_inviting_and_removing(tmp_path):
     """A project shared before membership was logged has no `devices`: who the folder is shared with now is kept."""
     root = _plain_project(tmp_path, [{"person": "maren", "devices": ["dev_A"], "media": "full"},
-                                     {"person": "tomas", "devices": ["dev_B"], "media": "full"},
+                                     {"person": "imani", "devices": ["dev_B"], "media": "full"},
                                      {"person": "cara", "devices": ["dev_C"], "media": "full"}])
-    cfg = {SID["B"]: {"name": "tomas", "addresses": ["tcp://127.0.0.1:5001"]},
+    cfg = {SID["B"]: {"name": "imani", "addresses": ["tcp://127.0.0.1:5001"]},
            SID["C"]: {"name": "cara", "addresses": ["tcp://127.0.0.1:5002"]}}
     mgr = FakeManager(root, "dev_A", folder=[SID["B"], SID["C"]], configs=cfg)
     assert [p.sync_id for p in M.share_list(root, mgr)] == [SID["B"], SID["C"]]
     M.invite(root, "dora", PROXIES, manager=mgr)                         # logs who is already on it
     assert "devices" in json.loads((root / ".ave" / "project.json").read_text())
     assert [p.sync_id for p in M.share_list(root, mgr)] == [SID["B"], SID["C"]]
-    assert {e["data"]["person"] for e in _events(root, "member.added")} == {"maren", "tomas", "cara"}
-    M.remove(root, "tomas", manager=mgr)
-    assert mgr.shared[-1] == [SID["C"]]                                  # Cara stays; only Tomas goes
+    assert {e["data"]["person"] for e in _events(root, "member.added")} == {"maren", "imani", "cara"}
+    M.remove(root, "imani", manager=mgr)
+    assert mgr.shared[-1] == [SID["C"]]                                  # Cara stays; only Imani goes
 
 
 def test_remove_and_confirm_share_first_and_are_safe_to_retry(tmp_path):
     root = _plain_project(tmp_path, [{"person": "maren", "devices": ["dev_A"], "media": "full"}])
     mgr = FakeManager(root, "dev_A", folder=[])
-    text = M.invite(root, "tomas", PROXIES, manager=mgr)
+    text = M.invite(root, "imani", PROXIES, manager=mgr)
     nonce = M.parse_invitation(text, allow_loopback=True)["nonce"]
     mgr.pending = dict([_answer(M._tag(nonce), "dev_B", "B", "1")])
     code = M.comparison_code(SID["A"], SID["B"], nonce)
@@ -577,11 +577,11 @@ def test_remove_and_confirm_share_first_and_are_safe_to_retry(tmp_path):
     assert mgr.shared[-1] == [SID["B"]] and SID["B"] in M.membership(root).members
     mgr.fail_share = 1
     with pytest.raises(M.MemberError, match="did not answer"):
-        M.remove(root, "tomas", manager=mgr)                             # still listed and still a member: retry works
-    assert SID["B"] in M.membership(root).members and [m["person"] for m in M.members(root)] == ["maren", "tomas"]
-    assert "keep everything" in M.remove(root, "tomas", manager=mgr)
+        M.remove(root, "imani", manager=mgr)                             # still listed and still a member: retry works
+    assert SID["B"] in M.membership(root).members and [m["person"] for m in M.members(root)] == ["maren", "imani"]
+    assert "keep everything" in M.remove(root, "imani", manager=mgr)
     assert mgr.shared[-1] == [] and SID["B"] in M.membership(root).removed_syncs
-    assert "keep everything" in M.remove(root, "tomas", manager=mgr)    # a second retry only makes sure
+    assert "keep everything" in M.remove(root, "imani", manager=mgr)    # a second retry only makes sure
     assert mgr.shared[-1] == []
 
 
@@ -596,20 +596,20 @@ def test_a_third_member_follows_the_removal_while_the_owner_is_offline(sync_trio
     M.confirm_invitee(root, M.join_code(cj), manager=a.manager)
     M.confirm_join(cj, manager=c.manager)
     rc = cj.root
-    # Tomas and Cara learn of each other from Maren's log and share directly
+    # Imani and Cara learn of each other from Maren's log and share directly
     H.wait_until(lambda: c.manager.device_id() in (_folder_devices(b.manager, "prj_SHARE") or set())
                  and b.manager.device_id() in (_folder_devices(c.manager, "prj_SHARE") or set()), timeout=90,
-                 what="Tomas and Cara to share with each other")
-    M.remove(root, "tomas", manager=a.manager)
+                 what="Imani and Cara to share with each other")
+    M.remove(root, "imani", manager=a.manager)
     H.wait_until(lambda: any(e["op"] == "member.removed" for e in read_logs(rc / ".ave" / "log")), timeout=60,
                  what="Maren's removal to reach Cara")
     a.manager.stop()                                                    # Maren goes offline
     H.wait_until(lambda: b.manager.device_id() not in (_folder_devices(c.manager, "prj_SHARE") or set()), timeout=60,
-                 what="Cara to stop sharing with Tomas")
-    # a stale or concurrent project.json that still lists Tomas does not bring her back
+                 what="Cara to stop sharing with Imani")
+    # a stale or concurrent project.json that still lists Imani does not bring her back
     meta = json.loads((rc / ".ave" / "project.json").read_text())
-    if not any(m["person"] == "tomas" for m in meta["members"]):
-        meta["members"].append({"person": "tomas", "devices": ["dev_B"], "media": "proxies"})
+    if not any(m["person"] == "imani" for m in meta["members"]):
+        meta["members"].append({"person": "imani", "devices": ["dev_B"], "media": "proxies"})
     next(m for m in meta["members"] if m["person"] == "cara")["media"] = PROXIES
     M.write_meta(rc, meta)
     c.manager.refresh(rc)
@@ -621,14 +621,14 @@ def test_a_third_member_follows_the_removal_while_the_owner_is_offline(sync_trio
 
 
 def test_removing_from_a_legacy_project_before_any_invite(tmp_path):
-    """No `devices` and nothing logged yet: removing Tomas must still stop sharing with her real Syncthing id."""
+    """No `devices` and nothing logged yet: removing Imani must still stop sharing with her real Syncthing id."""
     root = _plain_project(tmp_path, [{"person": "maren", "devices": ["dev_A"], "media": "full"},
-                                     {"person": "tomas", "devices": ["dev_B"], "media": "full"},
+                                     {"person": "imani", "devices": ["dev_B"], "media": "full"},
                                      {"person": "cara", "devices": ["dev_C"], "media": "full"}])
-    cfg = {SID["B"]: {"name": "tomas", "addresses": ["tcp://127.0.0.1:5001"]},
+    cfg = {SID["B"]: {"name": "imani", "addresses": ["tcp://127.0.0.1:5001"]},
            SID["C"]: {"name": "cara", "addresses": ["tcp://127.0.0.1:5002"]}}
     mgr = FakeManager(root, "dev_A", folder=[SID["B"], SID["C"]], configs=cfg)
-    assert "keep everything" in M.remove(root, "tomas", manager=mgr)
+    assert "keep everything" in M.remove(root, "imani", manager=mgr)
     assert mgr.shared[-1] == [SID["C"]]
     removed = _events(root, "member.removed")
     assert [e["data"]["sync_ids"] for e in removed] == [[SID["B"]]]

@@ -1,6 +1,6 @@
 # Your first shared studio
 
-Maren and Tomas each have a local installation and working studio. One machine owns publishing. The app has two surfaces: the Workspace (the board of every artifact; Calendar lays out releases, Previews shows the feed, Sources tracks media and its licence evidence, and Approvals is where you sign) and the Room, where you watch, read and decide on a cut with Claude.
+Maren and Imani each have a local installation and working studio. One machine owns publishing. The app has two surfaces: the Workspace (the board of every artifact; Calendar lays out releases, Previews shows the feed, Sources tracks media and its licence evidence, and Approvals is where you sign) and the Room, where you watch, read and decide on a cut with Claude.
 
 ## Start on each computer
 
@@ -15,7 +15,7 @@ uv sync --all-extras
 
 Run the desktop command yourself in Terminal. The approval PIN shows only in the app's own sheets. The window stops its local server when closed. The browser alternative is `ave studio ui ~/Movies/MyShow/studio --open` (also a human launch). A source checkout offers `ave studio ui --fixtures --open` for fictional sample data; nothing in that mode affects a real post.
 
-An installed wheel provides `ave` directly. Install the desktop extra for a native window, or keep using the browser UI; [desktop.md](desktop.md) explains both and the Finder launcher. The launcher is tied to this installation and is unsigned. It is not a standalone installer for Tomas's computer.
+An installed wheel provides `ave` directly. Install the desktop extra for a native window, or keep using the browser UI; [desktop.md](desktop.md) explains both and the Finder launcher. The launcher is tied to this installation and is unsigned. It is not a standalone installer for Imani's computer.
 
 ## Connect your agent and creative tools
 

@@ -78,7 +78,7 @@ seconds in the cut ("at 12:40").
    overwrite a version; going back must always be safe.
 3. **Show it.** `room_offer_version(artifact, version, compare_to=<the version it replaces>, summary=...)`. The `summary` is
    one plain line of what changed, the way you would say it across the desk: "Cut the 40-second tangent about the van at
-   12:40, Tomas's reaction now lands on the laugh." The app then renders a quick preview of just the changed part; for a
+   12:40, Imani's reaction now lands on the laugh." The app then renders a quick preview of just the changed part; for a
    simple change that aims to be ready in about 15 seconds, and it can take longer.
    Use `room_show` to move the stage when you are talking about something that is not a new version (another view, a moment in
    the transcript, the selects), and `room_highlight` to point at lines or clips.
@@ -140,14 +140,14 @@ usually learn the status at the next `room_read`; if it was not `ok`, say so the
 On a shared project two people can change the same thing before either sees the other's change. Both sides are kept and a
 person chooses; you never pick a side on your own judgement.
 
-- **A stage changed on two computers.** `artifact_get` shows `stage_conflict`, for example "Maren and Tomas both changed
-  Refine: Maren moved it to Finish; Tomas moved it to Draft". The board and the Room show the same choices. Ask in one line
+- **A stage changed on two computers.** `artifact_get` shows `stage_conflict`, for example "Maren and Imani both changed
+  Refine: Maren moved it to Finish; Imani moved it to Draft". The board and the Room show the same choices. Ask in one line
   which to keep. Only when the person answers in chat, call `stage_settle(artifact, stage, quote, request_id)` with their
   words; the board shows it to confirm or undo. `stage_sign_off` refuses while a stage conflict is open.
 - **Two copies of a settings file** (episode.json, a post) are one open decision of kind `setting`: `artifact_get`
   shows each setting that differs as `keys` (`file` is what the file says, `copy` what the other copy says, "(not set)"
   where one has none). Nothing is merged by itself. Read the differences to the director in a line or two and ask.
-  Close it with `decision_resolve`: choice "Use all of Maren's" or "Use all of Tomas's" exactly as written, or
+  Close it with `decision_resolve`: choice "Use all of Maren's" or "Use all of Imani's" exactly as written, or
   "Picked setting by setting" with `picks` giving `file` or `copy` for every key, always with their words as `quote`.
   For a post or other studio file, the owner's computer writes the answer; until then `artifact_list` says it is waiting.
 - Who is a member never changes this way: it comes only from the owner's log.
@@ -165,7 +165,7 @@ way. After `ave start`, open the review with its list: every decision still open
 Every one is flagged **at the moment the director reviews it**, in the chat turn that offers the version, with the reason,
 short enough to answer in a word, and ending in a direct question:
 
-> Version 5 is up. Two calls I made: I used the wide on the laugh at 8:12 because Tomas's camera was soft there, and I
+> Version 5 is up. Two calls I made: I used the wide on the laugh at 8:12 because Imani's camera was soft there, and I
 > started on "So the first thing..." to skip the mic check. Keep both?
 
 Record each with `decision_record(artifact, summary, options, chosen, reason, request_id)`, so it stays flagged on the board
@@ -197,9 +197,9 @@ later.
 >
 > *(`room_read`: stage is the rough cut, `rough.v4`, at 12:40; no flags, no open offer.)*
 > *(Cuts 12:31 to 13:12 in a new version with ave-cleanup's judgment and saves `rough.v5`; logs the reaction-shot choice;
-> `room_offer_version("ep12", "rough.v5", compare_to="rough.v4", summary="Cut the van story at 12:31, 41 s; out on Tomas's laugh")`.)*
+> `room_offer_version("ep12", "rough.v5", compare_to="rough.v4", summary="Cut the van story at 12:31, 41 s; out on Imani's laugh")`.)*
 >
-> **Claude:** Version 5 is on the stage. The van story is gone and we come out on Tomas's laugh. One call I made: I cut
+> **Claude:** Version 5 is on the stage. The van story is gone and we come out on Imani's laugh. One call I made: I cut
 > on her reaction shot rather than yours, because her laugh carries it. Keep her shot?
 >
 > **Director:** Yes, keep this. Now tighten the end a bit.

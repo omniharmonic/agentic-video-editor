@@ -27,7 +27,7 @@ def two_member_project(tmp_path):
     root = tmp_path / "proj"
     H.write_project_json(root, "prj_TEST", "The Long Table", "flat",
                          [{"person": "maren", "devices": ["dev_A"], "media": "full"},
-                          {"person": "tomas", "devices": ["dev_B"], "media": "proxies"}], "dev_A")
+                          {"person": "imani", "devices": ["dev_B"], "media": "proxies"}], "dev_A")
     return root
 
 
@@ -35,7 +35,7 @@ def two_member_project(tmp_path):
 def cfg(two_member_project):
     import json
     meta = json.loads((two_member_project / ".ave" / "project.json").read_text())
-    peers = [Peer("dev_B", SID["B"], "100.64.0.2", "tomas"), Peer("dev_C", SID["C"], "100.64.0.3", "stranger")]
+    peers = [Peer("dev_B", SID["B"], "100.64.0.2", "imani"), Peer("dev_C", SID["C"], "100.64.0.3", "stranger")]
     return C.build_config(SID["A"], "100.64.0.1", [(two_member_project, meta)], peers, local_name="maren")
 
 
@@ -64,7 +64,7 @@ def sync_home(short_home):
 @pytest.fixture
 def sync_pair(short):
     a = H.make_home(short, "maren", "dev_A")
-    b = H.make_home(short, "tomas", "dev_B")
+    b = H.make_home(short, "imani", "dev_B")
     a.manager.start()
     b.manager.start()
     yield a, b

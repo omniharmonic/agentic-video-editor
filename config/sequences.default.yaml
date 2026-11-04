@@ -2,7 +2,7 @@
 # Resolution (first found wins, merged over THIS file): --policy FILE > <project>/policy/sequences.yaml > ~/.config/ave/sequences.yaml > this file.
 # Show-specific TEXT (show name, hosts, links, guests, episode title and the cold-open pick) lives in episode.json, not here:
 #   "show": {"name": "The Long Table", "tagline": "...", "logo": "04_GFX/logo.png",
-#            "hosts": [{"name": "Maren", "title": "Co-host"}, {"name": "Tomas", "title": "Co-host"}],
+#            "hosts": [{"name": "Maren", "title": "Co-host"}, {"name": "Imani", "title": "Co-host"}],
 #            "links": [{"label": "Subscribe", "value": "thelongtable.example"}]},
 #   "number": "00", "episode_title": "Why we are making this show", "guests": [{"name": "...", "title": "..."}],
 #   "sequences": {"cold_open": {"clip": "s1-03"}}      # or {"quote": {"text": "the exact words", "stage": "rough", "name": "s1"}}

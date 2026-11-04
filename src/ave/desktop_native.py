@@ -470,7 +470,7 @@ def main(*, fixture=False):
                 box=A.NSAlert.alloc().init();box.setMessageText_(f'Share {title}');box.setInformativeText_('Who are you inviting, and how much media should they keep? They need AVE Studio and Tailscale.')
                 box.addButtonWithTitle_('Make invitation');box.addButtonWithTitle_('Cancel')
                 view=A.NSView.alloc().initWithFrame_(((0,0),(340,62)))
-                name=A.NSTextField.alloc().initWithFrame_(((0,34),(340,24)));name.setPlaceholderString_('Their name, for example Tomas')
+                name=A.NSTextField.alloc().initWithFrame_(((0,34),(340,24)));name.setPlaceholderString_('Their name, for example Imani')
                 media=A.NSPopUpButton.alloc().initWithFrame_pullsDown_(((0,0),(340,26)),False);media.addItemsWithTitles_(['Review proxies plus what they work on','All the media'])
                 view.addSubview_(name);view.addSubview_(media);box.setAccessoryView_(view);box.window().setInitialFirstResponder_(name)
                 if box.runModal()!=A.NSAlertFirstButtonReturn:cancelled();return

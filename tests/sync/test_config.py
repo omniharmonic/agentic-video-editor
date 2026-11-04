@@ -31,9 +31,9 @@ def test_folders_never_auto_accept(cfg):
 def test_only_listed_members_get_a_folder(cfg):
     assert [d["deviceID"] for d in cfg["folders"][0]["devices"]] == [SID["A"], SID["B"]]
     assert SID["C"] not in {d["deviceID"] for d in cfg["devices"]}
-    tomas = next(d for d in cfg["devices"] if d["deviceID"] == SID["B"])
-    assert tomas["addresses"] == ["tcp://100.64.0.2:22417"]
-    assert tomas["allowedNetworks"] == ["100.64.0.0/10", "fd7a:115c:a1e0::/48"]
+    imani = next(d for d in cfg["devices"] if d["deviceID"] == SID["B"])
+    assert imani["addresses"] == ["tcp://100.64.0.2:22417"]
+    assert imani["allowedNetworks"] == ["100.64.0.0/10", "fd7a:115c:a1e0::/48"]
 
 
 @pytest.mark.parametrize("bad", ["0.0.0.0", "::", "dynamic", "default", "tcp://0.0.0.0:22000", "quic://100.64.0.1:22000",
@@ -44,7 +44,7 @@ def test_wildcard_or_dynamic_listen_is_refused(bad):
 
 
 def test_prepare_folder_writes_this_devices_ignores_and_marker(two_member_project):
-    text = C.prepare_folder(two_member_project, "dev_B")          # tomas keeps proxies only
+    text = C.prepare_folder(two_member_project, "dev_B")          # imani keeps proxies only
     assert (two_member_project / ".stfolder").is_dir()
     assert (two_member_project / ".stignore").read_text() == text
     assert "!/raw/proxies" in text and "\n/raw\n" in text and text.rstrip().endswith("*")

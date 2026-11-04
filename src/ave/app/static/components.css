@@ -380,7 +380,7 @@ body.has-batch .toasts { bottom: 104px; }
 @keyframes notice-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .notice { animation: none; } }
 
-/* ---------- presence: who else is working on this right now ("Tomas is in Cut") */
+/* ---------- presence: who else is working on this right now ("Imani is in Cut") */
 .here { display: inline-flex; align-items: center; gap: 6px; flex: none; max-width: 100%; height: 22px; padding: 0 8px 0 2px; border-radius: var(--radius-round);
   background: var(--primary-subtle); color: var(--text); font-size: var(--text-xs); white-space: nowrap; animation: notice-in var(--base) var(--ease); }
 .here .avatar { width: 18px; height: 18px; font-size: 9px; box-shadow: none; }

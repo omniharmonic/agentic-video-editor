@@ -24,9 +24,9 @@ Routes (served by server.py):
   GET   /api/workspace/room/<ref>          for the Room: a stage changed on two computers, and who else is working there
   POST  /api/workspace/presence            {artifact, view}: the Room is open there (presence.set, at most about once a minute)
 
-Conflicts and presence: a row's `conflict` says "Maren and Tomas both changed Refine" with one choice per side, and picking one
+Conflicts and presence: a row's `conflict` says "Maren and Imani both changed Refine" with one choice per side, and picking one
 is a stage change by hand that saw both (a new log event). A row's `presence` lists the other computers' people working on
-it ("Tomas is in Cut"), dropped once it runs out at `clock()`. Each project's `notices` carry what the conflict watcher
+it ("Imani is in Cut"), dropped once it runs out at `clock()`. Each project's `notices` carry what the conflict watcher
 (syncthing/conflicts.py: its worker runs after arrivals and answers, and a sweep every CONFLICT_S) found: copies outside the
 settings zone, and settings decisions on an artifact that has no row.
 

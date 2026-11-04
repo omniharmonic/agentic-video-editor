@@ -11,7 +11,7 @@ For anyone, human or agent, [AGENTS.md](../AGENTS.md) is the canonical statement
 
 | Document | What it is for | Audience |
 |---|---|---|
-| [shared-studio.md](shared-studio.md) | First shared studio for Maren and Tomas, launch and validation boundaries | user |
+| [shared-studio.md](shared-studio.md) | First shared studio for Maren and Imani, launch and validation boundaries | user |
 | [manual-publishing.md](manual-publishing.md) | Exact-resolution media/caption handoff for manual Instagram posting | user |
 | [desktop.md](desktop.md) | Native window, optional runtime and installation-bound Finder launcher | user |
 | [agents.md](agents.md) | External-agent stdio MCP and CLI integration | user, contributor |

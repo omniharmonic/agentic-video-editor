@@ -12,7 +12,7 @@ from ave.syncthing import ApiError
 from . import harness as H
 
 MEMBERS = lambda b_media: [{"person": "maren", "devices": ["dev_A"], "media": "full"},  # noqa: E731
-                           {"person": "tomas", "devices": ["dev_B"], "media": b_media}]
+                           {"person": "imani", "devices": ["dev_B"], "media": b_media}]
 
 
 def _project(base, side, pid, layout, b_media, studio=False):
@@ -124,7 +124,7 @@ def test_status_waits_for_an_offline_member(sync_pair, tmp_path):
     a.manager.wait(ra, "up_to_date", 60)
     b.manager.stop()
     s = a.manager.wait(ra, "waiting", 60)
-    assert s.waiting_for == ["tomas"]
+    assert s.waiting_for == ["imani"]
 
 
 def _synced_pair(a, b, tmp_path, pid):

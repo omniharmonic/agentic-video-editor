@@ -148,7 +148,7 @@ def test_append_writes_one_complete_line(project):
 
 
 def test_every_event_carries_what_this_computer_had_seen(project):
-    other = Log(project.log_dir, "efgh", "tomas")
+    other = Log(project.log_dir, "efgh", "imani")
     theirs = other.append("artifact.created", "art", {"stage": "Draft"})
     first = project.log.append("note.added", data={"text": "x"})
     assert first["seen"] == {"efgh": theirs["hlc"]}
@@ -218,12 +218,12 @@ def test_two_writers_on_one_computer_stay_ordered(project):
 
 def test_a_computer_whose_clock_is_far_behind_still_writes_after_what_it_saw(tmp_path):
     a = Log(tmp_path, "aaaa", "maren", wall=fixed("2026-11-02T10:00:00Z")).append("artifact.created", "art")
-    b = Log(tmp_path, "bbbb", "tomas", wall=fixed("2020-01-01T00:00:00Z")).append("artifact.updated", "art", {"title": "x"})
+    b = Log(tmp_path, "bbbb", "imani", wall=fixed("2020-01-01T00:00:00Z")).append("artifact.updated", "art", {"title": "x"})
     assert hlc.parse(b["hlc"]) > hlc.parse(a["hlc"])
 
 
 def test_a_reset_clock_orders_its_next_edit_after_everything_it_read(tmp_path):
-    b_log = Log(tmp_path, "bbbb", "tomas", wall=fixed("2020-01-01T00:00:00Z"))
+    b_log = Log(tmp_path, "bbbb", "imani", wall=fixed("2020-01-01T00:00:00Z"))
     b_log.append("artifact.updated", "art", {"title": "old 1"})
     b_log.append("artifact.updated", "art", {"title": "old 2"})
     a = Log(tmp_path, "aaaa", "maren", wall=fixed("2026-11-02T10:00:00Z")).append("artifact.updated", "art", {"title": "A"})
@@ -276,7 +276,7 @@ def test_a_damaged_index_is_rebuilt(project):
 
 
 def test_index_lists_conflicts_and_warnings(project):
-    Log(project.log_dir, "efgh", "tomas").append("stage.signed_off", "art", {"from": "Draft", "to": "Plan"}, seen={})
+    Log(project.log_dir, "efgh", "imani").append("stage.signed_off", "art", {"from": "Draft", "to": "Plan"}, seen={})
     project.log.append("stage.signed_off", "art", {"from": "Draft", "to": "Refine"}, seen={})
     (project.log_dir / "zzzz.jsonl").write_text("{torn")
     idx = project.index()
@@ -300,7 +300,7 @@ def test_two_ids_that_would_share_one_file_are_refused(tmp_path):
 
 def test_a_project_whose_members_would_share_a_log_file_is_refused(project):
     meta = json.loads(project.project_json.read_text())
-    meta["members"].append({"person": "tomas", "devices": ["dev_ABC"], "media": "proxies"})
+    meta["members"].append({"person": "imani", "devices": ["dev_ABC"], "media": "proxies"})
     meta["members"].append({"person": "sam", "devices": ["DEV_abc"], "media": "proxies"})
     project.project_json.write_text(json.dumps(meta))
     with pytest.raises(ProjectError):
@@ -375,7 +375,7 @@ def test_caller_seen_cannot_be_ahead_of_what_was_read(tmp_path):
 
 def test_append_reads_only_what_is_new(project, monkeypatch):
     import ave.project.log as logmod
-    other = Log(project.log_dir, "efgh", "tomas")
+    other = Log(project.log_dir, "efgh", "imani")
     for i in range(30):
         other.append("note.added", data={"text": str(i)})
     project.log.append("note.added")
@@ -469,7 +469,7 @@ def test_staleness_comes_from_the_lock_s_own_time_not_mtime(tmp_path):
 
 
 def test_stray_files_in_the_log_folder_do_not_stop_a_project_from_opening(project):
-    other = "dev_01TOMAS"
+    other = "dev_01IMANI"
     (project.log_dir / f"._{other}.jsonl").write_bytes(b"\x00\x05\x16\x07 AppleDouble")
     (project.log_dir / f"{other}.sync-conflict-20261102-101500-ABCDEFG.jsonl").write_text(GOOD.replace("abcd", other))
     p = Project.open(project.root)

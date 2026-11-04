@@ -11,7 +11,7 @@ or inside a request.
 
   settings zone   **Nothing merges by itself.** Syncthing keeps no common ancestor, and no inference of one is safe, so
                   every settings conflict is one decision for a person (`decision.recorded`, kind "setting"): a per-key
-                  comparison of the two files ("Maren's file: X / Tomas's file: Y", "(not set)" where a file has no such
+                  comparison of the two files ("Maren's file: X / Imani's file: Y", "(not set)" where a file has no such
                   key, with no guess whether it was added or removed). The person picks per key, or uses all of one
                   file, on the board or, in their own words, through Claude's decision_resolve. Nothing is written and
                   no copy is removed until then; the answer is applied with a compare-and-swap write, and the copy is

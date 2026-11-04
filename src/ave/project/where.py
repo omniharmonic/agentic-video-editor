@@ -2,11 +2,11 @@
 
 The zone rules (zones.py) decide whether a file syncs, and each member's media choice ("full" or "proxies") decides whether a
 raw footage file reaches that member's computer or only its review proxy does. This module turns those two facts into the
-words the person reads: "Shared with Tomas", "Only on this computer", "Proxies only on Tomas's computer", and, on a computer
+words the person reads: "Shared with Imani", "Only on this computer", "Proxies only on Imani's computer", and, on a computer
 that keeps proxies only, "Proxy on this computer; original on Maren's computer". People are named, never their device ids.
 
     w = Where.of(root, device_id, person)    # reads .ave/project.json and the layout once (zones.project_policy)
-    w.describe("raw/a.mov")                  # {"zone": "permanent", "text": "Shared with Tomas", "detail": "...", "people": [...]}
+    w.describe("raw/a.mov")                  # {"zone": "permanent", "text": "Shared with Imani", "detail": "...", "people": [...]}
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ RULE_NOTE = " This is what the project's sharing rules say; the sync status show
 
 
 def names(people: list[str]) -> str:
-    """"Tomas", "Tomas and Sam", "Tomas, Sam and Lee"."""
+    """"Imani", "Imani and Sam", "Imani, Sam and Lee"."""
     people = [p for p in people if p]
     if len(people) <= 1:
         return "".join(people)
@@ -34,7 +34,7 @@ def names(people: list[str]) -> str:
 
 
 def possessive(people: list[str]) -> str:
-    """"Tomas's computer", "Tomas's and Sam's computers"."""
+    """"Imani's computer", "Imani's and Sam's computers"."""
     owned = [f"{p}'" if p.endswith("s") else f"{p}'s" for p in people if p]
     return f"{names(owned)} computer{'s' if len(owned) > 1 else ''}"
 

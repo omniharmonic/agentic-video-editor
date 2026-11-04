@@ -60,7 +60,7 @@ def test_window_lifecycle_and_cleanup(monkeypatch, failure):
 
 
 def test_launcher_quotes_paths_and_never_overwrites(tmp_path):
-    studio = tmp_path / "Tomas's studio $(touch nope)"
+    studio = tmp_path / "Imani's studio $(touch nope)"
     app = desktop.build_launcher(tmp_path / "AVE Studio.app", studio_path=studio)
     plist = plistlib.loads((app / "Contents/Info.plist").read_bytes())
     assert plist["CFBundleExecutable"] == "AVE Studio"

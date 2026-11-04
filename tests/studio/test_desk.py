@@ -45,7 +45,7 @@ def test_desk_shows_source_episode_next_and_human_checkpoint(studio):
     meta = json.loads(ep.meta_path.read_text())
     meta['review'] = {'pending': 'Please confirm the host names'}
     ep.meta_path.write_text(json.dumps(meta))
-    result = intake(studio, kind='writing', text='We make things together. We leave space to listen.', title='A shared practice', actor=Actor('human','Tomas'))
+    result = intake(studio, kind='writing', text='We make things together. We leave space to listen.', title='A shared practice', actor=Actor('human','Imani'))
     assert result['source']['passages']
     d = overview(studio)
     assert d['sources'][0]['title'] == 'A shared practice'
@@ -56,13 +56,13 @@ def test_desk_shows_source_episode_next_and_human_checkpoint(studio):
 
 
 def test_idea_intake_is_revisioned_and_records_actor(studio):
-    result = intake(studio, kind='idea', text='A conversation about enough.', actor=Actor('human','Tomas'))
+    result = intake(studio, kind='idea', text='A conversation about enough.', actor=Actor('human','Imani'))
     post = result['post']
     assert post['stage'] == 'idea' and post['rev'] == 1 and not post['variants']
     d = overview(studio)
     assert d['groups']['ideas']['count'] == 1
     assert d['groups']['ideas']['items'][0]['title'] == 'A conversation about enough.'
-    assert 'Tomas' in (studio.sp.ledger_dir / 'events.jsonl').read_text()
+    assert 'Imani' in (studio.sp.ledger_dir / 'events.jsonl').read_text()
     assert not list((studio.sp.publish / 'queue').glob('*.json'))
 
 
@@ -94,10 +94,10 @@ def test_symlink_source_directory_is_refused(studio, tmp_path):
 
 
 def test_api_projects_real_state_and_accepts_text_intake(studio):
-    app = StudioApp(studio, by='Tomas', pin='123456')
+    app = StudioApp(studio, by='Imani', pin='123456')
     assert app.get('desk', {})[0] == 200
     code, obj = app.post('intake', {'kind':'idea','text':'Make space for the listener'})
-    assert code == 201 and obj['post']['by'] == 'Tomas'
+    assert code == 201 and obj['post']['by'] == 'Imani'
     assert app.get('desk', {})[1]['groups']['ideas']['count'] == 1
     app.close()
 
@@ -137,7 +137,7 @@ def test_malformed_source_index_does_not_hide_other_work(studio,content):
     index=studio.sp.work/'content/writing.json'
     index.parent.mkdir()
     index.write_text(content)
-    intake(studio,kind='idea',text='A good idea still appears.',actor=Actor('human','Tomas'))
+    intake(studio,kind='idea',text='A good idea still appears.',actor=Actor('human','Imani'))
     d=overview(studio)
     assert d['warnings'] and d['groups']['ideas']['count']==1
 
@@ -147,7 +147,7 @@ def test_intake_does_not_follow_write_sidecars(studio,tmp_path,sidecar):
     victim=tmp_path/'raw-recording';victim.write_bytes(b'ORIGINAL RAW BYTES')
     target=studio.sp.root/sidecar;target.parent.mkdir(parents=True,exist_ok=True);target.symlink_to(victim)
     with pytest.raises(ValueError,match='symlink'):
-        intake(studio,kind='writing',text='Some harmless prose.',actor=Actor('human','Tomas'))
+        intake(studio,kind='writing',text='Some harmless prose.',actor=Actor('human','Imani'))
     assert victim.read_bytes()==b'ORIGINAL RAW BYTES'
     assert not list((studio.sp.work/'writing').glob('*.md'))
 
@@ -157,7 +157,7 @@ def test_intake_never_rescans_unrelated_symlinked_or_large_sources(studio,tmp_pa
     outside=tmp_path/'private';outside.write_text('PRIVATE OUTSIDE PROSE MUST NOT BE INDEXED.')
     (directory/'leak.md').symlink_to(outside)
     (directory/'large.md').write_bytes(b'x'*2_000_001)
-    result=intake(studio,kind='writing',text='A safe new passage.',actor=Actor('human','Tomas'))
+    result=intake(studio,kind='writing',text='A safe new passage.',actor=Actor('human','Imani'))
     index=(studio.sp.work/'content/writing.json').read_text()
     assert 'PRIVATE' not in index and 'leak.md' not in index and 'large.md' not in index
     assert result['source']['totals']['files']==1

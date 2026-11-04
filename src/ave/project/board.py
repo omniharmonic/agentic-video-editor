@@ -133,7 +133,7 @@ def _and(names: list[str]) -> str:
 
 def stage_conflict(state: State, c) -> dict:
     """A stage changed on two computers at once, in words: {text, base, choices: [{stage, who, label}]}, choices in stage
-    order. "Maren and Tomas both changed Refine": both moved it on from the stage they agreed on, and neither saw the other."""
+    order. "Maren and Imani both changed Refine": both moved it on from the stage they agreed on, and neither saw the other."""
     a = state.artifacts.get(c.artifact)
     by: dict[str, list[str]] = {}
     for o in c.options:

@@ -272,7 +272,7 @@ def test_a_send_in_flight_records_its_receipt_after_the_project_turns_read_only(
     class SyncArrivesMidUpload(RecordingPublisher):
         def publish(self, item, video, progress):
             progress({"upload_id": "u1"})
-            as_version("9.9")                                              # Tomas updated; her next event syncs here
+            as_version("9.9")                                              # Imani updated; her next event syncs here
             Project.open(ep.root).log.append("note.added", data={"text": "from the newer app"})
             as_version("1.0")
             assert read_only_reason(ep.root)                               # this project is read-only from now on

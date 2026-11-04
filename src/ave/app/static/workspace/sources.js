@@ -1,6 +1,6 @@
 // Sources: what each project is made from, like a Monday table grouped by project. Footage, graphics and music from the
 // project folders, and the studio's library with its licences. Each file says where it is in plain words, by name: "Shared with
-// Tomas", "Only on this computer", "Proxies only on Tomas's computer" (GET /api/workspace/sources, project/where.py).
+// Imani", "Only on this computer", "Proxies only on Imani's computer" (GET /api/workspace/sources, project/where.py).
 //
 // Files are added through the app's own panel (aveNative.importLibrary), never a web file input: the app's web view cannot
 // show a file picker, and the originals stay where they are. "Find B-roll" searches the stock providers and the library

@@ -211,7 +211,7 @@ $("#long").append(
       h("div", { class: "grp-table" }, head, h("div", { class: "ws-rows" },
         row("The Long Table, episode 12", "Refine", "Maren", "you", "Tightening the opening", "Nov 10", "Rough cut s2, version 3", "", false, { parts: 1, updates: 2, changed: true }),
         row("Short: the van story", "Draft", "Claude", "", "", "", "Short van, version 2", "is-part is-hover", false, { review: true }),
-        row("Newsletter, November", "Plan", "Tomas", "claude", "Drafting the intro", "Oct 30", "", "", true, { late: true }),
+        row("Newsletter, November", "Plan", "Imani", "claude", "Drafting the intro", "Oct 30", "", "", true, { late: true }),
         row("A name long enough to run past the edge of its column and keep going", "Finish", null, "", "", "", "")),
         h("div", { class: "ws-row ws-addrow" }, h("div", { class: "ws-cell c-check" }), h("div", { class: "ws-cell c-addname" }, h("input", { class: "ws-add-input", placeholder: "+ Add artifact", "aria-label": "Add artifact" })),
           h("div", { class: "ws-cell c-addrest" })))),

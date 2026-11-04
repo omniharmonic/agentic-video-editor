@@ -1,6 +1,6 @@
 """Readiness: a version whose files have not all arrived (or arrived wrong) is never opened.
 
-Tomas's computer writes the log; her log syncs here ahead of the files. Each test builds that by appending to a second log file
+Imani's computer writes the log; her log syncs here ahead of the files. Each test builds that by appending to a second log file
 in the same project (her device), then making her files appear (or not) on this computer.
 """
 
@@ -32,20 +32,20 @@ def doc(stage: str = "rough") -> dict:
     return d
 
 
-def tomas(project: Project) -> Log:
-    return Log(project.log_dir, "dev_TOMAS0000000000000000000000", "tomas")
+def imani(project: Project) -> Log:
+    return Log(project.log_dir, "dev_IMANI0000000000000000000000", "imani")
 
 
 def need(rel: str, data: bytes) -> dict:
     return {"path": rel, "sha256": hashlib.sha256(data).hexdigest(), "bytes": len(data)}
 
 
-def tomas_made(project: Project, version: str, files: dict[str, bytes], footage: dict[str, int] | None = None) -> dict:
-    """Tomas logs `version` with what it needs (her edit and caption files hashed, footage by size only). Nothing lands here."""
+def imani_made(project: Project, version: str, files: dict[str, bytes], footage: dict[str, int] | None = None) -> dict:
+    """Imani logs `version` with what it needs (her edit and caption files hashed, footage by size only). Nothing lands here."""
     needs = [need(rel, data) for rel, data in files.items()]
     needs += [{"path": rel, "bytes": n, "mtime": 1.0, "sha256": None, "hash": "pending"} for rel, n in (footage or {}).items()]
     edit = next(iter(files))
-    return tomas(project).append("version.added", artifact="art_ep", data={"version": version, "file": edit}, needs=needs)
+    return imani(project).append("version.added", artifact="art_ep", data={"version": version, "file": edit}, needs=needs)
 
 
 def put(root: Path, rel: str, data: bytes) -> Path:
@@ -84,14 +84,14 @@ def settled(project: Project) -> dict:
 def test_log_ahead_of_files_is_arriving(ep):
     edit = json.dumps(doc()).encode()
     srt = b"1\n00:00:00,000 --> 00:00:01,000\nhello\n"
-    tomas_made(ep, "rough.v1~jos0", {"edits/rough.v1~jos0.json": edit, "captions/rough.srt": srt}, footage={"raw/camA.mov": 4096})
+    imani_made(ep, "rough.v1~jos0", {"edits/rough.v1~jos0.json": edit, "captions/rough.srt": srt}, footage={"raw/camA.mov": 4096})
     st = ep.state()
 
     got = R.readiness(st, ep.root)                        # the log is here; not one of its files is
     assert got["rough.v1~jos0"] == "arriving" and got["art_ep"] == "arriving"
     d = R.details(st, ep.root)["rough.v1~jos0"]
-    assert d["reason"] == "missing" and d["from"] == "tomas"
-    assert R.say(d) == ("This version is still arriving from Tomas: its files have not all reached this computer yet. "
+    assert d["reason"] == "missing" and d["from"] == "imani"
+    assert R.say(d) == ("This version is still arriving from Imani: its files have not all reached this computer yet. "
                         "Wait until it has arrived.")
 
     # Syncthing is writing the edit file: a temp file beside where it will land, and the half-written file not yet renamed
@@ -118,7 +118,7 @@ def test_log_ahead_of_files_is_arriving(ep):
 
 def test_hash_unknown_reads_arriving_and_is_never_worked_out_on_the_callers_thread(ep, monkeypatch):
     edit = json.dumps(doc()).encode()
-    tomas_made(ep, "rough.v1~jos0", {"edits/rough.v1~jos0.json": edit})
+    imani_made(ep, "rough.v1~jos0", {"edits/rough.v1~jos0.json": edit})
     put(ep.root, "edits/rough.v1~jos0.json", edit)
     gate, threads = threading.Event(), []
     real = R._sha256
@@ -141,7 +141,7 @@ def test_hash_unknown_reads_arriving_and_is_never_worked_out_on_the_callers_thre
 
 def test_wrong_hash_is_damaged(ep):
     edit = json.dumps(doc()).encode()
-    tomas_made(ep, "rough.v1~jos0", {"edits/rough.v1~jos0.json": edit})
+    imani_made(ep, "rough.v1~jos0", {"edits/rough.v1~jos0.json": edit})
     wrong = edit.replace(b'"rough"', b'"rouge"')
     assert len(wrong) == len(edit) and wrong != edit
     put(ep.root, "edits/rough.v1~jos0.json", wrong)
@@ -149,14 +149,14 @@ def test_wrong_hash_is_damaged(ep):
     assert got["rough.v1~jos0"] == "damaged" and got["art_ep"] == "damaged"
     d = R.details(ep.state(), ep.root)["rough.v1~jos0"]
     assert d["reason"] == "hash"
-    assert R.say(d) == "This version arrived damaged: rough.v1~jos0.json does not match what Tomas saved. Ask Tomas to resend it."
+    assert R.say(d) == "This version arrived damaged: rough.v1~jos0.json does not match what Imani saved. Ask Imani to resend it."
     put(ep.root, "edits/rough.v1~jos0.json", edit)           # synced again
     assert settled(ep)["rough.v1~jos0"] == "ready"
 
 
 def test_hash_is_cached_until_the_file_changes(ep, monkeypatch):
     edit = json.dumps(doc()).encode()
-    tomas_made(ep, "rough.v1~jos0", {"edits/rough.v1~jos0.json": edit})
+    imani_made(ep, "rough.v1~jos0", {"edits/rough.v1~jos0.json": edit})
     p = put(ep.root, "edits/rough.v1~jos0.json", edit)
     calls = []
     real = R._sha256
@@ -186,7 +186,7 @@ def test_hash_is_cached_until_the_file_changes(ep, monkeypatch):
 
 
 def test_an_old_event_without_needs_is_ready_once_its_file_exists(ep):
-    tomas(ep).append("version.added", artifact="art_ep", data={"version": "rough.v1", "file": "edits/rough.v1.json"})
+    imani(ep).append("version.added", artifact="art_ep", data={"version": "rough.v1", "file": "edits/rough.v1.json"})
     assert R.readiness(ep.state(), ep.root)["rough.v1"] == "arriving"
     put(ep.root, "edits/rough.v1.json", json.dumps(doc()).encode())
     assert R.readiness(ep.state(), ep.root)["rough.v1"] == "ready"
@@ -202,7 +202,7 @@ def test_on_proxies_the_proxy_stands_in_for_the_original(ep):
     """Camera originals never come to a member on proxies, so they never hold a version back; the proxy it plays from does."""
     on_proxies(ep)
     edit = json.dumps(doc()).encode()
-    tomas_made(ep, "rough.v1~jos0", {"edits/rough.v1~jos0.json": edit}, footage={"raw/camA.mov": 4096})
+    imani_made(ep, "rough.v1~jos0", {"edits/rough.v1~jos0.json": edit}, footage={"raw/camA.mov": 4096})
     put(ep.root, "edits/rough.v1~jos0.json", edit)
     settled(ep)
     d = R.details(ep.state(), ep.root)["rough.v1~jos0"]
@@ -215,7 +215,7 @@ def test_a_recorded_proxy_is_checked_by_size_and_only_on_proxies(ep):
     edit = json.dumps(doc()).encode()
     needs = [need("edits/rough.v1~jos0.json", edit), {"path": "raw/camA.mov", "bytes": 4096, "sha256": None, "hash": "pending"},
              {"path": "raw/proxies/camA.mov", "bytes": 512, "sha256": None, "hash": "pending", "proxy_of": "raw/camA.mov"}]
-    tomas(ep).append("version.added", artifact="art_ep", data={"version": "rough.v1~jos0", "file": "edits/rough.v1~jos0.json"},
+    imani(ep).append("version.added", artifact="art_ep", data={"version": "rough.v1~jos0", "file": "edits/rough.v1~jos0.json"},
                      needs=needs)
     put(ep.root, "edits/rough.v1~jos0.json", edit)
     put(ep.root, "raw/camA.mov", b"\0" * 4096)
@@ -241,9 +241,9 @@ def test_versions_saved_here_record_their_proxies(ep):
 
 def test_the_artifact_reads_its_kept_version(ep):
     a, b = json.dumps(doc()).encode(), json.dumps(doc("final")).encode()
-    tomas_made(ep, "rough.v1~jos0", {"edits/rough.v1~jos0.json": a})
+    imani_made(ep, "rough.v1~jos0", {"edits/rough.v1~jos0.json": a})
     put(ep.root, "edits/rough.v1~jos0.json", a)
-    tomas_made(ep, "final.v1~jos0", {"edits/final.v1~jos0.json": b})
+    imani_made(ep, "final.v1~jos0", {"edits/final.v1~jos0.json": b})
     assert settled(ep)["art_ep"] == "arriving"              # the newest has not arrived
     ep.log.append("version.kept", "art_ep", {"version": "rough.v1~jos0"})
     assert settled(ep)["art_ep"] == "ready"                 # the kept one has
@@ -263,12 +263,12 @@ def test_versions_saved_here_record_what_they_need(ep):
 # ---------------------------------------------------------------------------------------------------- one choke point
 @pytest.fixture
 def v1_here_v2_arriving(ep):
-    """Maren saved rough v1 here; Tomas's rough v2 is in the log, its edit file still on the way."""
+    """Maren saved rough v1 here; Imani's rough v2 is in the log, its edit file still on the way."""
     from ave.episode import Episode
     e = Episode(ep.root)
     v1 = editdoc.save_new_version(e, doc())
     edit2 = json.dumps(doc()).encode()
-    tomas_made(ep, "rough.v2~jos0", {"edits/rough.v2~jos0.json": edit2})
+    imani_made(ep, "rough.v2~jos0", {"edits/rough.v2~jos0.json": edit2})
     return e, v1, edit2
 
 
@@ -284,7 +284,7 @@ def test_render_refuses_when_the_newest_version_is_arriving(v1_here_v2_arriving,
     e, v1, _ = v1_here_v2_arriving
     with pytest.raises(R.NotReady) as got:
         render.cmd_render(_args(episode=str(e.root)))
-    assert str(got.value) == ("Rough cut, version 2 is still arriving from Tomas: its files have not all reached this computer "
+    assert str(got.value) == ("Rough cut, version 2 is still arriving from Imani: its files have not all reached this computer "
                               "yet. Wait until it has arrived. To use the version before on purpose, name it: --version 1.")
     seen = []                                                # named on purpose, a ready version goes ahead
     monkeypatch.setattr("ave.compile.render", lambda ep, doc, out, **kw: seen.append(doc) or {"out": str(out)})
@@ -294,7 +294,7 @@ def test_render_refuses_when_the_newest_version_is_arriving(v1_here_v2_arriving,
 def test_handoff_refuses_when_the_newest_version_is_arriving(v1_here_v2_arriving, monkeypatch):
     from ave.commands import handoff
     e, v1, _ = v1_here_v2_arriving
-    with pytest.raises(R.NotReady, match="Rough cut, version 2 is still arriving from Tomas.*--version 1"):
+    with pytest.raises(R.NotReady, match="Rough cut, version 2 is still arriving from Imani.*--version 1"):
         handoff.cmd(_args(episode=str(e.root), stage=None))
     picked = handoff._pick(e, "rough", None, "1")            # `ave handoff --version 1`
     assert picked[3] == v1
@@ -305,7 +305,7 @@ def test_a_damaged_edit_is_refused_before_it_is_parsed(v1_here_v2_arriving, monk
     e, v1, edit2 = v1_here_v2_arriving
     put(e.root, "edits/rough.v2~jos0.json", b"{" + b" " * (len(edit2) - 1))     # right size, not even JSON
     monkeypatch.setattr(editdoc, "read_json", lambda p: pytest.fail("parsed a damaged edit"))
-    with pytest.raises(R.NotReady, match="arrived damaged: rough.v2~jos0.json does not match what Tomas saved"):
+    with pytest.raises(R.NotReady, match="arrived damaged: rough.v2~jos0.json does not match what Imani saved"):
         render.cmd_render(_args(episode=str(e.root)))
     with pytest.raises(R.NotReady, match="arrived damaged"):
         editdoc.load(e.root / "edits/rough.v2~jos0.json")     # named on purpose: still never parsed
@@ -315,7 +315,7 @@ def test_final_refuses_through_the_same_choke_point(v1_here_v2_arriving):
     """`ave final` clones the latest rough: it must not build a final from v1 while v2 is on its way."""
     from ave import final
     e, v1, _ = v1_here_v2_arriving
-    with pytest.raises(R.NotReady, match="Rough cut, version 2 is still arriving from Tomas"):
+    with pytest.raises(R.NotReady, match="Rough cut, version 2 is still arriving from Imani"):
         editdoc.load_latest(e, "rough")
     src = Path(final.__file__).read_text()
     assert "load_latest(" in src or "latest_path(" in src     # final reads its base through the choke point
@@ -330,7 +330,7 @@ def test_once_the_newest_arrives_the_latest_is_it(v1_here_v2_arriving):
 # ---------------------------------------------------------------------------------------------------- cost and dead ends
 def test_a_hash_that_cannot_be_saved_settles_and_backs_off(ep, monkeypatch):
     edit = json.dumps(doc()).encode()
-    tomas_made(ep, "rough.v1~jos0", {"edits/rough.v1~jos0.json": edit})
+    imani_made(ep, "rough.v1~jos0", {"edits/rough.v1~jos0.json": edit})
     put(ep.root, "edits/rough.v1~jos0.json", edit)
 
     def fail(*a, **k):
@@ -355,7 +355,7 @@ def test_repeated_looks_cost_a_stat_per_folder(ep, monkeypatch):
     for n in range(1, 31):                                   # 30 versions, each an edit and a caption file
         e = json.dumps({**doc(), "n": n}).encode()
         srt = f"1\n00:00:00,000 --> 00:00:01,000\nline {n}\n".encode()
-        tomas_made(ep, f"rough.v{n}~jos0", {f"edits/rough.v{n}~jos0.json": e, f"captions/rough.v{n}.srt": srt})
+        imani_made(ep, f"rough.v{n}~jos0", {f"edits/rough.v{n}~jos0.json": e, f"captions/rough.v{n}.srt": srt})
         put(ep.root, f"edits/rough.v{n}~jos0.json", e)
         put(ep.root, f"captions/rough.v{n}.srt", srt)
     st = ep.state()
@@ -375,24 +375,24 @@ def test_arriving_with_no_change_for_ten_minutes_is_stuck(ep, monkeypatch):
     clock = [time.time()]
     monkeypatch.setattr(R, "_now", lambda: clock[0])
     edit = json.dumps(doc()).encode()
-    tomas_made(ep, "rough.v1~jos0", {"edits/rough.v1~jos0.json": edit})
+    imani_made(ep, "rough.v1~jos0", {"edits/rough.v1~jos0.json": edit})
     assert R.readiness(ep.state(), ep.root)["rough.v1~jos0"] == "arriving"
     clock[0] += 599
     assert R.readiness(ep.state(), ep.root)["rough.v1~jos0"] == "arriving"
     clock[0] += 2
     d = R.details(ep.state(), ep.root)["rough.v1~jos0"]
     assert (d["status"], d["reason"]) == ("stuck", "sync")
-    assert R.say(d) == ("This version is stuck: nothing more has arrived from Tomas for ten minutes. Check sync status: Tomas's "
+    assert R.say(d) == ("This version is stuck: nothing more has arrived from Imani for ten minutes. Check sync status: Imani's "
                         "computer may be off or not syncing.")
 
-    # a file of the wrong size with nothing copying it: ask Tomas to resend
+    # a file of the wrong size with nothing copying it: ask Imani to resend
     put(ep.root, "edits/rough.v1~jos0.json", edit[:-10])
     R.invalidate(ep.root)
     assert R.readiness(ep.state(), ep.root)["rough.v1~jos0"] == "arriving"   # it changed: the ten minutes start again
     clock[0] += 601
     d = R.details(ep.state(), ep.root)["rough.v1~jos0"]
     assert (d["status"], d["reason"]) == ("stuck", "resend")
-    assert "Ask Tomas to resend it." in R.say(d)
+    assert "Ask Imani to resend it." in R.say(d)
 
     # a Syncthing temp file that has not grown for ten minutes is stuck; one still growing is arriving
     (ep.root / "edits/rough.v1~jos0.json").unlink()
@@ -431,11 +431,11 @@ def test_claude_cannot_put_a_version_on_stage_before_it_arrives(studio):
     from ave.studio.service import open_studio
     sp, project = studio
     edit = json.dumps(doc()).encode()
-    tomas_made(project, "rough.v1~jos0", {"edits/rough.v1~jos0.json": edit})
+    imani_made(project, "rough.v1~jos0", {"edits/rough.v1~jos0.json": edit})
     app = AgentApp(open_studio(sp.root), by="claude-code")
     for tool, args in (("room_show", {"artifact": "ep", "view": "cut", "version": "rough.v1~jos0"}),
                        ("room_offer_version", {"artifact": "ep", "version": "rough.v1~jos0", "summary": "x"})):
-        with pytest.raises(NotReady, match="still arriving from Tomas"):
+        with pytest.raises(NotReady, match="still arriving from Imani"):
             app.call(tool, args)
     s = Session(app)
     s.initialized = s.ready = True
@@ -494,16 +494,16 @@ def test_arriving_version_cannot_be_opened(page, room_server):
     import urllib.request
     project = room_server.ep
     edit = json.dumps(doc()).encode()
-    tomas_made(project, "rough.v1~jos0", {"edits/rough.v1~jos0.json": edit})
+    imani_made(project, "rough.v1~jos0", {"edits/rough.v1~jos0.json": edit})
     room_server.room.show(artifact="ep", view="cut", version="rough.v1~jos0")
 
-    page.get_by_role("heading", name="Arriving from Tomas…").wait_for()
+    page.get_by_role("heading", name="Arriving from Imani…").wait_for()
     assert page.get_by_text("Its files are still copying to this computer.", exact=False).is_visible()
     assert page.locator(".room-arrive").inner_text() == "Arriving"
     assert page.locator(".room-main .cut-play").first.is_disabled()      # nothing to play
     assert page.get_by_role("button", name="Render the full cut").count() == 0
     assert page.evaluate("!document.querySelector('video').getAttribute('src')")
-    with pytest.raises(LookupError, match="still arriving from Tomas"):
+    with pytest.raises(LookupError, match="still arriving from Imani"):
         room_server.render_full("ep", "rough.v1~jos0")
     req = urllib.request.Request(f"http://127.0.0.1:{room_server.port}/api/room/cut?artifact=ep&version=rough.v1~jos0",
                                  headers={"X-AVE-Token": room_server.token})
@@ -520,11 +520,11 @@ def test_arriving_version_cannot_be_opened(page, room_server):
 
     # a version that arrives damaged says so, and what to do
     wrong = edit.replace(b'"rough"', b'"rouge"')
-    tomas_made(project, "rough.v2~jos0", {"edits/rough.v2~jos0.json": edit})
+    imani_made(project, "rough.v2~jos0", {"edits/rough.v2~jos0.json": edit})
     put(project.root, "edits/rough.v2~jos0.json", wrong)
     room_server.offer("rough.v2~jos0", artifact="ep", summary="Opens on the question")
     page.get_by_role("heading", name="This version arrived damaged").wait_for(timeout=15_000)
-    assert page.get_by_text("Ask Tomas to resend it.", exact=False).first.is_visible()
+    assert page.get_by_text("Ask Imani to resend it.", exact=False).first.is_visible()
     assert page.locator(".room-arrive").inner_text() == "Damaged"
     assert page.get_by_role("button", name="Keep this").is_disabled()
     assert page.locator(".room-main .cut-transport button", has_text="Flag this moment").is_disabled()
@@ -542,29 +542,29 @@ def test_arriving_version_cannot_be_opened(page, room_server):
     page.goto(room_server.app_url() + "#/workspace")
     mark = page.locator(".c-version .ready-mark")
     mark.wait_for()
-    assert mark.get_attribute("aria-label") == "Damaged on the way from Tomas: ask Tomas to resend it"
+    assert mark.get_attribute("aria-label") == "Damaged on the way from Imani: ask Imani to resend it"
     put(project.root, "edits/rough.v2~jos0.json", edit)
     mark.wait_for(state="detached", timeout=15_000)
 
-    # the mark follows the version the cell shows: v2 kept, Tomas's v3 still copying, the cell says version 3 and is marked
+    # the mark follows the version the cell shows: v2 kept, Imani's v3 still copying, the cell says version 3 and is marked
     project.log.append("version.kept", "art_ep", {"version": "rough.v2~jos0"})
-    tomas_made(project, "rough.v3~jos0", {"edits/rough.v3~jos0.json": edit})
+    imani_made(project, "rough.v3~jos0", {"edits/rough.v3~jos0.json": edit})
     page.locator(".c-version", has_text="Rough cut, version 3").locator(".ready-mark").wait_for(timeout=15_000)
-    assert page.locator(".c-version .ready-mark").get_attribute("aria-label") == "Arriving from Tomas…"
+    assert page.locator(".c-version .ready-mark").get_attribute("aria-label") == "Arriving from Imani…"
 
 
 # ---------------------------------------------------------------------------------------------------- fix round 2
 @pytest.fixture
 def rough_here_final_logged(ep):
-    """Maren has rough v1 here; Tomas's final v1 is in the log and not one byte of it has arrived."""
+    """Maren has rough v1 here; Imani's final v1 is in the log and not one byte of it has arrived."""
     from ave.episode import Episode
     e = Episode(ep.root)
     editdoc.save_new_version(e, doc())
-    tomas_made(ep, "final.v1~jos0", {"edits/final.v1~jos0.json": json.dumps(doc("final")).encode()})
+    imani_made(ep, "final.v1~jos0", {"edits/final.v1~jos0.json": json.dumps(doc("final")).encode()})
     return e
 
 
-ARRIVING_FINAL = "Final cut, version 1 is still arriving from Tomas"
+ARRIVING_FINAL = "Final cut, version 1 is still arriving from Imani"
 
 
 def test_render_never_skips_an_arriving_final_for_the_rough(rough_here_final_logged, monkeypatch):
@@ -609,7 +609,7 @@ def test_a_folder_adopted_after_a_load_is_guarded(tmp_path):
     put(root, "edits/rough.v1~jos0.json", json.dumps(doc()).encode())
     editdoc.load(root / "edits/rough.v1~jos0.json")                 # not a project yet: read as before
     pr = Project.create(root, "Later", person="maren")
-    tomas_made(pr, "rough.v1~jos0", {"edits/rough.v1~jos0.json": b"x" * len(json.dumps(doc()).encode())})
+    imani_made(pr, "rough.v1~jos0", {"edits/rough.v1~jos0.json": b"x" * len(json.dumps(doc()).encode())})
     with pytest.raises(R.NotReady, match="arrived damaged"):
         editdoc.load(root / "edits/rough.v1~jos0.json")
 
@@ -654,7 +654,7 @@ def test_a_version_deleted_here_is_stuck_and_an_explicit_choice_goes_through(ep,
 
 
 def test_a_file_in_the_sync_trash_reads_removed(ep):
-    tomas_made(ep, "rough.v1~jos0", {"edits/rough.v1~jos0.json": json.dumps(doc()).encode()})
+    imani_made(ep, "rough.v1~jos0", {"edits/rough.v1~jos0.json": json.dumps(doc()).encode()})
     put(ep.root, ".stversions/edits/rough.v1~jos0.json", b"{}")
     d = R.details(ep.state(), ep.root)["rough.v1~jos0"]
     assert (d["status"], d["reason"]) == ("stuck", "removed")
