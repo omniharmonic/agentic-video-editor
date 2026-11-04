@@ -95,3 +95,74 @@ def test_a_bad_content_length_is_refused_and_never_read(world, value):
     finally:
         c.close()
     assert int(data.split(b" ", 2)[1]) in (400, 411, 413)
+
+
+def test_a_file_replaced_while_it_is_served_is_sent_whole(world, monkeypatch):
+    """A background writer swaps the file for a shorter one between the size check and the read (atomic replace): the
+    response must describe the file it actually sends, or a kept-alive client waits forever for the missing bytes."""
+    from pathlib import Path
+    target = world.ep.exports / "notes.txt"
+    real_open = Path.open
+
+    def swap_then_open(self, *a, **k):
+        if self == target:
+            tmp = target.with_suffix(".new")
+            tmp.write_text("short")
+            tmp.replace(target)
+        return real_open(self, *a, **k)
+
+    monkeypatch.setattr(Path, "open", swap_then_open)
+    s, h, body = _get(world, world.base + "exports/notes.txt")
+    assert s == 200 and body == b"short" and h["Content-Length"] == "5"
+
+
+def test_a_file_cut_short_mid_read_closes_the_connection(world, monkeypatch):
+    """Truncated in place after the headers went out: the bytes cannot be taken back, so the server closes the connection
+    and the client gets a clear short read at once instead of hanging on a kept-alive socket."""
+    import os
+    from pathlib import Path
+    target = world.ep.exports / "notes.txt"
+    real_open = Path.open
+
+    class Shrinking:
+        def __init__(self, f):
+            self.f = f
+        def __enter__(self):
+            return self
+        def __exit__(self, *exc):
+            self.f.close()
+        def seek(self, n):
+            self.f.seek(n)
+        def fileno(self):
+            return self.f.fileno()
+        def read(self, n):
+            os.truncate(target, 10)
+            return self.f.read(n)
+
+    monkeypatch.setattr(Path, "open", lambda self, *a, **k: Shrinking(real_open(self, *a, **k)) if self == target else real_open(self, *a, **k))
+    c = http.client.HTTPConnection("127.0.0.1", world.srv.port, timeout=5)
+    c.request("GET", world.base + "exports/notes.txt", headers={"X-AVE-Token": world.srv.token, "Host": f"127.0.0.1:{world.srv.port}"})
+    r = c.getresponse()
+    with pytest.raises(http.client.IncompleteRead):
+        r.read()
+    c.close()
+
+
+def test_responses_go_out_without_waiting_on_nagle(world):
+    """Kept-alive responses are two writes (headers, then body). With Nagle's algorithm on, Linux holds the second until the
+    client's delayed ACK (up to 40 ms) on every response: the route walk took minutes on Linux CI instead of seconds."""
+    import socket as _socket
+    seen = []
+    from ave.studio.ui import http as http_mod
+    real = http_mod.Handler.setup
+
+    def setup(self):
+        real(self)
+        seen.append(self.connection.getsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY))
+
+    http_mod.Handler.setup = setup
+    try:
+        _get(world, world.base + "exports/notes.txt")
+    finally:
+        http_mod.Handler.setup = real
+    assert seen and all(seen), seen

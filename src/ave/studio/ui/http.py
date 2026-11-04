@@ -88,6 +88,8 @@ def _servable(ep: Episode, p: Path) -> str | None:
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     server_version = "ave-studio"
+    disable_nagle_algorithm = True          # headers and body go out as two writes: with Nagle on, a kept-alive client on Linux
+                                            # waits out its 40 ms delayed ACK on every response
 
     def log_message(self, fmt, *args):      # quiet: tokens appear in URLs
         pass
@@ -163,37 +165,37 @@ class Handler(BaseHTTPRequestHandler):
 
     def _file(self, rel: str, *, csp: str = FILE_CSP, ep: Episode | None = None) -> None:
         p = resolve_inside(ep or self.server.app.ep, rel)
-        size = p.stat().st_size
         ctype = mimetypes.guess_type(p.name)[0] or "application/octet-stream"
-        start, end, status = 0, size - 1, 200
-        rng = self.headers.get("Range")
-        if rng:
-            m = _RANGE.match(rng.strip())
-            if not m or (not m.group(1) and not m.group(2)):
-                return self._range_unsatisfiable(size)
-            if m.group(1):
-                start = int(m.group(1))
-                end = min(int(m.group(2)), size - 1) if m.group(2) else size - 1
-            else:                                               # suffix: the last N bytes
-                start = max(size - int(m.group(2)), 0)
-            if start >= size or start > end:
-                return self._range_unsatisfiable(size)
-            status = 206
-        length = end - start + 1 if size else 0
-        self.send_response(status)
-        self.send_header("Content-Type", ctype)
-        self.send_header("Content-Length", str(length))
-        self.send_header("Accept-Ranges", "bytes")
-        if status == 206:
-            self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
-        self.send_header("Cache-Control", "no-store")
-        self.send_header("X-Content-Type-Options", "nosniff")
-        self.send_header("Content-Security-Policy", csp)
-        self.end_headers()
-        if self.command == "HEAD" or not length:
-            return
-        try:
-            with p.open("rb") as f:
+        with p.open("rb") as f:             # size from the open file: a writer may replace the path after a stat()
+            size = os.fstat(f.fileno()).st_size
+            start, end, status = 0, size - 1, 200
+            rng = self.headers.get("Range")
+            if rng:
+                m = _RANGE.match(rng.strip())
+                if not m or (not m.group(1) and not m.group(2)):
+                    return self._range_unsatisfiable(size)
+                if m.group(1):
+                    start = int(m.group(1))
+                    end = min(int(m.group(2)), size - 1) if m.group(2) else size - 1
+                else:                                           # suffix: the last N bytes
+                    start = max(size - int(m.group(2)), 0)
+                if start >= size or start > end:
+                    return self._range_unsatisfiable(size)
+                status = 206
+            length = end - start + 1 if size else 0
+            self.send_response(status)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Content-Length", str(length))
+            self.send_header("Accept-Ranges", "bytes")
+            if status == 206:
+                self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("Content-Security-Policy", csp)
+            self.end_headers()
+            if self.command == "HEAD" or not length:
+                return
+            try:
                 f.seek(start)
                 left = length
                 while left > 0:
@@ -202,8 +204,10 @@ class Handler(BaseHTTPRequestHandler):
                         break
                     self.wfile.write(chunk)
                     left -= len(chunk)
-        except (BrokenPipeError, ConnectionResetError):
-            pass                                                # the player seeked away
+                if left:                    # truncated in place mid-read: the promised length cannot be met, so end the
+                    self.close_connection = True     # connection rather than leave a kept-alive client waiting for bytes
+            except (BrokenPipeError, ConnectionResetError):
+                pass                                            # the player seeked away
 
     def _range_unsatisfiable(self, size: int) -> None:
         self.send_response(HTTPStatus.REQUESTED_RANGE_NOT_SATISFIABLE)

@@ -9,6 +9,7 @@ from __future__ import annotations
 import fcntl
 import hashlib
 import json
+import stat
 from contextlib import contextmanager, nullcontext
 from datetime import datetime
 from pathlib import Path
@@ -48,7 +49,11 @@ def check_write_paths(sp, post_id: str) -> None:
             cursor /= part
             if cursor.is_symlink():
                 raise ValueError('post storage and sidecars must not be symlinks')
-        if p.exists() and not p.is_file():
+        try:                    # one lstat: a racing writer may rename the .tmp away between an exists() and an is_file()
+            mode = p.lstat().st_mode
+        except FileNotFoundError:
+            mode = None
+        if mode is not None and not stat.S_ISREG(mode):
             raise ValueError('post storage sidecars must be regular files')
         if any(p == raw or raw in p.parents for raw in sp.raw_dirs):
             raise ValueError('post storage must not write into raw folders')

@@ -491,9 +491,9 @@ export function mountRoom(root, { artifact } = {}) {
 
   // ---- review copies of the recordings: made once, on first need; `review` events report progress and the result
   const reviews = new Map();
-  // A copy that says nothing for REVIEW_QUIET_MS (no progress, no waiting turn) is given up on, with Try again; a reconnect
+  // A copy that says nothing for reviewQuietMs() (no progress, no waiting turn) is given up on, with Try again; a reconnect
   // asks the server again for every copy still pending, and the state read carries each job's last word.
-  const REVIEW_QUIET_MS = window.__aveReviewQuietMs || 90000;
+  const reviewQuietMs = () => window.__aveReviewQuietMs || 90000;        // read each time: a test can shorten it, then restore it
   function ensureSource(artifact, key, onProgress) {
     const id = `${artifact}\u0000${key}`;
     let r = reviews.get(id);
@@ -515,7 +515,7 @@ export function mountRoom(root, { artifact } = {}) {
   function hush(id) {
     const r = reviews.get(id); if (!r) return;
     clearTimeout(r.timer);
-    r.timer = setTimeout(() => settle(id, { status: "failed", message: "The copy stopped making progress." }), REVIEW_QUIET_MS);
+    r.timer = setTimeout(() => settle(id, { status: "failed", message: "The copy stopped making progress." }), reviewQuietMs());
   }
   function settle(id, d) {
     const r = reviews.get(id); if (!r || r.status !== "rendering") return;

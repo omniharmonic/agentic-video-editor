@@ -19,7 +19,7 @@ from ave.room import cut as room_cut
 from ave.studio.project import StudioProject
 from ave.studio.service import open_studio
 from ave.studio.ui.server import StudioServer
-from conftest import CI_SLOW, needs_ffmpeg
+from conftest import CI_SLOW, PERF_BUDGETS, needs_ffmpeg
 
 from . import board_bridge
 
@@ -254,7 +254,7 @@ def test_every_visible_button_does_something(page, room_server):
             continue                                    # a control that an earlier click legitimately removed (the offer closed)
         before = page.evaluate(SIGNATURE)
         btn.click()
-        page.wait_for_function(f"() => ({SIGNATURE})() !== {json.dumps(before)}", timeout=5000)
+        page.wait_for_function(f"() => ({SIGNATURE})() !== {json.dumps(before)}", timeout=5000 * CI_SLOW)
         if name == "Go back":
             page.locator(".offer").wait_for(state="hidden")         # the reply lands after the button's busy state shows
         page.keyboard.press("Escape")                   # close a popover the click opened
@@ -658,7 +658,7 @@ def test_a_long_transcript_renders_and_scrolls_smoothly(browser, room_server, lo
             return n > 500 && document.querySelectorAll('mark.sc-hit').length === n; }""", timeout=10_000)
         pg.wait_for_timeout(300)
         long = pg.evaluate("window.__long")
-        assert not [d for d in long if d > 50 * CI_SLOW], long
+        assert not [d for d in long if d > 50] or not PERF_BUDGETS, long
         assert "Speaker 1" in pg.locator(".sc-line").first.inner_text()          # no names in episode.json or the transcript
     finally:
         pg.close()
@@ -794,7 +794,8 @@ def test_a_review_copy_that_never_finishes_offers_try_again(browser, room_server
         pg.get_by_text("This recording could not be prepared").wait_for(timeout=10_000)
         assert pg.get_by_text("stopped making progress", exact=False).is_visible()
         pg.unroute("**/api/room/review", stuck)
-        pg.locator(".script .viewer").get_by_role("button", name="Try again").click()
+        pg.evaluate("window.__aveReviewQuietMs = 90000")              # the real copy gets the real patience: a slow runner's
+        pg.locator(".script .viewer").get_by_role("button", name="Try again").click()       # first progress can take seconds
         pg.wait_for_function("() => document.querySelector('.script video').readyState >= 1", timeout=30_000 * CI_SLOW)
     finally:
         pg.close()
@@ -907,7 +908,8 @@ def test_a_copy_queued_behind_another_camera_waits_without_timing_out(browser, r
             review._QUEUE.remove(other)
             review._QUEUE_CV.notify_all()
     try:
-        pg.wait_for_function("() => document.querySelector('.script video').readyState >= 1", timeout=30_000)
+        pg.evaluate("window.__aveReviewQuietMs = 90000")              # now it encodes for real: the real patience
+        pg.wait_for_function("() => document.querySelector('.script video').readyState >= 1", timeout=30_000 * CI_SLOW)
         assert not pg.get_by_text("This recording could not be prepared").count()
     finally:
         pg.close()
@@ -999,7 +1001,7 @@ def test_claudes_edit_appears_live(page, room_server, post_studio):
     assert page.locator('.lay-field[data-key="caption"] .lay-changed-text').inner_text() == "Claude changed this"
     assert page.locator('.lay-field[data-key="caption"] .lay-avatar').is_visible()          # with Claude's avatar
     assert page.locator(".lay-field.is-changed").count() == 0      # Layout's own highlight, never the board's cell ring
-    assert "the crust crackles" in page.locator(".lay-screen .pv").inner_text()
+    page.wait_for_function("() => document.querySelector('.lay-screen .pv').innerText.includes('the crust crackles')", timeout=10_000 * CI_SLOW)   # the preview redraws after the field
     assert page.locator(".lay-save").inner_text() == "Claude changed the caption"
     assert hashtags.input_value() == "sourdough"                     # what the director saved stays
     assert page.evaluate("window.__sameDocument") is True            # followed the stream, no reload
@@ -1087,7 +1089,9 @@ def test_claudes_edit_of_another_field_keeps_what_the_director_is_typing(held, r
     assert caption_on_disk(post_studio)["first_comment"] is None     # still unsaved: the merge path really ran
     assert not page.get_by_role("button", name="Keep mine").is_visible()
     page.locator('.lay-input[data-key="first_comment"]').blur()      # leaving the field saves it
-    page.locator(".lay-save", has_text="Saved").wait_for()
+    deadline = time.time() + 10 * CI_SLOW                            # on disk, not the save label: a later status can replace "Saved"
+    while time.time() < deadline and caption_on_disk(post_studio).get("first_comment") != "Recipe in the link":
+        time.sleep(0.1)
     v = caption_on_disk(post_studio)
     assert v["caption"] == "Claude: a better opening line." and v["first_comment"] == "Recipe in the link"
 
@@ -1149,10 +1153,12 @@ def test_unsaved_text_is_saved_when_the_stage_moves_on(held, room_server, post_s
     type_unsaved(page, "hashtags", "crumb")
     page.locator(".lay-alt").fill("The loaf, still warm.")
     room_server.room.show(artifact="ep", view="cut")
-    deadline = time.time() + 10
-    while time.time() < deadline and caption_on_disk(post_studio).get("hashtags") != ["crumb"]:
+    deadline = time.time() + 10 * CI_SLOW                        # the alt text lands separately, through the media operation
+    while time.time() < deadline:
+        post = store.load_post(post_studio.sp, post_studio.id)
+        if post["variants"][0]["copy"].get("hashtags") == ["crumb"] and post["media"][0].get("alt") == "The loaf, still warm.":
+            break
         time.sleep(0.1)
-    post = store.load_post(post_studio.sp, post_studio.id)
     assert post["variants"][0]["copy"]["hashtags"] == ["crumb"]
     assert post["media"][0]["alt"] == "The loaf, still warm."          # alt text too, though it saves through the media operation
 

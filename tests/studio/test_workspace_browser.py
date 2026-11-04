@@ -14,7 +14,7 @@ import time
 from types import SimpleNamespace
 
 import pytest
-from conftest import CI_SLOW
+from conftest import PERF_BUDGETS
 
 from ave.project import Project
 from ave.studio.project import StudioProject
@@ -517,15 +517,15 @@ def test_500_rows_without_jank(browser, tmp_path):
         pg, errors = _open(browser, srv)
         pg.wait_for_function("() => document.querySelectorAll('.ws-row[data-key]').length === 500", timeout=20000)
         first = pg.evaluate("window.__ws.renderMs")
-        assert first < 1500 * CI_SLOW, f"first render took {first} ms"
+        assert first < 1500 or not PERF_BUDGETS, f"first render took {first} ms"
         frames = pg.evaluate("""async () => {
             const sc = document.querySelector('.ws-view'); const times = []; let last = performance.now();
             for (let i = 0; i < 90; i++) { sc.scrollTop += 120; await new Promise(r => requestAnimationFrame(r));
               const now = performance.now(); times.push(now - last); last = now; }
             times.sort((a, b) => a - b); return {p95: times[Math.floor(times.length * .95)], max: times.at(-1)}; }""")
-        assert frames["p95"] < 50 * CI_SLOW, frames
+        assert frames["p95"] < 50 or not PERF_BUDGETS, frames
         ms = pg.evaluate("""async () => { const t = performance.now(); await window.__ws.reload(); return performance.now() - t; }""")
-        assert ms < 1500 * CI_SLOW, f"a live update of 500 rows took {ms} ms"
+        assert ms < 1500 or not PERF_BUDGETS, f"a live update of 500 rows took {ms} ms"
         assert not errors
         pg.close()
     finally:

@@ -368,6 +368,7 @@ class Server(ThreadingMixIn,HTTPServer):
 
 class Handler(BaseHTTPRequestHandler):
     protocol_version='HTTP/1.1';server_version='AVEExchange';sys_version=''
+    disable_nagle_algorithm=True    # kept-alive HTTP/1.1: two writes per response must not wait on a delayed ACK
     def log_message(self,*args):pass
     def handle_expect_100(self):self.send_error(417);return False
     def do_POST(self):self.dispatch()
