@@ -259,9 +259,20 @@ export function createBoard(ctx) {
     const empty = !L.groups.length || L.groups.every((g) => !g.items.length) && (S.q || anyFilter());
     const kids = empty ? [emptyState() || boardEmpty()] : [...L.groups.map(groupEl), ...ctx.missingGroups()];
     if (!empty && L.groups.every((g) => !g.items.length)) kids.unshift(boardEmpty(true));
+    const typing = [...el.querySelectorAll(".ws-add-input")].filter((i) => i.value || document.activeElement === i)      // a redraw must not
+      .map((i) => ({ pid: i.dataset.project, value: i.value, parent: i.dataset.parent, focused: document.activeElement === i,  // take a name
+        from: i.selectionStart, to: i.selectionEnd, adding: i.closest(".ws-addrow")?.classList.contains("is-adding"), ph: i.placeholder })); // being typed
     el.replaceChildren(...kids);
+    for (const k of typing) {
+      const inp = el.querySelector(`.ws-add-input[data-project="${CSS.escape(k.pid || "")}"]`);
+      if (!inp) continue;
+      inp.value = k.value;
+      inp.dataset.parent = k.parent || "";
+      if (k.adding) { inp.closest(".ws-addrow")?.classList.add("is-adding"); inp.placeholder = k.ph; }
+      if (k.focused && !addTarget) { inp.focus(); inp.setSelectionRange(k.from, k.to); }
+    }
     if (addTarget) { const t = addTarget; addTarget = null; focusAdd(t); }
-    else restoreFocus(false);
+    else if (!typing.some((k) => k.focused)) restoreFocus(false);
   }
   function boardEmpty(inline) {
     return h("div", { class: "ws-empty", style: inline ? { margin: "32px auto 0" } : null },

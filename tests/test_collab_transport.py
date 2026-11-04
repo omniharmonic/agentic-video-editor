@@ -115,7 +115,10 @@ def test_lost_ack_and_offline_immutable_queue(peers,monkeypatch):
     assert len(b.snapshot()['inbox'])==1
     update(a.sp,'Second queued revision');b.exchange.stop()
     view=a.prepare_send({'posts':['p_shared']});digest=a.send(view['token'])['sha256'];original_bytes=a.exchange.store.file('outbox',digest).read_bytes()
-    a.exchange.tick();assert a.exchange.store.state['outbox'][digest]['state']=='retry_wait'
+    a.exchange.tick()               # the exchange's own worker may hold this attempt: wait for it to settle, whoever runs it
+    end=time.time()+20
+    while a.exchange.store.state['outbox'][digest]['state'] in ('queued','connecting','sending') and time.time()<end:time.sleep(0.05)
+    assert a.exchange.store.state['outbox'][digest]['state']=='retry_wait'
     update(a.sp,'Later local words');assert a.exchange.store.file('outbox',digest).read_bytes()==original_bytes
     a.exchange.cancel(digest);assert a.exchange.store.state['outbox'][digest]['state']=='cancelled'
 

@@ -890,6 +890,9 @@ def test_arrow_keys_move_between_cards_and_a_slow_still_is_retried(page, room_se
 def test_a_copy_queued_behind_another_camera_waits_without_timing_out(browser, room_server, monkeypatch):
     from ave.room import review
     monkeypatch.setattr(review, "WAITING_EVERY_S", 0.4)
+    end = time.time() + 60 * CI_SLOW                                   # the line is process-wide: an earlier test's copy may still
+    while review._QUEUE and time.time() < end:                         # be encoding on a slow machine, which would make this "2 ahead"
+        time.sleep(0.1)
     other = object()                                                    # another camera's copy, encoding first
     with review._QUEUE_CV:
         review._QUEUE.append(other)

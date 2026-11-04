@@ -335,6 +335,20 @@ def test_new_artifact_is_made_by_the_person_at_plan(page, ws):
     assert page.locator(".menu-note", has_text="AVE Studio app").count() == 1
 
 
+def test_a_name_being_typed_survives_a_new_row_arriving(page, ws):
+    """Claude adds an artifact while the person types a new one's name: the board redraws, and the name and cursor stay."""
+    page.get_by_role("button", name="New artifact", exact=True).click()
+    edit = page.locator(".ws-addrow .ws-add-input:focus")
+    edit.fill("Newsletter")
+    _new(ws.studio, "art_claude", "Claude's teaser", "episode", "Plan")
+    page.locator(".ws-name-text", has_text="Claude's teaser").wait_for()
+    edit = page.locator(".ws-addrow .ws-add-input:focus")
+    assert edit.input_value() == "Newsletter"
+    page.keyboard.type(" for 12")
+    page.keyboard.press("Enter")
+    page.locator(".ws-name-text", has_text="Newsletter for 12").wait_for()
+
+
 def test_files_go_through_the_app(browser, ws):
     pg = browser.new_page(viewport={"width": 1440, "height": 900})
     errors = []
@@ -1948,6 +1962,25 @@ def test_add_an_idea_by_hand(browser, plan):
     add.press("Enter")
     pg.locator(".ideas-grp .idea", has_text="A loaf a day for a week").wait_for()
     assert any((store.load_post(plan.sp, f.stem).get("idea") or {}).get("text") == "A loaf a day for a week" for f in plan.sp.posts_dir.glob("*.json"))
+    pg.close()
+    assert not errors
+
+
+def test_an_idea_being_typed_survives_a_live_update(browser, plan):
+    """Claude adds an idea while the director is typing one: the group redraws, and what they typed (and the cursor) stays."""
+    from ave.studio.events import AGENT
+    pg, errors = _ideas(browser, plan)
+    add = pg.get_by_label("Add an idea")
+    add.fill("A loaf a day")
+    claude = _retry(lambda: plan.rig.w.studio.create_post(idea="Claude's idea: the oven at dawn", actor=AGENT, reason="r", confidence=0.5))
+    pg.locator(".ideas-grp .idea", has_text="the oven at dawn").wait_for()
+    add = pg.get_by_label("Add an idea")
+    assert add.input_value() == "A loaf a day"
+    assert pg.evaluate("document.activeElement && document.activeElement.getAttribute('aria-label')") == "Add an idea"
+    pg.keyboard.type(" for a week")
+    pg.keyboard.press("Enter")
+    pg.locator(".ideas-grp .idea", has_text="A loaf a day for a week").wait_for()
+    assert claude["id"]
     pg.close()
     assert not errors
 

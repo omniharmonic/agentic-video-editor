@@ -72,7 +72,13 @@ export function createIdeas(ctx, studio) {
     });
     const addRow = h("div", { class: "ws-row ws-addrow idea-row", role: "row", style: { "grid-template-columns": COLS } }, h("div", { class: "ws-cell c-check", role: "presentation" }),
       h("div", { class: "ws-cell c-addname", role: "gridcell", style: { "grid-column": "2 / -1" } }, add));
+    const was = el.querySelector(".ws-add-input");           // a redraw must not take what the director is typing, or the cursor
+    const typing = was && { value: was.value, focused: document.activeElement === was, from: was.selectionStart, to: was.selectionEnd };
     el.replaceChildren(head, h("div", { class: "grp-table", role: "grid", "aria-label": "Ideas" }, headRow, rowsEl, addRow));
+    if (typing) {
+      add.value = typing.value;
+      if (typing.focused) { add.focus(); add.setSelectionRange(typing.from, typing.to); }
+    }
   }
 
   function row(p) {
