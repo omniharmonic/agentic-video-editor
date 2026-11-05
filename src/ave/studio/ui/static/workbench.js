@@ -2,7 +2,7 @@ import {openMedia} from './media-workshop.js';
 import {openAssetPicker} from './library.js';
 // Deterministic, local production. All untrusted source text uses DOM text nodes.
 import {registerDraft} from './navigation-guard.js';
-import {h, clear} from './dom.js';
+import {h, clear} from '/app/shared/dom.js';
 
 export async function mount(root, ctx) {
   let alive=true, data={sources:[],jobs:[]}, selected='', sentence='', polling=null, xhr=null, loading=false, uploadOpen=false, activeJobId=null, jobsSignature='';
@@ -26,7 +26,7 @@ export async function mount(root, ctx) {
   for(const name of ['source','results'])mobileTabs.append(h('button',{type:'button','data-panel':name,onclick:()=>panel(name)},name==='source'?'Source & options':'Results'));
   panel('source');
   const addSource=h('button',{type:'button',class:'wb-add-source','aria-expanded':'false',onclick:()=>{if(window.aveNative?.importFiles){window.aveNative.importFiles().then(()=>refreshSources(true)).catch(fail);return;}uploadOpen=!uploadOpen;uploadForm.hidden=!uploadOpen;addSource.setAttribute('aria-expanded',String(uploadOpen));if(uploadOpen)uploadInput.focus();}},'Add source');
-  root.append(h('header',{class:'wb-heading'},h('div',{},h('h1',{},'Sources'),h('p',{},'Turn your source material into a draft you can inspect.')),h('div',{class:'wb-heading-actions'},window.aveNative?.selectEpisode?h('button',{type:'button',onclick:()=>window.aveNative.selectEpisode().then(()=>openMedia(ctx,{mediaKind:'episode'})).catch(fail)},'Open project folder'):null,addSource,h('button',{type:'button',onclick:()=>openMedia(ctx,{mediaKind:'video'})},'Edit a video'),h('button',{type:'button',onclick:()=>openMedia(ctx,{mediaKind:'episode'})},'Episodes'),h('a',{href:'#/desk'},'Source overview'),h('a',{href:'#/pipeline'},'Open production'))),filename,
+  root.append(h('header',{class:'wb-heading'},h('div',{},h('h1',{},'Media tools'),h('p',{},'Turn your source material into a draft you can inspect.')),h('div',{class:'wb-heading-actions'},window.aveNative?.selectEpisode?h('button',{type:'button',onclick:()=>window.aveNative.selectEpisode().then(()=>openMedia(ctx,{mediaKind:'episode'})).catch(fail)},'Open project folder'):null,addSource,h('button',{type:'button',onclick:()=>openMedia(ctx,{mediaKind:'video'})},'Edit a video'),h('button',{type:'button',onclick:()=>openMedia(ctx,{mediaKind:'episode'})},'Episodes'),h('a',{href:'/app/#/workspace'},'Back to the Workspace'),h('a',{href:'#/pipeline'},'Open production'))),filename,
     error,notice,warnings,uploadForm,mobileTabs,h('div',{class:'wb-layout'},h('section',{class:'wb-source'},h('h2',{},'Choose your source'),field('Source material',sourceSelect),choices,quoteTools,recordingTools),results));
   function field(label,node){return h('label',{class:'wb-field'},h('span',{},label),node);}
   function fail(e){if(!alive)return;error.textContent=e.message;error.hidden=false;}

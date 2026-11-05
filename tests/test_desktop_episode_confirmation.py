@@ -19,7 +19,9 @@ def controller_method():
 
 
 @pytest.mark.parametrize('outcome',['success','cancel-before','cancel-after','close','workspace-changed','workspace-changed-during-pin'])
-def test_native_episode_confirmation_is_off_main_and_bound(outcome):
+def test_native_episode_confirmation_is_off_main_and_bound(outcome,monkeypatch):
+    from ave import humanpresence
+    for k in humanpresence.AGENT_MARKERS:monkeypatch.delenv(k,raising=False)   # the suite may run inside an agent harness
     main=threading.get_ident();ui=queue.Queue();owner=NativeFileWork(ui.put);started=threading.Event();release=threading.Event();committed=threading.Event();calls=[];replies=[];titles=[];auth=[]
     request={'label':'Synthetic episode','session':'main','decision':'confirm','kind':'final','payload':{'version':1},'dependency_sha256':'a'*64,'dependencies':{}}
     def confirm(token,pin,*,cancelled):
@@ -30,21 +32,24 @@ def test_native_episode_confirmation_is_off_main_and_bound(outcome):
         if cancelled() and outcome!='cancel-after':raise ValueError('Episode confirmation cancelled; no checkpoint was recorded')
         committed.set();return {'checkpoint':'check_fixture','state':'reviewed exact'}
     checkpoint=types.SimpleNamespace(describe=lambda token:request,confirm_native=confirm)
-    session=types.SimpleNamespace(server=types.SimpleNamespace(app=types.SimpleNamespace(episode_checkpoints=checkpoint)))
+    from ave.desktop_auth import NativeAuthority
+    authority=NativeAuthority()           # the device-owner check's grant is bound to this one decision (its prepared token)
+    session=types.SimpleNamespace(authority=authority,server=types.SimpleNamespace(app=types.SimpleNamespace(episode_checkpoints=checkpoint)))
     def alert(title,*_):
         assert threading.get_ident()==main
         if title=='Confirm episode decision' and outcome=='workspace-changed-during-pin':fake.session=object()
         return 'native-fixture-pin' if title=='Confirm episode decision' else True
     namespace={'__name__':'ave.desktop_native','fixture':False,'json':json,'alert':alert};exec(controller_method(),namespace)
-    fake=types.SimpleNamespace(busy=False,session=session,file_work=owner,window=types.SimpleNamespace(setTitle_=lambda value:titles.append((threading.get_ident(),value))),reply=lambda *args:replies.append((threading.get_ident(),args)),unlock=lambda rid,after:auth.append(after))
+    fake=types.SimpleNamespace(busy=False,session=session,file_work=owner,window=types.SimpleNamespace(setTitle_=lambda value:titles.append((threading.get_ident(),value))),reply=lambda *args:replies.append((threading.get_ident(),args)),unlock=lambda rid,after,purpose=None,**bound:auth.append((after,bound)))
     args={'token':'captured-prepared-token'}
     try:
         namespace['episode_action'](fake,'confirmEpisode',args,'request-one')
-        assert calls==[] and len(auth)==1
+        assert calls==[] and len(auth)==1 and auth[0][1]=={'action':'confirmEpisode','keys':('captured-prepared-token',)}
+        grant=authority._mint('confirmEpisode',('captured-prepared-token',))
         args['token']='changed-after-native-sheet'
         if outcome=='workspace-changed':
-            fake.session=object();auth.pop()();assert calls==[] and replies==[];return
-        auth.pop()()
+            fake.session=object();auth.pop()[0](grant);assert calls==[] and replies==[];return
+        auth.pop()[0](grant)
         if outcome=='workspace-changed-during-pin':assert calls==[] and replies==[];return
         assert started.wait(1) and owner.busy and calls[0][0]!=main
         assert calls[0][1:]==('captured-prepared-token','native-fixture-pin')

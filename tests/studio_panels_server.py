@@ -1,7 +1,7 @@
 """A fixture-backed stand-in for the studio server, for developing and testing the WS6 panels (spec 11, WS5/WS6 "develop against committed JSON").
 
 It serves, on 127.0.0.1 only:
-  /static/<file>          src/ave/studio/ui/static/ (the panels), falling back to src/ave/ui/static/ (style.css, the shared tokens)
+  /static/<file>          src/ave/studio/ui/static/ (the post editor, kept under More tools); /app/<file> src/ave/app/static/ (shared modules)
   /harness/<file>         tests/studio_ui_harness/ (a minimal hash-router shell that mounts the panels; the real shell is WS5's)
   /files/<path>           generated placeholder images sized from the asset records (no binary fixtures in git)
   /api/studio/...         the 7.3 endpoints, answering with the SHAPES committed in tests/data_studio/api/*.json, but stateful in memory:
@@ -30,7 +30,7 @@ from PIL import Image, ImageDraw
 ROOT = Path(__file__).resolve().parents[1]
 API = ROOT / "tests" / "data_studio" / "api"
 STATIC = ROOT / "src" / "ave" / "studio" / "ui" / "static"
-BASE_STATIC = ROOT / "src" / "ave" / "ui" / "static"
+APP_STATIC = ROOT / "src" / "ave" / "app" / "static"
 HARNESS = ROOT / "tests" / "studio_ui_harness"
 PIN = "123456"
 VIEW_MS = 2000
@@ -496,7 +496,9 @@ class Harness:
                     if path == "/":
                         self.send_response(302); self.send_header("Location", "/harness/index.html"); self.send_header("Content-Length", "0"); self.end_headers(); return
                     if path.startswith("/static/"):
-                        return self._file(STATIC, path[len("/static/"):], BASE_STATIC)
+                        return self._file(STATIC, path[len("/static/"):])
+                    if path.startswith("/app/"):
+                        return self._file(APP_STATIC, path[len("/app/"):])
                     if path.startswith("/harness/"):
                         return self._file(HARNESS, path[len("/harness/"):])
                     if path.startswith("/files/"):

@@ -1,4 +1,4 @@
-import {h,clear} from './dom.js';
+import {h,clear} from '/app/shared/dom.js';
 import {openAssetPicker} from './library.js';
 import {registerDraft} from './navigation-guard.js';
 

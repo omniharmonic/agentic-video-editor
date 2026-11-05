@@ -250,3 +250,43 @@ def test_standalone_terminal_receipt_survives_old_queue_snapshot(ep,wide,monkeyp
     assert renewed['approvals'][-1]['approval_v']==2
     assert queue.run(ep,item['id'],send=True,publishers=ps)['platforms']['youtube']['outcome']=='processing'
     assert a.publish_calls==2 and dispatch.terminal_review(ep,old)
+
+
+def test_a_send_in_flight_records_its_receipt_after_the_project_turns_read_only(ep, wide, monkeypatch):
+    """Final review I3: a newer AVE's stamp syncs in during a multi-minute upload. The queue and the dispatch record are local
+    zone, so the send still records the platform's receipt; only a NEW send is refused until this computer updates."""
+    import sys
+    import ave
+    from ave.project import Project
+    from ave.project.model import read_only_reason
+
+    def as_version(v):
+        monkeypatch.setattr(ave, "__version__", v)
+        monkeypatch.setattr(sys, "frozen", True, raising=False)
+
+    as_version("1.0")
+    Project.create(ep.root, "Test Episode", person="Maren")
+    it = queue_item(ep, wide)
+    approve_item(ep, it["id"], pubs("youtube"))
+
+    class SyncArrivesMidUpload(RecordingPublisher):
+        def publish(self, item, video, progress):
+            progress({"upload_id": "u1"})
+            as_version("9.9")                                              # Imani updated; her next event syncs here
+            Project.open(ep.root).log.append("note.added", data={"text": "from the newer app"})
+            as_version("1.0")
+            assert read_only_reason(ep.root)                               # this project is read-only from now on
+            progress({"upload_id": "u1", "bytes": 100})
+            return super().publish(item, video, progress)
+
+    rep = queue.run(ep, it["id"], send=True, publishers={"youtube": SyncArrivesMidUpload("youtube")})
+    assert rep["ok"], rep
+    done = queue.load(ep, it["id"])
+    assert done["status"] == "published" and done["results"]["youtube"]["state"] == "published"
+    assert done["results"]["youtube"]["url"] == "https://x/youtube"
+    assert queue.record_mark(ep, done, "youtube")[0] == "sent"
+    it2 = queue_item(ep, wide, title="Another one")                        # a local write: still allowed
+    approve_item(ep, it2["id"], pubs("youtube"))
+    p = pubs("youtube")
+    again = queue.run(ep, it2["id"], send=True, publishers=p)              # but nothing new starts sending
+    assert not again["ok"] and p["youtube"].publish_calls == 0 and "newer AVE" in again["blocked"][0]

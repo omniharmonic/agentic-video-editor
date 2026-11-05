@@ -75,12 +75,14 @@ def _build_from_cut(ep: Episode, cut: dict, canvas: tuple[int, int], *, metadata
         doc["session"] = cut["session"]
     if cut.get("trim"):
         doc["trim"] = cut["trim"]
+    who = ("the director's in/out" if (cut.get("trim") or {}).get("by") == "human"
+           else "Claude's proposed in/out, for drafts only until the director confirms it")
     if cut.get("excluded"):
         doc["excluded"] = cut["excluded"]
         doc["notes"] = (f"session {cut.get('session')}: covers {', '.join(f'{a:.1f}-{b:.1f}s' for a, b in regions)} of episode time; "
-                        "regions no camera covers are excluded." + (f" Trimmed to the human-approved in/out ({cut['trim']})." if cut.get("trim") else ""))
+                        "regions no camera covers are excluded." + (f" Trimmed to {who} ({cut['trim']})." if cut.get("trim") else ""))
     elif cut.get("trim"):
-        doc["notes"] = f"trimmed to the human-approved in/out {cut['trim']}; the rest is excluded."
+        doc["notes"] = f"trimmed to {who} {cut['trim']}; the rest is excluded."
     return doc
 
 
@@ -110,7 +112,7 @@ def apply_trim(cut: dict, rec: dict | None, label: str = "this edit") -> dict:
     for n, s in enumerate(shots, 1):
         s["n"] = n
     extent = max([b for _, b in cut["regions"]] + [b for _, b in cut.get("excluded") or []])
-    return {**cut, "regions": regions, "shots": shots, "timeline_seconds": tm.duration, "trim": {k: rec[k] for k in ("in", "out", "by", "at") if k in rec},
+    return {**cut, "regions": regions, "shots": shots, "timeline_seconds": tm.duration, "trim": {k: rec[k] for k in ("in", "out", "by", "at", "draft_only") if k in rec},
             "excluded": [[round(a, 3), round(b, 3)] for a, b in cutplan.complement([tuple(r) for r in regions], 0.0, extent)]}
 
 

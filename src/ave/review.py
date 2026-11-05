@@ -20,7 +20,7 @@ from .episode import Episode
 KINDS = ("cut", "pacing", "audio", "picture", "graphics", "other")
 CLAIM_MINUTES = 30
 MAX_NOTE = 2000
-EDIT_RE = re.compile(r"^(?P<stage>[a-z]+)(?:\.(?P<name>[A-Za-z0-9_-]+))?\.v(?P<version>\d+)\.json$")
+EDIT_RE = re.compile(r"^(?P<stage>[a-z]+)(?:\.(?P<name>[A-Za-z0-9_-]+))?\.v(?P<version>\d+)(?:~(?P<device>[a-z0-9]{4}))?\.json$")
 
 
 def notes_path(ep: Episode) -> Path:
@@ -95,15 +95,16 @@ def edits(ep: Episode) -> list[dict]:
     for p in editdoc.edits_dir(ep).glob("*.v*.json") if editdoc.edits_dir(ep).is_dir() else []:
         m = EDIT_RE.match(p.name)
         if m:
-            out.append({"edit": p.name[:-len(".json")], "stage": m["stage"], "name": m["name"], "version": int(m["version"])})
-    return sorted(out, key=lambda e: (e["stage"], e["name"] or "", e["version"]))
+            out.append({"edit": p.name[:-len(".json")], "stage": m["stage"], "name": m["name"], "version": int(m["version"]),
+                        "device": m["device"]})
+    return sorted(out, key=lambda e: (e["stage"], e["name"] or "", e["version"], e["device"] or ""))
 
 
 def load_edit(ep: Episode, edit: str) -> dict:
     m = EDIT_RE.match(f"{edit}.json")
     if not m:
         raise ValueError(f"not an edit: {edit!r}")
-    path = editdoc.path_for(ep, m["stage"], int(m["version"]), m["name"])
+    path = editdoc.edits_dir(ep) / f"{edit}.json"  # the edit's name is its file name (legacy or device-tagged)
     if not path.is_file():
         raise ValueError(f"no such edit: {edit}")
     return editdoc.load(path)

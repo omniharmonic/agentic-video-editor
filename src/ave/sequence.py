@@ -182,7 +182,7 @@ def _tokens(s: str) -> list[str]:
 
 def base_doc(ep: Episode, name: str | None = None) -> tuple[str, dict]:
     for st in ("final", "rough", "assembly"):
-        if editdoc.list_versions(ep, st, name):
+        if editdoc.has_version(ep, st, name):          # a later cut still arriving is refused as arriving, never skipped
             return st, editdoc.load_latest(ep, st, name)
     raise SystemExit(f"No final, rough or assembly edit{' ' + name if name else ''} yet for {ep.root.name}: sequences take their picture "
                      f"size, frame rate and room tone from the cut. Run: ave assemble {ep.root}")
@@ -300,8 +300,9 @@ def resolve_cold_open(ep: Episode, pick: dict, fps: float, *, base_doc: dict | N
             if stage != "select" or not slug or not editdoc.list_versions(ep, "select", slug):
                 raise SequenceError(f"cold open edit {nm!r}: use select.<slug> of a built select (see edits/)")
             v = editdoc.list_versions(ep, "select", slug)[-1]
-            doc = editdoc.load(editdoc.path_for(ep, "select", v, slug))
-            src = {"kind": "edit", "edit": nm, "version": v}
+            vpath = editdoc.latest_path(ep, "select", slug)
+            doc = editdoc.load(vpath)
+            src = {"kind": "edit", "edit": nm, "version": v, "id": vpath.name[:-len(".json")]}
         a, b = (pick.get("trim") or [0.0, doc["duration"]])
         if not 0 <= a < b <= doc["duration"] + 1e-3:
             raise SequenceError(f"cold open trim {pick.get('trim')} is outside the {doc['duration']:.2f} s of {src.get('id') or src.get('edit')}")
@@ -317,7 +318,7 @@ def resolve_cold_open(ep: Episode, pick: dict, fps: float, *, base_doc: dict | N
             if not editdoc.list_versions(ep, stage, name):
                 raise SequenceError(f"cold open {kind}: no {stage}{'.' + name if name else ''} edit to cut from")
             ver = editdoc.list_versions(ep, stage, name)[-1]
-            base = editdoc.load(editdoc.path_for(ep, stage, ver, name))
+            base = editdoc.load(editdoc.latest_path(ep, stage, name))
         if kind == "range":
             o0, o1 = float(spec["o0"]), float(spec["o1"])
         else:

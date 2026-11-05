@@ -19,7 +19,7 @@ import tempfile
 import time
 from pathlib import Path
 
-from . import motion
+from . import editdoc, motion
 from .episode import Episode
 
 KIND = "quote_reel"
@@ -47,11 +47,12 @@ def check_quotes(ep: Episode, quotes: list[dict], max_chars: int = 220) -> list[
     return problems
 
 
-def next_path(out_dir: Path, stem: str) -> Path:
-    """`<stem>.v1.mp4`, `.v2`...: a reel is never overwritten."""
+def next_path(out_dir: Path, stem: str, tag: str | None = None) -> Path:
+    """`<stem>.v1.mp4`, `.v2`...: a reel is never overwritten. In an adopted project `tag` is this computer's device tag
+    (`<stem>.v2~abcd.mp4`), so two computers making reel 2 while apart never write one file."""
     out_dir.mkdir(parents=True, exist_ok=True)
-    taken = [int(m[1]) for f in out_dir.glob(f"{stem}.v*.mp4") if (m := re.search(r"\.v(\d+)\.mp4$", f.name))]
-    return out_dir / f"{stem}.v{max(taken, default=0) + 1}.mp4"
+    taken = [int(m[1]) for f in out_dir.glob(f"{stem}.v*.mp4") if (m := re.search(r"\.v(\d+)(?:~[a-z0-9]{4})?\.mp4$", f.name))]
+    return out_dir / f"{stem}.v{max(taken, default=0) + 1}{'~' + tag if tag else ''}.mp4"
 
 
 def build(ep: Episode, quotes: list[dict], out: Path | None = None, card_s: float = 6.0, canvas: tuple[int, int] = (1080, 1920),
@@ -61,7 +62,7 @@ def build(ep: Episode, quotes: list[dict], out: Path | None = None, card_s: floa
     problems = check_quotes(ep, quotes)
     if problems:
         raise SystemExit("the quote reel was not built:\n  - " + "\n  - ".join(problems))
-    out = Path(out) if out else next_path(ep.exports / "quote_reels", name)
+    out = Path(out) if out else next_path(ep.exports / "quote_reels", name, editdoc.device_tag(ep.root))
     if out.exists():
         raise SystemExit(f"{out} exists; a reel is never overwritten (pass a new --out or let the tool pick the next version)")
     out.parent.mkdir(parents=True, exist_ok=True)

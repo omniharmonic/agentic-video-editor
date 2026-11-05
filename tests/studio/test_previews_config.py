@@ -11,7 +11,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 YAML = ROOT / "config" / "previews.yaml"
-MIRROR = ROOT / "src" / "ave" / "studio" / "ui" / "static" / "previews" / "previews.json"
+MIRROR = ROOT / "src" / "ave" / "app" / "static" / "shared" / "previews" / "previews.json"
 REGEN = bool(os.environ.get("AVE_REGEN_PREVIEWS"))        # read at import: the autouse fixture scrubs AVE_* per test
 UNITS = {"chars", "graphemes", "x_weighted", "lines"}
 

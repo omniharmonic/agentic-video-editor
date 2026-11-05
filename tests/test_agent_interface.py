@@ -33,6 +33,7 @@ def test_context_reads_disk_and_has_explicit_gates(app):
     ctx = call(app, 'get_context')
     assert ctx['show']['title'] == 'Grounded conversations'
     assert ctx['human_gates'] and ctx['live_verified'] is False
+    assert 'camera mapping' in ctx['flagged_at_review'] and not any('camera mapping' in g for g in ctx['human_gates'])
     assert ctx['untrusted_text']
     after = {p.relative_to(root):p.read_bytes() for p in root.rglob('*') if p.is_file()}
     assert before == after
@@ -64,7 +65,7 @@ def test_revision_conflict_and_projection(app):
     assert edited['post']['rev'] == 2 and edited['post']['copy']['base'] == 'The first draft'
     from ave.studio.model import RevConflict
     with pytest.raises(RevConflict):
-        call(app,'edit_draft',post_id=p['id'],expected_rev=1,fields={'base':'Overwrites Tomas'})
+        call(app,'edit_draft',post_id=p['id'],expected_rev=1,fields={'base':'Overwrites Imani'})
     assert call(app,'get_post',post_id=p['id'])['post']['copy']['base'] == 'The first draft'
 
 
@@ -102,6 +103,19 @@ def test_source_lookup_never_reads_selected_filesystem_path(app,tmp_path):
     outside=tmp_path/'secret.md';outside.write_text('outside-secret')
     with pytest.raises(ValueError): call(app,'read_source',name=str(outside))
     with pytest.raises(ValueError): call(app,'read_source',name='../secret.md')
+
+
+def test_director_skill_is_in_the_catalog_and_names_the_room_tools(app):
+    from ave.agent import TOOL_MAP
+    assert 'ave-director' in call(app,'get_context')['skills']
+    text = call(app,'read_skill',name='ave-director')['text']
+    assert text.startswith('---\nname: ave-director\ndescription: ')
+    rooms = ('room_read','room_show','room_offer_version','room_highlight','room_keep','room_back')
+    assert set(rooms) <= set(TOOL_MAP)
+    for tool in rooms:
+        assert f'`{tool}' in text, tool
+    for word in ('Keep this','Try another way','Go back','Sign-off','lock that','"queued": true','too_large','PROGRESS.md','rule 5','HUMAN_GATES','ave handoff'):
+        assert word in text, word
 
 
 def test_skills_and_recipes_are_shipped_allowlist(app):
@@ -207,14 +221,14 @@ def test_startup_failure_has_no_protocol_stdout(tmp_path):
 
 
 def test_future_revision_cannot_erase_a_concurrent_variant(app, monkeypatch):
-    p=call(app,'create_draft',request_id='future-race',idea='Keep Tomas’s work')['post']
+    p=call(app,'create_draft',request_id='future-race',idea='Keep Imani’s work')['post']
     original_read=app._post
 
     def read_then_concurrent_variant(pid):
         stale=original_read(pid)
         concurrent=json.loads(json.dumps(stale))
-        concurrent['variants']=[new_variant(account='tomas',platform='manual',post_type='text')]
-        store.save_post(app.studio.sp,concurrent,expected_rev=1,actor=Actor('human','Tomas'),op='variant_add')
+        concurrent['variants']=[new_variant(account='imani',platform='manual',post_type='text')]
+        store.save_post(app.studio.sp,concurrent,expected_rev=1,actor=Actor('human','Imani'),op='variant_add')
         return stale
 
     monkeypatch.setattr(app,'_post',read_then_concurrent_variant)
@@ -222,7 +236,7 @@ def test_future_revision_cannot_erase_a_concurrent_variant(app, monkeypatch):
         call(app,'edit_draft',post_id=p['id'],expected_rev=2,fields={'base':'A stale snapshot'})
     current=store.load_post(app.studio.sp,p['id'])
     assert current['rev']==2
-    assert current['variants'][0]['account']=='tomas'
+    assert current['variants'][0]['account']=='imani'
     assert current['copy']['base']==''
 
 

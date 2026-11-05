@@ -13,7 +13,7 @@ from ave.studio import text_metrics as tm
 
 ROOT = Path(__file__).resolve().parents[2]
 FIX = json.loads((ROOT / "tests" / "data_studio" / "text_metrics_fixtures.json").read_text())
-JS = ROOT / "src" / "ave" / "studio" / "ui" / "static" / "text_metrics.js"
+JS = ROOT / "src" / "ave" / "app" / "static" / "shared" / "text_metrics.js"
 
 
 @pytest.mark.parametrize("case", FIX["cases"], ids=lambda c: c["name"])

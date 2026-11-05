@@ -103,23 +103,41 @@ def list_packages(ep: Episode) -> list[Path]:
     return sorted(d for d in root.iterdir() if d.is_dir() and not d.name.startswith(".") and (d / "manifest.json").is_file())
 
 
-def folder_name(date: str, n: int) -> str:
-    return date if n == 1 else f"{date}-v{n}"
+def folder_name(date: str, n: int, tag: str | None = None) -> str:
+    """`<date>`, `<date>-v2`...; in an adopted project this computer's device tag is added (`<date>~abcd`, `<date>-v2~abcd`)
+    so two computers packaging on the same day never write one folder."""
+    return (date if n == 1 else f"{date}-v{n}") + (f"~{tag}" if tag else "")
+
+
+def _taken(root: Path, date: str, n: int) -> list[Path]:
+    """Every package folder numbered n for this date, from any computer."""
+    base = folder_name(date, n)
+    return sorted(p for p in ([root / base] + list(root.glob(base + "~*")) if root.is_dir() else []) if p.exists())
+
+
+def _tag(ep: Episode) -> str | None:
+    from .. import editdoc
+    return editdoc.device_tag(ep.root)
 
 
 def next_version(ep: Episode, date: str) -> int:
     root = package_root(ep)
     n = 1
-    while (root / folder_name(date, n)).exists():
+    while _taken(root, date, n):
         n += 1
     return n
 
 
 def latest_for_date(ep: Episode, date: str) -> Path | None:
+    """The highest-numbered package of the date; among one number, this computer's own, else the untagged one, else the first."""
+    from .. import editdoc
     root = package_root(ep)
+    mine = editdoc.device_tag(ep.root)
     n, found = 1, None
-    while (root / folder_name(date, n)).exists():
-        found = root / folder_name(date, n)
+    while (hits := _taken(root, date, n)):
+        own = [h for h in hits if h.name == folder_name(date, n, mine)]
+        plain = [h for h in hits if h.name == folder_name(date, n)]
+        found = (own or plain or hits)[0]
         n += 1
     return found
 
@@ -176,7 +194,7 @@ def plan(ep: Episode, *, include: set[str] | None = None, audio_fmt: str | None 
                                        extra={"duration": duration if v is fin["primary"] else None, "preset": v["preset"]}))
             video_entry = entries[0]
             if not fin["primary"]["name"] and not others:
-                check("final_cut", "Final cut", "ok", f"{fin['primary']['path'].name} (final v{fin['primary']['version']})", True)
+                check("final_cut", "Final cut", "ok", f"{fin['primary']['path'].name} (final {fin['primary']['label']})", True)
             elif fin["primary"]["name"]:
                 check("final_cut", "Final cut", "warn", "only per-session finals exist (" + ", ".join(sorted(k for k in fin["all"] if k)) +
                       "); no combined episode final was rendered", True)
@@ -440,7 +458,7 @@ def summary(pl: dict, vol: dict, ep: Episode, date: str, version: int, unchanged
         action = "skipped (no room)" if id(e) in skip_ids else ("reference" if id(e) in ref_ids else ("generate" if e["src"] is None else "copy"))
         files.append({"path": e["dest"], "role": e["role"], "bytes": entry_bytes(e), "action": action, "draft": e["draft"],
                       "approval": e["approval"]["status"], **({"why_draft": e["draft_reasons"]} if e["draft"] else {})})
-    return {"episode": pl["episode"], "package_dir": str(package_root(ep) / folder_name(date, version)), "date": date, "package_version": version,
+    return {"episode": pl["episode"], "package_dir": str(package_root(ep) / folder_name(date, version, _tag(ep))), "date": date, "package_version": version,
             "unchanged_from": str(unchanged_dir) if unchanged_dir else None,
             "complete": pl["complete"], "missing_required": pl["required_missing"], "checklist": pl["checklist"],
             "files": files, "totals": {"files": len(files), "bytes": vol["total_bytes"], "main_files": sum(1 for f in files if not f["draft"]),
@@ -506,7 +524,7 @@ def build(ep: Episode, *, date: str | None = None, include: set[str] | None = No
         if write_status:
             write_status_file(ep, rep, built=False, package_dir=None)
         return rep
-    final_dir = package_root(ep) / folder_name(date, version)
+    final_dir = package_root(ep) / folder_name(date, version, _tag(ep))
     tmp = package_root(ep) / ("." + final_dir.name + BACKUP_SUFFIX)
     if tmp.exists():
         shutil.rmtree(tmp)         # our own half-built folder from a crashed run; never a finished package

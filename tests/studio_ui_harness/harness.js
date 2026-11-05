@@ -1,12 +1,7 @@
-// Minimal hash router that mounts the WS6 panels. WS5's shell does the same with its own api.js/dom.js; the call shapes are the contract.
-import { makeCtx, clear, h } from "/static/panels.js";
+// Minimal hash router that mounts the post editor (kept under More tools) and the preview lab. WS5's shell does the same with its own api.js/dom.js; the call shapes are the contract.
+import { makeCtx, clear, h } from "/app/shared/panels.js";
 import { mountEditorFromHash } from "/static/editor.js";
-import { mountReviewFromHash } from "/static/review.js";
-import { mountLibrary } from "/static/library.js";
-import { mountFeedback } from "/static/feedback.js";
-import { mountAlerts } from "/static/alerts.js";
-import { mountAccounts } from "/static/accounts.js";
-import { buildPreview, loadPreviewConfig, previewModel, PREVIEW_PLATFORMS } from "/static/previews/index.js";
+import { buildPreview, loadPreviewConfig, previewModel, PREVIEW_PLATFORMS } from "/app/shared/previews/index.js";
 
 const main = document.getElementById("main");
 const ctx = makeCtx({ by: () => "maren" });
@@ -35,11 +30,6 @@ async function route() {
   const seg = hash.split("?")[0].split("/")[1];
   document.querySelectorAll("#nav a").forEach((a) => a.classList.toggle("on", a.getAttribute("href").split("/")[1] === seg));
   if (seg === "post") current = mountEditorFromHash(main, ctx, hash);
-  else if (seg === "review") current = mountReviewFromHash(main, ctx, hash);
-  else if (seg === "library") current = mountLibrary(main, ctx);
-  else if (seg === "feedback") current = mountFeedback(main, ctx);
-  else if (seg === "alerts") current = mountAlerts(main, ctx);
-  else if (seg === "accounts") current = mountAccounts(main, ctx);
   else if (seg === "previews") await previews();
   main.dataset.route = seg;
 }

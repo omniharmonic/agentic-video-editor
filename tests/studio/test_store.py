@@ -68,6 +68,23 @@ def test_two_racing_writers_exactly_one_wins(sp):
     assert store.load_post(sp, "p_t0001")["rev"] == 2
 
 
+def test_a_sidecar_renamed_away_mid_check_does_not_fail_the_writer(sp, monkeypatch):
+    """Another writer's .json.tmp can vanish between "does it exist" and "is it a file": that is not an attack."""
+    p = fresh(sp)
+    tmp = store.post_path(sp, "p_t0001").with_suffix(".json.tmp")
+    real_exists = type(tmp).exists
+    monkeypatch.setattr(type(tmp), "exists", lambda self, *a, **k: True if self == tmp else real_exists(self, *a, **k))
+    p["copy"]["base"] = "after the race"
+    assert store.save_post(sp, p, expected_rev=1, actor=AGENT, op="edit")["rev"] == 2
+
+
+def test_a_directory_where_a_sidecar_goes_is_refused(sp):
+    p = fresh(sp)
+    store.post_path(sp, "p_t0001").with_suffix(".json.tmp").mkdir()
+    with pytest.raises(ValueError, match="regular files"):
+        store.save_post(sp, p, expected_rev=1, actor=AGENT, op="edit")
+
+
 def test_every_write_appends_an_event_with_actor_op_rev_and_shas(sp, clock):
     p = store.save_post(sp, model.new_post(idea="x", post_id="p_ev001"), expected_rev=None, actor=AGENT, op="create", now=clock.now())
     p["copy"]["base"] = "hello"

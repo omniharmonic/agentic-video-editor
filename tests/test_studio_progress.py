@@ -52,20 +52,20 @@ def test_studio_log_question_resolve_learn_and_preserve_human_notes(tmp_path, ca
     root = tmp_path / 'studio'
     jrun(capsys, 'studio', 'init', root)
     memory = root / 'PROGRESS.md'
-    memory.write_text('A note from Tomas.\n\n' + memory.read_text() + '\n## Human notes\nLeave room for silence.\n')
+    memory.write_text('A note from Imani.\n\n' + memory.read_text() + '\n## Human notes\nLeave room for silence.\n')
     question = jrun(capsys, 'log', root, 'Which passage should open the post?', '--kind', 'question')
     assert question['question'] == 1
     assert 'Which passage' in run(capsys, 'resume', root)[1]
-    assert jrun(capsys, 'log', root, 'Tomas selected the quiet opening.', '--resolve', '1')['resolved'] == 1
+    assert jrun(capsys, 'log', root, 'Imani selected the quiet opening.', '--resolve', '1')['resolved'] == 1
     assert jrun(capsys, 'learn', root, 'Review the complete thought before making a short.', '--skill', 'ave-shorts')['id'] == 'F1'
     report = jrun(capsys, 'progress', root)
     assert not report['open_questions']
     assert report['next']['stage'] == 'source'
     assert jrun(capsys, 'learn', root, '--list')['proposed']
     text = memory.read_text()
-    assert text.startswith('A note from Tomas.')
+    assert text.startswith('A note from Imani.')
     assert '## Human notes\nLeave room for silence.' in text
-    assert 'Tomas selected the quiet opening.' in text
+    assert 'Imani selected the quiet opening.' in text
     assert progress.START in text and progress.END in text
     assert not jrun(capsys, 'progress', root)['checklist_changed']
 
@@ -126,7 +126,7 @@ def test_review_and_feedback_are_surfaced_without_crossing_gates(tmp_path, capsy
     assert report['counts']['review'] == 1 and report['counts']['accounts'] == 1
     assert report['next']['stage'] == 'review' and report['next']['human_gate']
     assert snapshot(sp.root) == before
-    Studio(sp).add_feedback(saved['id'], 'rework_copy', note='Shorten the opening', by='Tomas')
+    Studio(sp).add_feedback(saved['id'], 'rework_copy', note='Shorten the opening', by='Imani')
     before = snapshot(sp.root)
     report = jrun(capsys, 'status', sp.root)
     assert report['counts']['feedback'] == 1 and report['next']['stage'] == 'feedback'
@@ -156,13 +156,13 @@ def test_refresh_corrects_legacy_studio_checklist_but_keeps_human_sections(tmp_p
     sp = StudioProject(tmp_path / 'studio')
     sp.create()
     text = '# Existing studio memory\n\n## Pipeline checklist\n\n' + progress.START + '\n- [ ] Probe footage\n' + progress.END
-    text += '\n\n## Decisions\n\nTomas asked for a slower pace.\n'
+    text += '\n\n## Decisions\n\nImani asked for a slower pace.\n'
     (sp.root / 'PROGRESS.md').write_text(text)
     report = jrun(capsys, 'progress', sp.root)
     assert report['checklist_changed']
     after = (sp.root / 'PROGRESS.md').read_text()
     assert 'Probe footage' not in after
-    assert 'Tomas asked for a slower pace.' in after
+    assert 'Imani asked for a slower pace.' in after
     assert after.startswith('# Existing studio memory')
 
 

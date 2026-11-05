@@ -86,7 +86,7 @@ def _save_index(ep: Episode, idx: dict) -> None:
 # ---- planning ----------------------------------------------------------------------------------------------------
 
 def _edit_ref(src: dict) -> str:
-    return f"{src['stage']}{'.' + src['name'] if src.get('name') else ''}.v{src['version']}"
+    return src.get("id") or f"{src['stage']}{'.' + src['name'] if src.get('name') else ''}.v{src['version']}"
 
 
 def _tighten_output_ranges(doc: dict, clip: dict, rows: list[dict]) -> list[tuple[float, float]]:
@@ -159,7 +159,7 @@ def _source_of(data: dict, clip: dict) -> dict:
     src = clip.get("source") or data.get("source")
     if not src:
         raise SystemExit(f"{clip['id']} records no source edit; re-run `ave clips propose`.")
-    return {"stage": src["stage"], "name": src.get("name"), "version": src["version"]}
+    return {"stage": src["stage"], "name": src.get("name"), "version": src["version"], **({"id": src["id"]} if src.get("id") else {})}
 
 
 def _sha(edit_bytes_sha: str, window: dict, clip: dict, cuts: list, pad: float, height: int) -> str:
@@ -183,7 +183,7 @@ def plan(ep: Episode, name: str | None = None, ids: list[str] | None = None, top
         src = _source_of(data, c)
         key = _edit_ref(src)
         if key not in docs:
-            path = editdoc.path_for(ep, src["stage"], src["version"], src["name"])
+            path = editdoc.resolve(ep, src["stage"], src["version"], src["name"], id=src.get("id"))
             if not path.is_file():
                 raise SystemExit(f"{c['id']}: its source edit {key} is missing ({path}); cannot preview it.")
             docs[key] = (editdoc.load(path), hashlib.sha1(path.read_bytes()).hexdigest())

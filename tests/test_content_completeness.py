@@ -94,7 +94,7 @@ def test_propose_rejects_a_quote_that_starts_mid_sentence_and_the_override_is_ex
 
 
 def test_the_ui_can_never_pass_the_override():
-    from ave.ui import jobs
+    from ave import jobs
     assert "allow-incomplete" in jobs.FORBIDDEN_WORDS and "allow_incomplete" in jobs.FORBIDDEN_WORDS
 
 

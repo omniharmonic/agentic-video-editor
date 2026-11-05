@@ -36,21 +36,24 @@ Single-session episodes are unchanged: no flags, no names, one `assembly.vN.json
 
 The session that is "experimental" or otherwise different is the human's call: keep it as its own timeline and let them decide whether it joins the combined cut.
 
-## Trim: the real start and end (a checkpoint BEFORE cleanup)
+## Trim: the real start and end (yours for drafts, the director's before the final)
 
 Recordings open with setup talk ("take one... we're recording... can you hear me") and end with talk about stopping; a session's assembly starts at the first camera frame.
-Find the real in/out with the human before cleanup:
+For the assembly and rough cut you may use your own suggestion; it is flagged for the director, who confirms a trim before the final cut:
 
 ```bash
 ave plan-cuts <ep>                                   # the trim scan uses the session span from the cut list
 ave trim suggest <ep> [--session s1]                 # evidence lines with timestamps + a proposed in/out and confidence. NEVER applies anything
-ave trim set <ep> s1 --in 188.9 --out 7022.8         # record the human's decision in episode.json `trim` (episode seconds; `main` for an episode with no sessions)
+ave trim propose <ep> [--session s1]                 # DRAFTS ONLY: records the confident ends as by "claude", draft_only, and flags it on the board
+ave trim set <ep> s1 --in 188.9 --out 7022.8         # the DIRECTOR's decision (a human act, their terminal); `main` for an episode with no sessions
 ave assemble <ep> --session s1                       # honours the trim: shorter span, the cut-off parts join `excluded`, still validated
 ```
 
+`ave final` refuses a trim that is only proposed, and an edit cut from one: after the director's `ave trim set`, re-run `ave assemble` and `ave cleanup`.
+
 `suggest` looks in the first and last `scan_minutes` (6) for phrases in `config/trim.default.yaml` (slate: "take one", "we're recording", "testing", "move your mic"; the welcome; the sign-off; "stop
 recording", "we're done") and for show-specific lines in `episode.json` `trim_hints: {"welcome": ["this is the long table"], "signoff": [...]}`. Read the evidence, **listen at the proposed time**, and
-stop for the human: a bare "welcome" is often a rehearsal joke (confidence 0.4), the sign-off may be followed by banter worth keeping, and a quiet start may need no trim at all.
+flag what you chose: a bare "welcome" is often a rehearsal joke (confidence 0.4, below `draft_min_confidence`, so `propose` leaves that end alone), the sign-off may be followed by banter worth keeping, and a quiet start may need no trim at all.
 `ave resume` lists a suggestion nobody has approved as an open question. Changing the trim means re-running `ave assemble`, then `ave cleanup` (new versions; nothing is overwritten); `ave trim clear <ep> s1` forgets it.
 
 ## Check before you hand it over
@@ -60,7 +63,8 @@ stop for the human: a bare "welcome" is often a rehearsal joke (confidence 0.4),
 - Fallback reasons in `reason` ("camera not recording") mean a camera started late; tell the human.
 - Validate: `python -c "from ave import editdoc; print(editdoc.validate(editdoc.load('edits/assembly.v1.json')))"` must print `[]`.
 
-## Checkpoint
+## Flag it, then go on
 
-Tell the human what you built (length, shots, which camera covers which speaker) and ask them to review it in Resolve. Say
-plainly that nothing has been cleaned up yet. Only after they confirm, move on to `ave-cleanup`.
+The assembly is not a checkpoint you wait at (AGENTS.md rule 5). Record each choice you made alone with `decision_record`
+(canvas, sessions kept separate or joined, the draft trim) and move on to `ave-cleanup`. When the director reviews, tell them what
+you built (length, shots, which camera covers which speaker), say plainly what was and was not cleaned up, and flag each choice.

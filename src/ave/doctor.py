@@ -165,7 +165,47 @@ def _checks() -> list[Check]:
                 add(OK, "Resolve bridge", f"listening on 127.0.0.1:{port}")
         except OSError:
             add(WARN, "Resolve bridge", f"nothing listening on :{port}", "In Resolve: Workspace > Scripts > resolve_bridge (once per Resolve launch)")
+    # ---- OPTIONAL: the project in the current folder
+    c.extend(project_sync_checks(Path.cwd()))
+    c.extend(publish_fake_checks())
+    c.extend(update_checks())
     return c
+
+
+def update_checks() -> list[Check]:
+    """Whether this app updates itself. Says "configured", never the feed address (it is private)."""
+    from . import updates
+    s = updates.status()
+    if s["enabled"]:
+        return [Check(OK, "Automatic updates", f"on (AVE Studio {s['version']}, build {s['build']}; feed configured)", required=False, group=OPTIONAL)]
+    local = " A private update feed is configured on this computer for publishing." if updates.configured_feed_url() else ""
+    return [Check(INFO, "Automatic updates", ("off: " + s["reason"]) + local, required=False, group=OPTIONAL)]
+
+
+def publish_fake_checks() -> list[Check]:
+    """A warning while AVE_PUBLISH_FAKE is set: every `ave publish run` in this shell writes to a file instead of a platform."""
+    from .publish.adapters.fake import ENV, fake_file
+    f = fake_file()
+    if f is None:
+        return []
+    return [Check(WARN, "Publishing is FAKE", f"{ENV} is set: `ave publish run` contacts no platform and writes each post to {f}",
+                  f"unset {ENV} unless you are running an acceptance test", required=False, group=OPTIONAL)]
+
+
+def project_sync_checks(root: Path) -> list[Check]:
+    """Credential-like files sitting in a zone that syncs (see ave.project.zones). Nothing when `root` is not a project."""
+    if not (root / ".ave" / "project.json").is_file():
+        return []
+    from .project import zones
+    try:
+        hits = zones.credential_warnings(root, zones.project_rules(root))
+    except (OSError, ValueError, TypeError, AttributeError, SystemExit) as e:
+        return [Check(WARN, "Project sync zones", f"cannot read {root / '.ave' / 'project.json'}: {e}", "", required=False, group=OPTIONAL)]
+    if not hits:
+        return [Check(OK, "Project sync zones", "no credential-like files outside private folders", "", required=False, group=OPTIONAL)]
+    shown = ", ".join(hits[:5]) + (f" and {len(hits) - 5} more" if len(hits) > 5 else "")
+    return [Check(WARN, "Project sync zones", f"credential-like file(s) in the project folder (never synced if the name is unambiguous, otherwise shared): {shown}",
+                  "move them out of the project folder (or into .ave/local/, which never syncs)", required=False, group=OPTIONAL)]
 
 
 def verdict(checks: list[Check]) -> tuple[str, int]:

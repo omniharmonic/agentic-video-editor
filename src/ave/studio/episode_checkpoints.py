@@ -232,12 +232,13 @@ class Checkpoints:
             return self._confirm_native(token,pin,cancelled=cancelled)
 
     def _confirm_native(self,token,pin,*,cancelled):
+        from ..desktop_auth import require_act         # only the native sheet's path; ordinary workers never import desktop_auth
         def check_cancelled():
             if cancelled is not None and cancelled():raise ValueError('Episode confirmation cancelled; no checkpoint was recorded')
         check_cancelled()
         authority=self.app.native_authority
         if authority is None:raise ValueError('Exact confirmation requires the native review sheet')
-        authority.require();self.app.pin.check(pin);item=self._item(token)
+        require_act(authority,'confirmEpisode',(token,));self.app.pin.check(pin);item=self._item(token)
         if item['viewed'] is None or time.monotonic()-item['viewed']<2:raise ValueError('Inspect the exact prepared evidence and playback before confirming')
         req=item['request'];studio=self.app.studio
         with R.resolve(studio,req['episode'],req['grant_revision'],verify_sources=False) as (ep,row), editdoc.mutation_lock(ep,cancelled=cancelled):
@@ -258,10 +259,10 @@ class Checkpoints:
                 view_observation=observation(studio,ep,row,deps)
             # Exit verification has completed before the short ledger boundary.
             check_cancelled()
-            authority.require();R.regular(ep.meta_path.with_suffix('.json.tmp'))
+            require_act(authority,'confirmEpisode',(token,));R.regular(ep.meta_path.with_suffix('.json.tmp'))
             with ledger.ledger_lock(studio.sp):
                 R.get(studio.sp,row['id'],row['grant_revision'])
-                authority.require()
+                require_act(authority,'confirmEpisode',(token,))
                 if self._item(token) is not item or freshness()!=baseline:raise ValueError('Review source, checkpoint or license changed before confirmation')
                 previous=latest(studio,row['id'],req['kind'],req['session'])
                 ev={'schema':'episode_checkpoint.v1','checkpoint_id':'check_'+secrets.token_hex(16),'episode':row['id'],'root_identity':row['binding']['identity'],

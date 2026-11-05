@@ -14,7 +14,8 @@ def _load(ep: Episode, stage: str, version: int | None, name: str | None = None)
     Default stage: latest of final > rough > assembly."""
     if stage == "auto":
         for st in ("final", "rough", "assembly"):
-            if editdoc.list_versions(ep, st, name):
+            # the log counts too: a final still on its way is refused as arriving, never skipped for the rough
+            if (editdoc.has_version if version is None else editdoc.list_versions)(ep, st, name):
                 stage = st
                 break
         else:
@@ -27,19 +28,25 @@ def _load(ep: Episode, stage: str, version: int | None, name: str | None = None)
     versions = editdoc.list_versions(ep, stage, name)
     label = stage + (f":{name}" if name else "")
     if not versions:
+        editdoc.latest_path(ep, stage, name)           # a version in the log that is not here yet: refused as arriving
         raise SystemExit(f"No {label} edit yet for {ep.root.name}.")
     v = version if version is not None else versions[-1]
     if v not in versions:
         raise SystemExit(f"{label} has no version {v}; available: {versions}")
-    p = editdoc.path_for(ep, stage, v, name)
+    try:
+        p = editdoc.latest_path(ep, stage, name) if version is None else editdoc.path_for(ep, stage, v, name)
+    except editdoc.AmbiguousVersion as exc:
+        raise SystemExit(str(exc)) from exc
     return editdoc.load(p), p, stage, name
 
 
 def cmd_render(a) -> int:
     from .. import compile as comp
+    from ..project.readiness import choosing
     ep = Episode(a.episode)
     ep.require()
-    doc, path, stage, name = _load(ep, a.stage, a.version, a.name)
+    with choosing("--version", explicit=a.version is not None or a.stage != "auto"):
+        doc, path, stage, name = _load(ep, a.stage, a.version, a.name)
     preset = "proxy" if a.proxy else a.preset
     pr = presets.get(preset)
     stem = path.name[:-len(".json")]

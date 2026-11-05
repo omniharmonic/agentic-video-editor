@@ -57,8 +57,9 @@ def episode_title(ep: Episode) -> str:
         return ep.root.name
 
 
-def timeline_name(ep: Episode, doc: dict, version: int | None, label: str | None = None) -> str:
-    v = f" v{version}" if version else ""
+def timeline_name(ep: Episode, doc: dict, version: int | str | None, label: str | None = None) -> str:
+    """`version` is a number or an edit label (`v8`, `v8~abcd`): two computers' v8 get different timeline names."""
+    v = (f" {version}" if isinstance(version, str) else f" v{version}") if version else ""
     return f"{episode_title(ep)} {label or doc['stage']}{v}"
 
 

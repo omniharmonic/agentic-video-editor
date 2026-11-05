@@ -1,6 +1,6 @@
 import {openEpisode} from './episode-workshop.js';
 import {openVideo} from './video-workshop.js';
-import {h,clear} from './dom.js';
+import {h,clear} from '/app/shared/dom.js';
 import {registerDraft} from './navigation-guard.js';
 
 export async function openMedia(ctx,{asset,target=null,onAttached=null,source=null,mediaKind=null,sourceId=null,episodeId=null}={}) {

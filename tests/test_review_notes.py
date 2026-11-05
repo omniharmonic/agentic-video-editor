@@ -93,56 +93,6 @@ def test_picture_change_refuses_a_camera_that_is_not_in_the_edit(ep):
         review.set_picture(ep, "rough.v1", 7.0, 9.0)
 
 
-def test_review_page_note_reaches_the_agent(tmp_path, monkeypatch):
-    import shutil
-    import subprocess
-    import threading
-    from clips_synth import build_long_episode, pick
-    from ave import clips
-    from ave.ui.server import UiServer
-    playwright = pytest.importorskip("playwright.sync_api")
-    ffmpeg = shutil.which("ffmpeg")
-    if not ffmpeg:
-        pytest.skip("ffmpeg required")
-    e = build_long_episode(tmp_path / "ep")
-    clips.prepare(e, min_s=10, max_s=25)
-    clips.propose(e, [pick(1, 5, "Systems beat goals")])
-    edit = review.edits(e)[-1]["edit"]
-    subprocess.run([ffmpeg, "-v", "error", "-f", "lavfi", "-i", "color=c=0x708a76:s=320x180:d=20", "-c:v", "libx264", "-pix_fmt", "yuv420p", str(e.exports / f"{edit}.proxy.mp4")], check=True)
-    srv = UiServer(e, port=0, by="director")
-    threading.Thread(target=srv.serve_forever, daemon=True).start()
-    try:
-        with playwright.sync_playwright() as p:
-            b = p.chromium.launch()
-            page = b.new_page(viewport={"width": 1440, "height": 900})
-            errors = []
-            page.on("pageerror", lambda x: errors.append(str(x)))
-            page.goto(f"http://127.0.0.1:{srv.port}/?t={srv.token}#/review")
-            page.locator(".rv-track").wait_for()
-            box = page.locator(".rv-track").bounding_box()
-            page.mouse.move(box["x"] + box["width"] * .3, box["y"] + 40)
-            page.mouse.down()
-            page.mouse.move(box["x"] + box["width"] * .4, box["y"] + 40, steps=4)
-            page.mouse.up()
-            assert " to " in page.locator(".rv-form strong").inner_text()
-            page.get_by_label("Kind of note").select_option("pacing")
-            page.get_by_label("Note for the editor").fill("Tighten this pause")
-            page.get_by_role("button", name="Send to the editor").click()
-            page.locator(".rv-note").filter(has_text="Tighten this pause").wait_for()
-            assert page.locator(".rv-mark").count() == 1
-            import os
-            shot = os.environ.get("AVE_REVIEW_SHOT")
-            if shot:
-                page.screenshot(path=shot)
-            assert not errors, errors
-            b.close()
-    finally:
-        srv.shutdown()
-        srv.server_close()
-    note = review.next_note(e, agent="claude")
-    assert note["text"] == "Tighten this pause" and note["kind"] == "pacing" and note["by"] == "director" and note["t1"] > note["t0"]
-
-
 def test_a_dark_clip_measures_as_low_light(tmp_path):
     import shutil
     import subprocess

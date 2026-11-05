@@ -100,17 +100,6 @@ def _variant(state, post, vid):
 
 # ---- zero external requests, no console errors -----------------------------------------------------------------------------------
 
-@pytest.mark.legacy_ui
-def test_every_panel_loads_with_zero_external_requests_and_no_console_errors(ui):
-    p = ui()
-    for route in ("#/post/" + POST, "#/review", "#/library", "#/feedback", "#/alerts", "#/accounts", "#/previews"):
-        p.goto(route)
-        p.page.wait_for_timeout(500)
-    external = [u for u in p.requests if not u.startswith(p.h.url) and not u.startswith("data:") and not u.startswith("blob:")]
-    assert external == [], external
-    assert p.errors == [], p.errors
-
-
 # ---- inline edit, autosave, CAS ---------------------------------------------------------------------------------------------------------
 
 @pytest.mark.legacy_ui
@@ -317,124 +306,12 @@ def _look(pg, p, post, variant):
     pg.wait_for_selector(".rv-metertext:has-text('Looked at')", timeout=8000)
 
 
-@pytest.mark.legacy_ui
-def test_review_shows_the_exact_sha_records_the_view_and_needs_the_pin(ui):
-    p = ui()
-    pg = p.goto("#/review")
-    pg.wait_for_selector(".rv-sha")
-    first = pg.locator(".rv-li").first.get_attribute("data-key")
-    post, variant = first.split("/")
-    sha = _variant(p.state(), post, variant)["queue_sha"]
-    assert pg.locator(".rv-sha").get_attribute("data-sha") == sha
-    assert sha[:8] in pg.locator(".rv-sha").inner_text().replace(" ", "")
-    inc = pg.locator(f'.rv-li[data-key="{first}"] input[name=include]')
-    assert inc.is_disabled()                                              # cannot be ticked before it has been looked at
-    pg.wait_for_selector(".rv-metertext:has-text('Looked at')", timeout=8000)
-    assert not inc.is_disabled() and inc.is_checked()
-    assert (post, variant) not in [(e["post"], e["variant"]) for e in p.state()["events"] if e["op"] == "approved"]
-    # wrong PIN: refused, with the tries left, nothing approved
-    pg.locator("#rv-pin").fill("000000")
-    pg.get_by_role("button", name="Approve 1").click()
-    pg.wait_for_selector(".rv-msg:has-text('not right')")
-    assert "4 tries left" in pg.locator(".rv-msg").first.inner_text()
-    assert _variant(p.state(), post, variant)["queue_status"] == "awaiting_approval"
-    pg.locator("#rv-pin").fill(PIN)
-    pg.get_by_role("button", name="Approve 1").click()
-    pg.wait_for_function("(k) => document.querySelector(`.rv-li[data-key='${k}']`).innerText.includes('Approved by')", arg=first)
-    v = _variant(p.state(), post, variant)
-    assert v["queue_status"] == "approved" and v["approval"]["by"] == "maren"
-    assert pg.locator("#rv-pin").input_value() == ""                      # the PIN is never kept
-
-
-@pytest.mark.legacy_ui
-def test_review_locks_after_five_wrong_pins(ui):
-    p = ui()
-    pg = p.goto("#/review")
-    pg.wait_for_selector(".rv-metertext:has-text('Looked at')", timeout=8000)
-    for _ in range(5):
-        pg.locator("#rv-pin").fill("111111")
-        pg.get_by_role("button", name="Approve 1").click()
-        pg.wait_for_selector(".rv-msg:not(:empty)")
-    pg.locator("#rv-pin").fill(PIN)
-    pg.get_by_role("button", name="Approve 1").click()
-    pg.wait_for_selector(".rv-msg:has-text('locked')")
-
-
-@pytest.mark.legacy_ui
-def test_review_j_k_move_and_a_second_post_must_be_looked_at_before_it_can_be_ticked(ui):
-    p = ui()
-    pg = p.goto("#/review")
-    pg.wait_for_selector(".rv-metertext:has-text('Looked at')", timeout=8000)
-    pg.locator("main").click(position={"x": 5, "y": 5})
-    pg.keyboard.press("j")
-    pg.wait_for_selector(".rv-li.on:nth-child(2)")
-    second = pg.locator(".rv-li").nth(1).get_attribute("data-key")
-    assert pg.locator(f'.rv-li[data-key="{second}"] input[name=include]').is_disabled()
-    pg.keyboard.press("k")
-    pg.wait_for_selector(".rv-li.on:nth-child(1)")
-
-
 # ---- library ----------------------------------------------------------------------------------------------------------------------------
 
 def _png_bytes(w=64, h=48, color=(30, 90, 140)):
     b = io.BytesIO()
     Image.new("RGB", (w, h), color).save(b, "PNG")
     return b.getvalue()
-
-
-@pytest.mark.legacy_ui
-def test_library_filters_upload_and_detail(ui, tmp_path):
-    p = ui()
-    pg = p.goto("#/library")
-    pg.wait_for_selector(".lib-card")
-    assert pg.locator(".lib-card").count() == 6
-    pg.locator('select[name=license]').select_option("missing")
-    pg.wait_for_function("document.querySelectorAll('.lib-card').length === 1")
-    assert "No licence" in pg.locator(".lib-card").inner_text()
-    pg.locator('select[name=license]').select_option("")
-    pg.locator('input[name=unused]').check()
-    pg.wait_for_function("document.querySelectorAll('.lib-card').length === 2")
-    pg.locator('input[name=unused]').uncheck()
-    pg.locator('input[name=q]').fill("flour")
-    pg.wait_for_function("document.querySelectorAll('.lib-card').length === 1")
-    pg.locator('input[name=q]').fill("")
-    pg.wait_for_function("document.querySelectorAll('.lib-card').length === 6")
-    f = tmp_path / "quote-card.png"
-    f.write_bytes(_png_bytes())
-    pg.locator("#lib-file").set_input_files(str(f))
-    pg.wait_for_function("document.querySelectorAll('.lib-card').length === 7")
-    assert p.state()["uploads"] == 1
-    pg.locator("#lib-file").set_input_files(str(f))                         # the same bytes again: a duplicate, not a new asset
-    pg.wait_for_selector("#st-toast:has-text('already in the library')")
-    assert p.state()["uploads"] == 1
-    pg.locator('.lib-card[data-asset="a_9f2c1d4e7b10"] .lib-open').click()
-    pg.wait_for_selector(".lib-detail:not([hidden]) .st-dl")
-    detail = pg.locator(".lib-detail").inner_text()
-    assert "Pexels License" in detail and "p_20261102_k3f9 / v_ig" in detail
-
-
-@pytest.mark.legacy_ui
-def test_broll_modal_shows_licence_and_attribution_and_downloads_only_on_a_named_pick(ui):
-    p = ui()
-    pg = p.goto("#/library")
-    pg.wait_for_selector(".lib-card")
-    pg.get_by_role("button", name="Find B-roll").click()
-    dlg = pg.locator("dialog[open]")
-    dlg.locator('input[name=query]').fill("bread crust")
-    dlg.get_by_role("button", name="Search").click()
-    card = dlg.locator('.cand[data-cand="pexels:2284"]')
-    card.wait_for()
-    text = card.inner_text()
-    assert "Pexels licence" in text and "Photo by A. Baker on Pexels" in text and "Authenticity check: ok" in text
-    assert card.locator("img").count() == 0                                  # the provider's preview URL is never loaded by the browser
-    dlg.locator('input[name=by]').fill("")
-    card.get_by_role("button", name="Download and add").click()
-    assert "name" in dlg.locator('p[role=status]').inner_text().lower()
-    assert not [u for u in p.requests if "pexels" in u]
-    dlg.locator('input[name=by]').fill("maren")
-    card.get_by_role("button", name="Download and add").click()
-    pg.wait_for_selector("dialog[open]", state="detached")
-    assert "a_br000002284" in p.state()["library"]
 
 
 # ---- previews ---------------------------------------------------------------------------------------------------------------------------
@@ -531,41 +408,6 @@ def test_the_editor_preview_follows_the_selected_account(ui):
 
 
 # ---- feedback, alerts, accounts ---------------------------------------------------------------------------------------------------------
-
-@pytest.mark.legacy_ui
-def test_feedback_page_lists_open_lines_and_the_other_tabs(ui):
-    p = ui()
-    pg = p.goto("#/feedback")
-    pg.wait_for_selector(".fb")
-    assert "too salesy, say it plainly" in pg.locator(".fb").inner_text() and "Waiting for the editor" in pg.locator(".fb").inner_text()
-    pg.get_by_role("tab", name="Resolved").click()
-    pg.wait_for_selector(".st-empty")
-
-
-@pytest.mark.legacy_ui
-def test_alerts_show_advice_and_acknowledge(ui):
-    p = ui()
-    pg = p.goto("#/alerts")
-    pg.wait_for_selector(".al")
-    assert "What to do" in pg.locator(".al").inner_text() and "not live" in pg.locator(".al").inner_text()
-    pg.get_by_role("button", name="Acknowledge").click()
-    pg.wait_for_selector("button:has-text('Acknowledged')")
-
-
-@pytest.mark.legacy_ui
-def test_accounts_show_state_in_words_and_never_credential_values(ui):
-    p = ui()
-    pg = p.goto("#/accounts")
-    pg.wait_for_selector(".connection-profile")
-    text = pg.locator(".connection-detail").inner_text()
-    assert "Not verified" in text and "Not enabled" in text and "Not tested" in text
-    assert "ave studio account live" not in pg.content() and pg.locator('input[type=password]').count()==0
-    assert pg.get_by_text('Facebook Page ID',exact=True).count()==0
-    pg.get_by_label('Login product',exact=True).select_option('instagram_facebook')
-    assert pg.get_by_text('Facebook Page ID',exact=True).is_visible()
-    pg.get_by_role('button',name='Connect credentials',exact=True).click()
-    pg.get_by_text('Sample connections are fictional.',exact=False).wait_for()
-
 
 # ---- narrow screens and motion ----------------------------------------------------------------------------------------------------------
 

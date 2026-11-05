@@ -81,7 +81,7 @@ def test_plan_offers_only_approved_clips_with_verified_candidates(cep, capsys):
     assert "A goal is a wish and a system is a habit" in quotes and all(len(q) <= 240 for q in quotes)
     hq = next(q for q in c["quote_candidates"] if q["quote"].startswith("A goal is a wish"))
     assert hq["speaker_name"] == "Maren Okafor" and hq["t1"] > hq["t0"]
-    assert out["episode_meta"]["people"] == ["Maren Okafor", "Tomas"]
+    assert out["episode_meta"]["people"] == ["Maren Okafor", "Imani"]
     assert (M.content_dir(cep) / "candidates.json").exists()
 
 
@@ -97,7 +97,7 @@ def test_propose_accepts_good_picks_rejects_bad_ones_with_every_problem(cep, tmp
     pf = picks_file(tmp_path, [
         pick_quote(),
         pick_quote(id="para", slots={"quote": "Goals are only wishes, systems are habits", "attribution": "Maren Okafor"}),
-        pick_quote(id="unapproved", source={"clip": "c02"}, slots={"quote": "There is not one", "attribution": "Tomas"}),
+        pick_quote(id="unapproved", source={"clip": "c02"}, slots={"quote": "There is not one", "attribution": "Imani"}),
         pick_quote(id="neon", style="neon", confidence=None, reason=""),
         {"template": "poster", "slots": {}},
     ])
@@ -116,9 +116,9 @@ def test_propose_accepts_good_picks_rejects_bad_ones_with_every_problem(cep, tmp
 
 
 def test_propose_warns_when_the_attribution_is_not_who_spoke(cep, tmp_path, capsys):
-    pf = picks_file(tmp_path, [pick_quote(slots={"quote": "A goal is a wish and a system is a habit", "attribution": "Tomas"})])
+    pf = picks_file(tmp_path, [pick_quote(slots={"quote": "A goal is a wish and a system is a habit", "attribution": "Imani"})])
     _, out = run(capsys, "propose", cep.root, pf)
-    assert "Maren Okafor" in out["accepted"][0]["warnings"][0] and "Tomas" in out["accepted"][0]["warnings"][0]
+    assert "Maren Okafor" in out["accepted"][0]["warnings"][0] and "Imani" in out["accepted"][0]["warnings"][0]
 
 
 def test_propose_enforces_the_item_limit_and_unknown_platform_formats(cep, tmp_path, monkeypatch, capsys):

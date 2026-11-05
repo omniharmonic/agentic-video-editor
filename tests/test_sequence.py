@@ -51,7 +51,7 @@ def _setup(root: Path, with_rough=True, show=True) -> Episode:
     meta = read_json(ep.meta_path)
     meta["title"] = "The Long Table 00"
     if show:
-        meta["show"] = {"hosts": [{"name": "Maren", "title": "Co-host"}, {"name": "Tomas", "title": "Co-host"}],
+        meta["show"] = {"hosts": [{"name": "Maren", "title": "Co-host"}, {"name": "Imani", "title": "Co-host"}],
                         "links": [{"label": "Subscribe", "value": "example.org"}]}
         meta["episode_title"] = "Why we are making this show"
     write_json(ep.meta_path, meta)
@@ -74,7 +74,7 @@ def _policy(ep: Episode, over: dict | None = None) -> Path:
 def ep(synth_episode):
     meta = read_json(synth_episode.meta_path)
     meta["title"] = "The Long Table 00"
-    meta["show"] = {"hosts": [{"name": "Maren", "title": "Co-host"}, {"name": "Tomas", "title": "Co-host"}],
+    meta["show"] = {"hosts": [{"name": "Maren", "title": "Co-host"}, {"name": "Imani", "title": "Co-host"}],
                     "links": [{"label": "Subscribe", "value": "example.org"}]}
     meta["episode_title"] = "Why we are making this show"
     write_json(synth_episode.meta_path, meta)
@@ -144,7 +144,7 @@ def test_plan_lists_items_durations_text_and_sources(ep):
     title = op["items"][0]
     assert title["props"]["show"] == "The Long Table" and title["props"]["number"] == "00"
     assert "derived from episode.json title" in title["text"]["show"]["source"]
-    assert op["items"][1]["props"]["people"] == [{"name": "Maren", "title": "Co-host"}, {"name": "Tomas", "title": "Co-host"}]
+    assert op["items"][1]["props"]["people"] == [{"name": "Maren", "title": "Co-host"}, {"name": "Imani", "title": "Co-host"}]
     assert pl["closing"]["items"][-1]["duration"] == pytest.approx(2.0)          # tail_room_tone_s default
     end = next(i for i in cl["items"] if i["id"] == "end_card")
     assert end["duration"] == pytest.approx(20.0)                                # YouTube end-screen hold (policy default)
@@ -240,7 +240,7 @@ def test_credits_include_editor_guests_and_optional_ave_line(ep):
     pol = _policy(ep, {"closing": {"credits": {"edited_with_ave": True}}})
     sec = {s["heading"]: s["lines"] for s in next(i for i in sequence.plan(ep, policy=pol, write=False)["closing"]["items"]
                                                    if i["id"] == "credits")["props"]["sections"]}
-    assert sec["Hosts"] == ["Maren", "Tomas"] and sec["Guests"] == ["Maren Okafor, Ecologist"]
+    assert sec["Hosts"] == ["Maren", "Imani"] and sec["Guests"] == ["Maren Okafor, Ecologist"]
     assert sec["Edited by"] == ["A. Editor", "Edited with ave"] and "Find us" in sec
     off = {s["heading"]: s["lines"] for s in next(i for i in sequence.plan(ep, policy=_policy(ep), write=False)["closing"]["items"]
                                                    if i["id"] == "credits")["props"]["sections"]}

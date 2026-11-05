@@ -1,32 +1,22 @@
-// Studio shell: boot, hash router, status strip, change polling, theme, keyboard help.
-// Views are ES modules exporting mount(root, ctx, route) -> {unmount?, refresh?}. WS5 owns calendar and grid; the other pages
-// are loaded on demand from the modules their workstream ships, and a missing module degrades to a plain notice.
+// More tools: the shell of the four older tools the app keeps unchanged (Production, Media tools, Feed planner, Post editor), opened
+// from the Workspace's "More tools" menu in their own window. Boot, hash router, status strip, change polling, theme, keyboard help.
 
 import {leaveSafely} from "./navigation-guard.js";
 import { api } from "./api.js";
-import { announce, bindLive, clear, h, modeOf, $, $$, store } from "./dom.js";
+import { announce, bindLive, clear, h, modeOf, $, $$, store } from "/app/shared/dom.js";
 import { createDnd } from "./dnd.js";
-import { makeCtx as makePanelCtx } from "./panels.js";
+import { makeCtx as makePanelCtx } from "/app/shared/panels.js";
 import { runUndo } from "./bulk.js";
 
+// The four tools the new app does not rebuild, kept unchanged and opened from the Workspace's "More tools" menu in their own window.
+// Everything else moved to the app (/app/): the Workspace, the Room, Settings and the approval sheets.
 const ROUTES = {
-  collaboration: "./collaboration.js",
   workbench: "./workbench.js",
-  desk: "./desk.js",
-  phone: "./phone.js",
   pipeline: "./pipeline.js",
-  calendar: "./calendar.js",
-  ideas: "./ideas.js",
   grid: "./grid.js",
   post: "./editor.js",
-  review: "./review.js",
-  library: "./library.js",
-  feedback: "./feedback.js",
-  alerts: "./alerts.js",
-  accounts: "./accounts.js",
-  campaigns: "./campaigns.js",
 };
-const TITLES = { collaboration: "Collaborate", workbench: "Sources", phone: "Phone preview", pipeline: "Production", desk: "Studio desk", calendar: "Calendar", ideas: "Ideas", grid: "Grid", post: "Post", review: "Review", library: "Library", feedback: "Feedback", alerts: "Alerts", accounts: "Connections", campaigns: "Campaigns" };
+const TITLES = { workbench: "Media tools", pipeline: "Production", grid: "Feed planner", post: "Post editor" };
 
 const q = new URLSearchParams(location.search);
 const POLL_MS = Math.max(200, Number(q.get("poll")) || 3000);   // ?poll=300 lets tests watch agent edits arrive quickly
@@ -98,7 +88,7 @@ function parseHash() {
   const raw = location.hash.replace(/^#\/?/, "") || "pipeline";
   const [path, query = ""] = raw.split("?");
   const parts = path.split("/").filter(Boolean).map(decodeURIComponent);
-  return { name: ["connections","keys"].includes(parts[0]) ? "accounts" : parts[0] || "calendar", args: parts.slice(1), query: new URLSearchParams(query) };
+  return { name: parts[0] || "pipeline", args: parts.slice(1), query: new URLSearchParams(query) };
 }
 
 async function route() {
@@ -118,12 +108,12 @@ async function route() {
   for (const a of $$("#nav a")) { if (a.dataset.p === r.name) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); }
   const file = ROUTES[r.name];
   document.title = `${TITLES[r.name] || "Studio"} · ${ctx.summary.title || "Studio"}`;
-  if (!file) return notice(main, "That page does not exist", "Use the navigation above.");
+  if (!file) return notice(main, "That page moved to the app", "The Workspace, the Room and Settings have everything else. Use Back to the Workspace above.");
   let mod;
   try { mod = await import(file); }
   catch (e) {
     if (token !== routeToken) return;
-    return notice(main, `${TITLES[r.name]} is not part of this build yet`, "The calendar and grid are ready; this page ships with another part of the studio.");
+    return notice(main, `${TITLES[r.name]} could not be loaded`, "Close this window and open it again from More tools.");
   }
   if (token !== routeToken) return;
   try {
@@ -146,11 +136,6 @@ async function mountPage(mod, r, main) {
   const hash = location.hash;
   const by = {
     post: () => mod.mountEditorFromHash(main, pctx, hash),
-    review: () => mod.mountReviewFromHash(main, pctx, hash),
-    library: () => mod.mountLibrary(main, pctx),
-    feedback: () => mod.mountFeedback(main, pctx),
-    alerts: () => mod.mountAlerts(main, pctx),
-    accounts: () => mod.mountAccounts(main, pctx),
   }[r.name];
   if (!by) throw new Error(`${r.name} has no mount function`);
   const handle = (await by()) || {};

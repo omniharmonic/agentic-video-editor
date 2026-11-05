@@ -48,7 +48,9 @@ def _generate(a, ep: Episode) -> int:
     video = None
     if a.burn:
         video = a.video or _default_video(ep, stage, name)
-    res = captions.make_captions(ep, stage, a.style, name, a.version, a.styles, video)
+    from ..project.readiness import choosing
+    with choosing("--version", explicit=a.version is not None):
+        res = captions.make_captions(ep, stage, a.style, name, a.version, a.styles, video)
     if a.burn and not video:
         res["note"] = "burn flag recorded in the edit; no rendered video was given or found, so nothing was burned yet"
     print(json.dumps(res, indent=2))

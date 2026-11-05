@@ -22,7 +22,7 @@ A pick (see `ave content templates` for each template's slots):
 
 ```json
 {"template": "quote-post", "style": "ink", "format": "4x5", "source": {"clip": "c01"},
- "slots": {"quote": "A goal is a wish and a system is a habit", "attribution": "Tomas", "show": "The Long Table"},
+ "slots": {"quote": "A goal is a wish and a system is a habit", "attribution": "Imani", "show": "The Long Table"},
  "platforms": ["instagram"], "caption": "optional; else built from the slots",
  "reason": "The line the conversation turns on; one breath long.", "confidence": 0.85}
 ```

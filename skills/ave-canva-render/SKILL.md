@@ -24,7 +24,7 @@ publish approval as every other image.
 ## Steps
 
 ```bash
-ave content canva-brief <ep>                         # FINAL palette, bundled fonts (files, OFL licenses), names (Maren / Tomas, CO-HOST) and card layout to enter in Canva's Brand Kit by hand
+ave content canva-brief <ep>                         # FINAL palette, bundled fonts (files, OFL licenses), names (Maren / Imani, CO-HOST) and card layout to enter in Canva's Brand Kit by hand
                                                      # (the creator does this in the Canva UI and will add more brand kit later; the agent never writes the Brand Kit)
                                                      # map Canva fields QUOTE, BY (name), TITLE (CO-HOST, under the name) and SHOW (once); `role` in a field_map still works for TITLE
 ave content render <ep> --renderer canva [--item ID] [--export png|jpg|mp4]

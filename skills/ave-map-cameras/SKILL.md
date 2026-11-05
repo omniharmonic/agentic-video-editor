@@ -64,10 +64,13 @@ when `media.json` already groups the file (it is the fallback).
 `camera` values must be keys of `cameras`. `audio_source` is the one continuous audio track under the whole cut
 (best microphone; defaults to the transcribed file). Camera audio is *not* cut with the picture.
 
-## 3. Checkpoint
+## 3. Record it and flag it (not a checkpoint you wait at)
 
-Show the human the mapping and the stills you based it on, e.g. "S1 = Maren on camera A (stills at 05:12 and
-11:40, mouth matches speech)". Wait for a yes before `ave plan-cuts`.
+Camera mapping is your decision (AGENTS.md rule 5): do not wait for a yes before `ave plan-cuts`. Record it with `decision_record`
+(the mapping you chose, the other mappings as options, and the evidence as the reason), e.g. "S1 = Maren on camera A (stills
+at 05:12 and 11:40, mouth matches speech)", and flag it when the director reviews the cut, so they can approve or change it in a
+word. `ave start` does this for you from each camera's own sound and says plainly when that evidence is weak; then look at a
+still and correct it before the director sees the cut. Speaker NAMES are still the director's: stop and ask if they are missing.
 
 ## Failure modes
 

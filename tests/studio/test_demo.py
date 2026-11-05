@@ -188,7 +188,7 @@ def test_cli_builds_prints_next_steps_and_refuses_the_second_run(tmp_path, capsy
     cap = capsys.readouterr()
     res = json.loads(cap.out)
     assert rc == 0 and res["ok"] and res["posts"] >= 38
-    assert f"ave studio ui {d} --open" in res["next"][0] and "ave studio ui" in cap.err and "PIN" in cap.err
+    assert f"ave studio ui {d} --open" in res["next"][0] and "ave studio ui" in cap.err and "human act" in cap.err
     rc = cli.main(["studio", "demo", str(d)])
     cap = capsys.readouterr()
     assert rc == 2 and json.loads(cap.out)["blocked"] is True
@@ -236,7 +236,12 @@ def test_the_ui_command_opens_a_wired_studio(built, monkeypatch, capsys):
             self.app = SimpleNamespace(pin=SimpleNamespace(reveal=lambda: "000000"))
 
         def url(self):
-            return "http://127.0.0.1:1/?t=x"
+            return "http://127.0.0.1:1/tools/?t=x"
+
+        def app_url(self):
+            return "http://127.0.0.1:1/app/?t=x"
+
+        tools_url = url
 
         def serve_forever(self):
             raise KeyboardInterrupt
@@ -250,4 +255,5 @@ def test_the_ui_command_opens_a_wired_studio(built, monkeypatch, capsys):
     assert srv.run_cli(args) == 0
     st = seen["studio"]
     assert st.has("calendar") and st.has("grid") and st.has("library")
-    assert "approval PIN" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "approval PIN" not in out and "/app/?t=" in out and "nothing can be approved" in out

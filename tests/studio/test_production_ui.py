@@ -114,42 +114,6 @@ def test_production_browser_journey(rig,browser):
     finally:page.close()
 
 
-@pytest.mark.legacy_ui
-@pytest.mark.parametrize('width,height',[(1440,960),(1024,768),(390,844)])
-def test_populated_views_and_theme(rig,browser,width,height):
-    studio,server=rig;context=browser.new_context(viewport={'width':width,'height':height},color_scheme='dark');page=context.new_page();out=Path('/tmp/ave-production-evidence');out.mkdir(exist_ok=True)
-    try:
-        page.goto(server.url()+'#/pipeline');page.locator('.production-table tr[data-post]').first.wait_for()
-        assert page.locator('html').get_attribute('data-theme')=='light'
-        for mode in ['Table','Board','Timeline']:
-            page.get_by_role('button',name=mode,exact=True).click();page.screenshot(path=str(out/f'{mode.lower()}-{width}.png'),full_page=True)
-            assert page.locator('body').evaluate('(el)=>el.scrollWidth<=innerWidth')
-        page.get_by_role('button',name='Table',exact=True).click();page.locator('.prod-open').first.click();page.screenshot(path=str(out/f'inspector-{width}.png'),full_page=True)
-        page.get_by_role('button',name='Close inspector',exact=True).click()
-        page.goto(server.url()+'#/campaigns');page.locator('.campaign-detail').wait_for();page.screenshot(path=str(out/f'campaign-{width}.png'),full_page=True)
-        if width==390:
-            page.get_by_role('button',name='Menu',exact=True).click();page.locator('#nav a[data-p="pipeline"]').click();assert not page.locator('body').evaluate("e=>e.classList.contains('nav-open')")
-        else:assert page.locator('#nav').bounding_box()['width']<220
-        page.evaluate("localStorage.setItem('ave.studio.theme',JSON.stringify('dark'))");page.reload();assert page.locator('html').get_attribute('data-theme')=='dark'
-    finally:context.close()
-
-
-@pytest.mark.legacy_ui
-def test_campaign_and_saved_view_journey(rig,browser):
-    studio,server=rig;page=browser.new_page(viewport={'width':1440,'height':960})
-    try:
-        page.goto(server.url()+'#/campaigns');page.get_by_role('button',name='+ New campaign',exact=True).click()
-        page.get_by_label('Campaign name',exact=True).fill('Winter letters');page.get_by_label('Campaign goal',exact=True).fill('Share the writing process');page.get_by_label('Campaign start',exact=True).fill('2026-11-01');page.get_by_label('Campaign end',exact=True).fill('2026-11-30');page.get_by_role('button',name='Save',exact=True).click()
-        page.get_by_role('heading',name='Winter letters',exact=True).wait_for();page.get_by_role('button',name='+ Milestone',exact=True).click();page.get_by_label('Milestone title',exact=True).fill('First letter');page.get_by_label('Milestone date',exact=True).fill('2026-11-08');page.get_by_role('button',name='Save',exact=True).click()
-        page.get_by_text('First letter',exact=True).wait_for();page.get_by_role('button',name='Manage content',exact=True).click();page.get_by_label('Include Inside the writing room',exact=True).check();page.get_by_role('button',name='Save',exact=True).click()
-        page.locator('.campaign-content-list a').wait_for();page.get_by_role('link',name='Open production workspace',exact=True).click();page.locator('.production-table tr[data-post]').wait_for()
-        assert page.locator('.production-table tr[data-post]').count()==1
-        page.get_by_role('button',name='Save view',exact=True).click();page.get_by_label('View name',exact=True).fill('Winter work');page.get_by_role('button',name='Save',exact=True).click();page.reload();page.get_by_label('Saved view',exact=True).select_option(label='Winter work')
-        assert page.get_by_label('Campaign filter',exact=True).input_value()=='c_winter-letters'
-        assert P.config(studio.sp,'production-views')['items'][0]['name']=='Winter work'
-    finally:page.close()
-
-
 def test_production_api_conflict_media_and_no_queue_follow(rig):
     from studio.test_api import Client
     studio,server=rig;c=Client(server)
@@ -242,85 +206,6 @@ def test_review_brief_preserves_sources_and_draft_through_stage_and_poll(review_
         page.get_by_role('button',name='Save brief',exact=True).click()
         wait_for(lambda:store.load_post(studio.sp,p['id'])['production']['sources'][0]['source_id']=='chapter3.md',page)
         assert store.load_post(studio.sp,p['id'])['production']['sources'][1:]==sources[1:]
-    finally:page.close()
-
-
-@pytest.mark.legacy_ui
-@pytest.mark.parametrize('absent_cadence',[False,True])
-def test_review_campaign_goal_preserves_each_cadence(review_rig,browser,absent_cadence):
-    import json
-    studio,server,p,c,person,sources=review_rig
-    if absent_cadence:
-        c.pop('cadence');campaigns.path_for(studio.sp,c['id']).write_text(json.dumps(c))
-    page=browser.new_page()
-    try:
-        page.goto(server.url()+'#/campaigns');page.get_by_role('button',name='Edit campaign',exact=True).click()
-        assert page.get_by_label('Posts per week for ig-main',exact=True).input_value()==('' if absent_cadence else '2')
-        assert page.get_by_label('Posts per week for ig-other',exact=True).input_value()==('' if absent_cadence else '7')
-        assert page.get_by_label('Posts per week for ig-none',exact=True).input_value()==''
-        page.get_by_label('Campaign goal',exact=True).fill('Only the goal changes')
-        page.get_by_role('button',name='Save',exact=True).click()
-        wait_for(lambda:campaigns.load(studio.sp,c['id'])['goal']=='Only the goal changes',page)
-        saved=campaigns.load(studio.sp,c['id'])
-        assert saved.get('cadence')==c.get('cadence') and ('cadence' in saved)==('cadence' in c)
-        if not absent_cadence:
-            page.get_by_role('button',name='Edit campaign',exact=True).click()
-            page.get_by_label('Posts per week for ig-other',exact=True).fill('9')
-            page.get_by_role('button',name='Save',exact=True).click()
-            wait_for(lambda:campaigns.load(studio.sp,c['id'])['cadence']['ig-other']['per_week']==9,page)
-            assert campaigns.load(studio.sp,c['id'])['cadence']=={'ig-main':{'per_week':2},'ig-other':{'per_week':9}}
-
-    finally:page.close()
-
-
-@pytest.mark.legacy_ui
-def test_review_rejected_controls_restore_authoritative_state(review_rig,browser):
-    studio,server,p,c,person,sources=review_rig;page=browser.new_page(viewport={'width':1440,'height':960});errors=[]
-    page.on('pageerror',lambda e:errors.append(str(e)))
-    try:
-        page.goto(server.url()+'#/pipeline')
-        stage=page.locator('.production-table').get_by_label('Move Review evidence to stage',exact=True)
-        stage.select_option('ready');page.get_by_role('alert').filter(has_text='Ready is blocked').wait_for()
-        assert stage.input_value()=='idea' and store.load_post(studio.sp,p['id'])['production']['status']=='idea'
-        with page.expect_response(lambda r:'/production' in r.url and r.request.method=='POST') as response:
-            page.get_by_role('button',name='Retry proposed change',exact=True).click()
-        assert response.value.status==400
-        assert stage.input_value()=='idea'
-        stage.focus();page.keyboard.press('End');page.locator('dialog[open]').wait_for()
-        page.get_by_role('button',name='Cancel',exact=True).click()
-        assert stage.input_value()=='idea' and store.load_post(studio.sp,p['id'])['production']['status']=='idea'
-        # A real CAS conflict on an optimistic owner selection restores the disk value.
-        owner=page.get_by_label('Owner for Review evidence',exact=True);owner.focus()
-        current=store.load_post(studio.sp,p['id']);P.update(studio,p['id'],{'priority':'urgent'},expected_rev=current['rev'])
-        owner.select_option(person['id']);page.get_by_role('button',name='Apply my fields to latest',exact=True).wait_for()
-        assert owner.input_value()=='' and store.load_post(studio.sp,p['id'])['production']['owner'] is None
-        page.get_by_role('button',name='Apply my fields to latest',exact=True).click()
-        wait_for(lambda:store.load_post(studio.sp,p['id'])['production']['owner']==person['id'],page)
-        # A campaign revision conflict restores membership without treating a campaign as a post.
-        target=campaigns.new(studio.sp,'Other campaign');page.reload()
-        assignment=page.get_by_label('Campaign for Review evidence',exact=True);assignment.focus()
-        campaigns.edit(studio.sp,target['id'],{'goal':'Concurrent target change'},expected_rev=target['rev'])
-        with page.expect_response(lambda r:'/members' in r.url and r.request.method=='POST') as response:
-            assignment.select_option(target['id'])
-        assert response.value.status==409
-        wait_for(lambda:assignment.input_value()==c['id'],page)
-        assert store.load_post(studio.sp,p['id'])['campaign']==c['id']
-        # An incomplete checklist is rejected while Ready, so its checkbox must restore.
-        current=store.load_post(studio.sp,p['id']);P.update(studio,p['id'],{'status':'ready','checklist':[{'id':'check','title':'Check text','done':True}]},expected_rev=current['rev'])
-        page.reload();page.get_by_role('button',name='Open',exact=True).click();page.get_by_role('button',name='Tasks',exact=True).click()
-        checkbox=page.get_by_label('Complete Check text',exact=True);checkbox.uncheck()
-        page.get_by_role('alert').filter(has_text='Ready is blocked').wait_for()
-        assert checkbox.is_checked() and store.load_post(studio.sp,p['id'])['production']['checklist'][0]['done']
-        # Campaign milestone checkboxes also roll back on revision conflict.
-        c=campaigns.load(studio.sp,c['id']);campaigns.edit(studio.sp,c['id'],{'milestones':[{'id':'launch','title':'Launch','date':None,'done':False}]},expected_rev=c['rev'])
-        page.goto(server.url()+'#/campaigns');page.get_by_role('button',name='Review campaign',exact=True).click();checkbox=page.get_by_label('Complete milestone Launch',exact=True);checkbox.focus()
-        c=campaigns.load(studio.sp,c['id']);campaigns.edit(studio.sp,c['id'],{'goal':'Concurrent goal'},expected_rev=c['rev'])
-        with page.expect_response(lambda r:'/edit' in r.url and r.request.method=='POST') as response:
-            checkbox.check()
-        assert response.value.status==409
-        wait_for(lambda:not checkbox.is_checked(),page)
-        assert not checkbox.is_checked() and not campaigns.load(studio.sp,c['id'])['milestones'][0]['done']
-        assert not errors
     finally:page.close()
 
 

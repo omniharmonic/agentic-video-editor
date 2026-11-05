@@ -8,7 +8,7 @@
 // release drops. Escape cancels. Touch drags start only from the card's grip, so a finger on the card still scrolls the page.
 // Keyboard path: KeyboardMover below. It is the accessibility path to every drag, not an extra.
 
-import { announce } from "./dom.js";
+import { announce } from "/app/shared/dom.js";
 
 const THRESHOLD = 5;
 

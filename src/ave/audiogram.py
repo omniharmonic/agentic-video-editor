@@ -55,9 +55,13 @@ def render_picture(ep: Episode, doc: dict, out: Path, cfg: dict) -> Path:
     return out
 
 
-def attach(ep: Episode, doc: dict, slug: str, version: int, cfg: dict) -> dict:
-    """Make `doc` an audiogram: render the picture and replace the video track by it. Returns the picture record."""
-    pic = ep.work / "shorts" / f"audiogram.{slug}.v{version}.mp4"
+def attach(ep: Episode, doc: dict, slug: str, version: int | str, cfg: dict) -> dict:
+    """Make `doc` an audiogram: render the picture and replace the video track by it. Returns the picture record.
+
+    `version` is the label of the version being built (editdoc.next_label: `v8`, or `v8~abcd` in an adopted project; a bare
+    number means `v<n>`), so two computers' v8 never share a picture. The picture is always rendered fresh, never reused."""
+    lab = version if isinstance(version, str) else f"v{int(version)}"
+    pic = ep.work / "shorts" / f"audiogram.{slug}.{lab}.mp4"
     render_picture(ep, doc, pic, cfg)
     doc["sources"]["WAVE"] = {"kind": "video", "file": str(pic.relative_to(ep.root)), "start_offset": 0.0, "drift_ppm": 0.0}
     doc["tracks"]["video"] = [{"id": "wave", "src": "WAVE", "o0": 0.0, "o1": doc["duration"], "e0": 0.0, "crop": None, "zoom": 1.0,

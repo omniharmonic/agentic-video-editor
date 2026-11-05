@@ -52,7 +52,7 @@ def launch(studio_path: str | None = None, *, fixtures: bool = False, by: str | 
             webview_module.settings["ALLOW_FILE_URLS"] = False
         # The OS webview consumes the same authenticated URL as the browser. No
         # js_api object, local-file server, remote debugging or shell capability.
-        webview_module.create_window(f"{label} · AVE Studio", srv.url(), width=1440, height=960,
+        webview_module.create_window(f"{label} · AVE Studio", srv.app_url(), width=1440, height=960,
                                      min_size=(760, 560))
         webview_module.start(private_mode=True)
     finally:

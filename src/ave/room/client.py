@@ -130,8 +130,23 @@ class RoomClient:
     def highlight(self, highlights: list[dict]) -> dict:
         return self._write("room_highlight", "highlight", {"highlights": highlights})
 
-    def offer_version(self, artifact: str, version: str, compare_to: str | None = None) -> dict:
-        return self._write("room_offer_version", "offer", {"artifact": artifact, "version": version, "compare_to": compare_to})
+    def offer_version(self, artifact: str, version: str, compare_to: str | None = None, summary: str | None = None) -> dict:
+        body = {"artifact": artifact, "version": version, "compare_to": compare_to}
+        if summary is not None:
+            body["summary"] = summary
+        return self._write("room_offer_version", "offer", body)
+
+    def keep(self, version: str) -> dict:
+        """Keep said in chat: the same click the button records, marked `via: chat`. Never queued: with the app closed there is no offer to answer."""
+        return self._answer("keep", version)
+
+    def back(self, version: str) -> dict:
+        """Go back said in chat, as the button does it, marked `via: chat`. Never queued, for the same reason as `keep`."""
+        return self._answer("back", version)
+
+    def _answer(self, route: str, version: str) -> dict:
+        got = self._call(route, {"version": version, "via": "chat"})
+        return got if got is not None else {"room": "closed", "queued": False}
 
     def read(self) -> dict:
         """Nothing to keep when closed. Flags are confirmed to the app by the next read, once this reply was actually received."""
@@ -141,3 +156,24 @@ class RoomClient:
         if "ack" in got:
             self.ack = got["ack"]
         return got
+
+
+def waiting_flags(start: str | Path) -> list[dict] | None:
+    """The director's open flags in the running app's Room, read without acknowledging them (room_read does that), for the app
+    whose room.json sits at `start` or one of its parents; None when no app is open. Each flag carries `root`, the folder of the
+    app it came from."""
+    here = Path(start).resolve()
+    for root in (here, *here.parents):
+        try:
+            info = json.loads(room_file(root).read_text())
+            port, token = int(info["port"]), str(info["token"])
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+        req = urllib.request.Request(f"http://127.0.0.1:{port}/api/room/state", headers={"X-AVE-Token": token})
+        try:
+            with _OPENER.open(req, timeout=TIMEOUT) as r:
+                snap = json.loads(r.read() or b"{}")
+        except (OSError, ValueError):
+            return None
+        return [{**f, "root": str(root)} for f in snap.get("flags") or []]
+    return None

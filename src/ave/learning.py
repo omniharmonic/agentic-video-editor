@@ -20,7 +20,7 @@ from .episode import Episode
 
 LEDGER = "learning/clip_decisions.jsonl"
 VERDICTS = ("keep", "maybe", "skip")
-SOURCES = ("ui", "cli")
+SOURCES = ("ui", "cli", "relayed")      # relayed: a room-token request in the Room, which is Claude's
 SCHEMA_VERSION = 1
 REASONS_FILE = "clip_reasons.yaml"
 
@@ -45,7 +45,7 @@ def load_reasons(ep: Episode | None = None) -> dict[str, dict]:
         for r in (yaml.safe_load(p.read_text()) or {}).get("reasons") or []:
             if isinstance(r, dict) and r.get("id"):
                 out[str(r["id"])] = {"id": str(r["id"]), "label": r.get("label") or str(r["id"]).replace("_", " "),
-                                     "feature": r.get("feature")}
+                                     "feature": r.get("feature"), "verdicts": list(r.get("verdicts") or ("keep", "maybe", "skip"))}
     return out
 
 
@@ -84,7 +84,7 @@ def record_decision(ep: Episode, clip_id: str, verdict: str, reasons: Any = (), 
         features = features if features is not None else clip_features(clip)
     rec = {"v": SCHEMA_VERSION, "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "episode": ep.root.name, "clip_id": clip_id,
            "session": session, "edit": edit, "verdict": verdict, "reasons": reasons, "note": (note or None),
-           "by": by or _by(), "source": source, "via": via or ("ui" if source == "ui" else humanpresence.provenance()),
+           "by": by or _by(), "source": source, "via": via or (source if source in ("ui", "relayed") else humanpresence.provenance()),
            "features": features or {}}
     p = ledger_path(ep)
     p.parent.mkdir(parents=True, exist_ok=True)
@@ -104,7 +104,7 @@ def edit_label(data: dict, clip: dict) -> str | None:
     src = clip.get("source") or data.get("source")
     if not src:
         return None
-    return f"{src['stage']}{'.' + src['name'] if src.get('name') else ''}.v{src['version']}"
+    return src.get("id") or f"{src['stage']}{'.' + src['name'] if src.get('name') else ''}.v{src['version']}"
 
 
 def clip_features(clip: dict) -> dict:
@@ -117,8 +117,21 @@ def clip_features(clip: dict) -> dict:
 
 # ---- read --------------------------------------------------------------------------------------------------
 
-def iter_decisions(ep: Episode) -> Iterator[dict]:
-    """Every ledger line in order (history included). A damaged line is skipped, never fatal: the ledger is append-only."""
+def withdraw_decision(ep: Episode, clip_id: str, by: str | None = None, source: str = "ui") -> dict:
+    """The director took a call back (an undo): one `withdrawn` line, so `latest_decisions` forgets the clip's verdict while the
+    history keeps both lines. The ledger stays append-only."""
+    if source not in SOURCES:
+        raise ValueError(f"source must be one of {', '.join(SOURCES)}, got {source!r}")
+    rec = {"v": SCHEMA_VERSION, "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "episode": ep.root.name, "clip_id": clip_id,
+           "withdrawn": True, "by": by or _by(), "source": source}
+    p = ledger_path(ep)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with p.open("a") as f:
+        f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    return rec
+
+
+def _records(ep: Episode) -> Iterator[dict]:
     p = ledger_path(ep)
     if not p.is_file():
         return
@@ -130,13 +143,23 @@ def iter_decisions(ep: Episode) -> Iterator[dict]:
             rec = json.loads(line)
         except ValueError:
             continue
-        if isinstance(rec, dict) and rec.get("clip_id") and rec.get("verdict") in VERDICTS:
+        if isinstance(rec, dict) and rec.get("clip_id"):
+            yield rec
+
+
+def iter_decisions(ep: Episode) -> Iterator[dict]:
+    """Every ledger line in order (history included). A damaged line is skipped, never fatal: the ledger is append-only."""
+    for rec in _records(ep):
+        if rec.get("verdict") in VERDICTS:
             yield rec
 
 
 def latest_decisions(ep: Episode) -> dict[str, dict]:
-    """clip_id -> its latest decision (the last line wins)."""
+    """clip_id -> its latest decision (the last line wins; a `withdrawn` line takes the clip's verdict back)."""
     out: dict[str, dict] = {}
-    for rec in iter_decisions(ep):
-        out[rec["clip_id"]] = rec
+    for rec in _records(ep):
+        if rec.get("withdrawn"):
+            out.pop(rec["clip_id"], None)
+        elif rec.get("verdict") in VERDICTS:
+            out[rec["clip_id"]] = rec
     return out

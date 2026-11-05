@@ -59,6 +59,13 @@ def build_final(ep: Episode, *, style: str = "podcast", music: str | None = None
         raise SystemExit(f"No rough or assembly edit{' ' + name if name else ''} to build the final from. Run: ave assemble {ep.root}" + sessions.hint(ep, name))
     if base_stage == "assembly":
         warnings.append("No rough cut: the final is built from the assembly, so nothing has been cleaned up.")
+    from .start import open_decisions_warning      # a warning, never a refusal (the trim gate above is the one that refuses)
+    if open_decisions_warning(ep.root):
+        warnings.append(open_decisions_warning(ep.root))
+    from . import trim
+    blocked = trim.final_block(ep, name, editdoc.load_latest(ep, base_stage, name))
+    if blocked:
+        raise SystemExit(blocked)
     doc = editdoc.clone(editdoc.load_latest(ep, base_stage, name))
     doc["stage"] = "final"
     if base_stage != "final":      # a continued final keeps its overlays; captions are regenerated below either way
@@ -74,6 +81,7 @@ def build_final(ep: Episode, *, style: str = "podcast", music: str | None = None
     seq_ctx = sequence.final_prepare(ep, doc, name=name, opening=opening, closing=closing, preset=preset, build_now=render, burn=burn,
                                      draft=draft_sequences, allow_unlicensed=allow_unlicensed)
     path = editdoc.save_new_version(ep, doc, name)
+    warnings += editdoc.saved_warnings(path)
 
     cap = captions.make_captions(ep, "final", style, name=name)
     final_doc = editdoc.load_latest(ep, "final", name)
@@ -93,9 +101,9 @@ def build_final(ep: Episode, *, style: str = "podcast", music: str | None = None
     if not render:
         return report
 
-    n = editdoc.list_versions(ep, "final", name)[-1]
+    lab = editdoc.label(editdoc.latest_version(ep, "final", name))      # v8, or v8~abcd: two computers' v8 never share an export
     tag = f"final.{name}" if name else "final"
-    out = ep.exports / f"{tag}.v{n}.{preset}.mp4"
+    out = ep.exports / f"{tag}.{lab}.{preset}.mp4"
     out.parent.mkdir(parents=True, exist_ok=True)
     body_out = out.with_name(out.stem + ".body.mp4") if seq_ctx else out     # with sequences the body renders aside, then is joined to `out`
     rr = comp.render(ep, final_doc, body_out, preset=preset, burn_captions=burn, overwrite=True)
@@ -109,7 +117,7 @@ def build_final(ep: Episode, *, style: str = "podcast", music: str | None = None
         t = captions.retranscribe(ep, out, asr=asr)
         style_obj = captions.get_style(style, ep=ep)
         cues = captions.cues_from_words(t["words"], style_obj, captions.episode_glossary(ep))
-        srt = captions.write_srt(cues, ep.exports / f"{tag}.v{n}.srt")
+        srt = captions.write_srt(cues, ep.exports / f"{tag}.{lab}.srt")
         report["retranscribed_srt"] = {"path": str(srt), "cues": len(cues), "problems": captions.check(cues, style_obj),
                                        "engine": (t.get("engine") or {}).get("asr")}
         # The whisper.cpp fallback is NOT frame-accurate: on the real episode its word times ran 0.5 s (p10: 1.4 s) early and it

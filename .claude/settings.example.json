@@ -5,6 +5,7 @@
       "Bash(ave publish run*)",
       "Bash(ave sequence approve*)",
       "Bash(ave trim set*)",
+      "Bash(ave trim clear*)",
       "Bash(ave learn taste apply*)",
       "Bash(ave studio approve*)",
       "Bash(ave studio ui*)",

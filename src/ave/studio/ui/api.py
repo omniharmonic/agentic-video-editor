@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from ...publish import queue as pq, safety
-from ...ui.api import ApiError
+from .http import ApiError
 from .. import dispatch, ledger, policy, state, store
 from ..clock import iso_utc
 from ..events import Actor, append_event, make_event
@@ -139,6 +139,12 @@ def map_error(e: BaseException, studio: Studio | None = None) -> StudioError:
         return StudioError(404, str(e) or "not found", "not_found")
     if isinstance(e, KeyError):
         return StudioError(404, str(e.args[0]) if e.args else "not found", "not_found")
+    from ...project.log import ReadOnlyError
+    from ...updates import Restarting
+    if isinstance(e, Restarting):                       # the app is about to relaunch for an update
+        return StudioError(503, str(e), "restarting")
+    if isinstance(e, ReadOnlyError):                    # a project a newer AVE saved: nothing here may write it
+        return StudioError(409, str(e), "read_only")
     if isinstance(e, ValueError):
         return StudioError(400, str(e), code if isinstance(code, str) else "invalid")
     if isinstance(e, RuntimeError) and type(e).__name__ == "ClaimConflict":
@@ -185,6 +191,20 @@ class StudioApp:
     def _actor(self, body: Mapping) -> Actor:
         name = str(body.get("by") or self.by).strip()[:80] or self.by
         return Actor("human", name)
+
+    def _require_native(self, action: str, keys=()) -> None:
+        """The device-owner grant for exactly this act (desktop_auth.NativeAuthority). Test doubles without grants keep their
+        simple `require()`."""
+        a = self.native_authority
+        if a is None:
+            return
+        from ...desktop_auth import require_act
+        require_act(a, action, keys)
+
+    @staticmethod
+    def approval_key(post: str, variant: str, sha: str) -> str:
+        """What a publishing grant names: one exact variant at one exact sha."""
+        return f"{post}/{variant}/{sha}"
 
     def _by(self, body: Mapping) -> str:
         return _need(body, "by")[:80]
@@ -270,7 +290,7 @@ class StudioApp:
             return 200, overview(s, fixtures=self.fixtures)
         if head == "summary" and not rest:
             out = dict(s.summary())
-            out["ui"] = {"approval_mode": self._approval_mode(), "pin_locked": self.pin.locked, "fixtures": self.fixtures, "native": self.native_authority is not None, "native_authorized": bool(self.native_authority and self.native_authority.active)}
+            out["ui"] = {"approval_mode": self._approval_mode(), "pin_locked": self.pin.locked, "fixtures": self.fixtures, "native": self.native_authority is not None}
             return 200, out
         if head in ("profiles","copy-groups") and not rest:
             if self.fixtures: return 200, {"profiles":[]} if head=="profiles" else {"v":1,"rev":0,"items":[]}
@@ -409,9 +429,14 @@ class StudioApp:
         if self.native_authority is not None:
             # Explicit protected operations; adding future account/service routes
             # requires a native handler, never a caller-supplied authority flag.
-            protected = (parts in (["approve"], ["resume"], ["broll", "pick"])
-                         or (len(parts) == 4 and parts[:2] == ["schedule", "proposals"] and parts[3] == "accept"))
-            if protected: self.native_authority.require()
+            # Each is authorised only by a single-use device-owner grant for exactly this act and target, spent by the
+            # app's own native sheet on its own thread (desktop_auth). A request with only the room token holds none.
+            if parts == ["broll", "pick"]:
+                self._require_native("pickBroll", (f"{body.get('search')}/{body.get('candidate')}",))
+            elif len(parts) == 4 and parts[:2] == ["schedule", "proposals"] and parts[3] == "accept":
+                self._require_native("acceptProposal", (parts[2],))
+            elif len(parts) == 3 and parts[0] == "alerts" and parts[2] == "ack":
+                self._require_native("ackAlert", (parts[1],))
             if parts and parts[0] in ("accounts", "auth", "live", "send", "service"):
                 raise StudioError(403, "Use the native Connections action", "native.protected_action")
             if len(parts)==3 and parts[0]=='posts' and parts[2]=='delivery-refresh':
@@ -536,10 +561,18 @@ class StudioApp:
             return self._post_action(parts[1], parts[2], body, actor)
         if parts == ["bulk"]:
             return 200, self.bulk(body, actor)
-        if parts == ["approve"]:
-            return 200, self.approve(body)
-        if parts == ["reject"]:
-            return 200, self.reject(body, actor)
+        if len(parts) == 3 and parts[0] == "alerts" and parts[2] == "ack":        # Settings › Alerts: a person read it
+            # Only the app's native sheet acknowledges as the person, after its device-owner check (checked above). Without
+            # the app there is no proof of a person, so nothing is recorded: the terminal's `ave studio alerts ack` remains.
+            if self.fixtures:
+                return 200, {"op": "ack", "alert": parts[1], "by": actor.name}
+            if self.native_authority is None:
+                raise StudioError(403, f"Acknowledge it in the AVE Studio app, or run `ave studio alerts ack {parts[1]}` in your own terminal.",
+                                  "native.protected_action")
+            try:
+                return 200, ledger.ack_alert(s.sp, parts[1], actor.name, now=s.now())
+            except ValueError as e:
+                raise StudioError(404, str(e), "not_found") from None
         if parts == ["broll", "search"]:
             res = s.broll_search(post=body.get("post"), query=_need(body, "query"), providers=body.get("providers"),
                                  kind=body.get("kind"), orientation=body.get("orientation"))
@@ -551,10 +584,6 @@ class StudioApp:
             return 200, s.accept_proposal(parts[2], actor=actor)
         if parts == ["pause"]:
             return 200, self.pause(body, actor)
-        if parts == ["resume"]:
-            return 200, self.resume(body, actor)
-        if parts == ["tick", "rehearse"]:
-            return 200, s.rehearse()
         raise StudioError(404, "no such endpoint", "not_found")
 
     def _post_action(self, post_id: str, action: str, body: dict, actor: Actor) -> tuple[int, Any]:
@@ -621,8 +650,6 @@ class StudioApp:
             result["media_urls"] = {m["filename"]: "/files/" + s.sp.rel(Path(result["directory"]) / m["filename"])
                                     for m in result["manifest"]["media"]}
             return 201, result
-        if action == "view":
-            return 200, self.record_view(post_id, body)
         if action == "feedback":
             return self.feedback(post_id, body, actor)
         rev = _need(body, "expected_rev", int)
@@ -746,10 +773,13 @@ class StudioApp:
         except (OSError, ValueError, KeyError) as e:
             raise StudioError(409, f"cannot hash the media: {e}", "view.no_media") from None
 
-    def record_view(self, post_id: str, body: dict) -> dict:
-        if self.native_authority is not None: self.native_authority.require()
+    def record_view(self, post_id: str, body: dict, *, via: str | None = None) -> dict:
+        """The person looked at the exact files for `displayed_ms`. Only the app's approval sheet calls this (in process, with
+        `via="native-sheet"`); the label is never taken from a request body."""
+        self._require_native("approvePublish")
         variant = _need(body, "variant")
         sha = _need(body, "sha").lower()
+        self._require_native("approvePublish", (self.approval_key(post_id, variant, sha),))
         ms = _need(body, "displayed_ms", int) if "displayed_ms" in body else 0
         if len(sha) != 64 or any(c not in "0123456789abcdef" for c in sha):
             raise StudioError(400, "'sha' must be the 64-hex sha256 the UI was shown", "bad_request")
@@ -764,7 +794,8 @@ class StudioApp:
         if not self.fixtures:
             try:
                 append_event(self.studio.sp, make_event(actor=Actor("human", self.by), op="viewed", post=post_id, variant=variant,
-                                                        after_sha=sha, detail={"displayed_ms": max(ms, 0)}, now=self.studio.now()))
+                                                        after_sha=sha, detail={"displayed_ms": max(ms, 0), **({"via": "native-sheet"} if via == "native-sheet" else {})},
+                                                        now=self.studio.now()))
             except ValueError:
                 pass
         out = {"ok": True, "viewed": {"post": post_id, "variant": variant, "sha": sha, "at": now}}
@@ -785,11 +816,12 @@ class StudioApp:
         return _bound_view(s.sp, raw, v, item)
 
     def approve(self, body: dict) -> dict:
-        if self.native_authority is not None: self.native_authority.require()
+        self._require_native("approvePublish")             # refuse before reading anything without a grant at all
         by = self._by(body)
         items = body.get("items")
         if not isinstance(items, list) or not items or len(items) > 50 or not all(isinstance(i, dict) for i in items):
             raise StudioError(400, "'items' must be a list of 1 to 50 {post, variant, sha} objects", "bad_request")
+        self._require_native("approvePublish", tuple(self.approval_key(str(i.get("post")), str(i.get("variant")), str(i.get("sha") or "").lower()) for i in items))
         self.pin.check(body.get("pin"))
         typed = self._approval_mode() == "typed"
         approved, refused = [], []
@@ -857,40 +889,7 @@ class StudioApp:
         return {"post": post_id, "variant": variant_id, "queue_id": item["id"], "sha": sha, "by": by, "at": ap.get("at"),
                 "source": "studio-ui"}
 
-    def reject(self, body: dict, actor: Actor) -> dict:
-        s = self.studio
-        by = self._by(body)
-        items = body.get("items")
-        if not isinstance(items, list) or not items or len(items) > 50 or not all(isinstance(i, dict) for i in items):
-            raise StudioError(400, "'items' must be a list of 1 to 50 {post, variant} objects", "bad_request")
-        reason = str(body.get("reason") or "")[:500]
-        if self.fixtures:
-            return s.reject()
-        rejected, refused, last = [], [], None
-        with self.write_lock:
-            for it in items:
-                pid, vid = it.get("post"), it.get("variant")
-                try:
-                    post = s.post(pid)
-                    v = find_variant(post, vid)
-                    item = state.load_queue_item(s.sp, v)
-                    if item is None:
-                        raise Refused("no queue item")
-                    pq.reject(state.queue_episode(s.sp, v), item["id"], by, reason)
-                except (Refused, ValueError, FileNotFoundError, KeyError, TypeError) as e:
-                    refused.append({"post": pid, "variant": vid, "reason": str(e.args[0]) if isinstance(e, KeyError) and e.args else str(e)})
-                    continue
-                self.views.pop((pid, vid), None)
-                append_event(s.sp, make_event(actor=Actor("human", by), op="rejected", post=pid, variant=vid, rev=post.get("rev"),
-                                              detail={"queue_id": item["id"], "reason": reason}, now=s.now()))
-                rejected.append({"post": pid, "variant": vid, "queue_id": item["id"]})
-                last = pid
-        out = {"post": s.post(last) if last else None, "rejected": rejected}
-        if refused:
-            out["refused"] = refused
-        return out
-
-    # ------------------------------------------------------------------ pause / resume
+    # ------------------------------------------------------------------ pause (resuming is the app's native Background delivery act)
     def _pause_path(self, account: str | None) -> Path:
         sp = self.studio.sp
         if not account:
@@ -911,23 +910,6 @@ class StudioApp:
         append_event(self.studio.sp, make_event(actor=actor, op="pause", detail={"account": account}, now=self.studio.now()))
         return {"paused": True, "scope": account or "studio"}
 
-    def resume(self, body: dict, actor: Actor) -> dict:
-        """Resuming needs the PIN (spec 6.7: `resume` is a human act)."""
-        self.pin.check(body.get("pin"))
-        account = body.get("account") or None
-        if self.fixtures:
-            return self.studio.resume()
-        if self.studio.has("resume"):
-            return self.studio.resume(account=account, by=actor.name, pin_verified=True)     # the PIN was checked above
-        p = self._pause_path(account)
-        p.unlink(missing_ok=True)
-        append_event(self.studio.sp, make_event(actor=actor, op="resume", detail={"account": account}, now=self.studio.now()))
-        return {"paused": self.studio.sp.pause_path.exists()}
-
-    # ------------------------------------------------------------------ upload (streamed by the handler)
-    def upload(self, tmp_path: Path, name: str, size: int, sha256: str) -> dict:
-        res = self.studio.upload(name, tmp_path, by=self.by)
-        return res if isinstance(res, dict) and "asset" in res else {"asset": res, "duplicate": False}
 
 
 def _bound_view(sp, raw_post: Mapping, v: Mapping, item: Mapping) -> dict:

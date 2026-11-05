@@ -39,6 +39,7 @@ def test_agent_markers_refuse_even_with_a_tty(monkeypatch, marker):
 @pytest.mark.parametrize("argv,line", [
     (["sequence", "approve", "EP"], "ave sequence approve EP"),
     (["trim", "set", "EP", "s1", "--in", "5", "--out", "99"], "ave trim set EP s1 --in 5.0 --out 99.0"),
+    (["trim", "clear", "EP", "s1"], "ave trim clear EP s1"),                 # final review M2: clearing is the director's too
     (["learn", "taste", "apply", "EP"], "ave learn taste apply EP"),
     (["publish", "approve", "EP", "item1"], "ave publish approve EP item1"),
     (["content", "canva-approve", "EP", "job1"], "ave content canva-approve EP job1"),
@@ -81,3 +82,40 @@ def test_the_unattended_switch_is_gone_from_source():
     root = Path(__file__).parents[1]
     for p in list((root / "src").rglob("*.py")) + list((root / "skills").rglob("*.md")):
         assert "AVE_ALLOW_UNATTENDED_APPROVAL" not in p.read_text(), p
+
+
+def test_mapping_assembly_and_rough_cut_are_flagged_decisions_not_gates():
+    """The owner's choice: camera mapping, assembly and rough cut are decided by Claude and flagged at review; every other gate stays."""
+    from pathlib import Path
+    from ave.agent import FLAGGED_AT_REVIEW, HUMAN_GATES
+    gates = " | ".join(HUMAN_GATES)
+    for gone in ("camera mapping", "assembly", "rough"):
+        assert gone not in gates, gone
+    for kept in ("speaker names", "trim confirmation before the final cut", "opening/closing plan approval", "final cut and clip selection",
+                 "license attestation", "publishing approval"):
+        assert kept in gates, kept
+    for flagged in ("camera mapping", "assembly", "rough-cut", "trims for drafts"):
+        assert any(flagged in f for f in FLAGGED_AT_REVIEW), flagged
+    root = Path(__file__).parents[1]
+    rule5 = (root / "AGENTS.md").read_text().split("5. **Stop at checkpoints.**")[1].split("\n6. ")[0]
+    asks = rule5.split("Never post")[0]
+    assert "speaker names" in asks and "camera mapping" not in asks and "the assembly" not in asks and "rough cut" not in asks
+    assert "camera mapping, the assembly and the rough cut are NOT checkpoints" in rule5 and "decision_record" in rule5
+    assert "`ave final` refuses a trim that is only proposed" in rule5 and "Nothing you decide alone may leave the system" in rule5
+    director = (root / "skills" / "ave-director" / "SKILL.md").read_text()
+    assert "speaker names and camera\n  mapping" not in director and "Camera mapping, the assembly and the rough cut are not gates" in director
+
+
+def test_trim_propose_is_not_a_human_act_and_set_still_is(synth_episode, monkeypatch):
+    """`ave trim propose` records Claude's suggestion for drafts; it never counts as the director's trim."""
+    from ave import trim
+    ep = synth_episode
+    assert main(["trim", "propose", str(ep.root)]) == 0
+    rec = json.loads(ep.meta_path.read_text())["trim"]["main"]       # the synthetic show opens at "welcome to": in 0.2 s, confidence 0.7
+    assert rec["in"] == 0.2 and rec["by"] == "claude" and rec["draft_only"] is True and not trim.confirmed(rec)
+    assert trim.pending_questions(ep)                                   # still unapproved: a proposal is not the director's trim
+    with pytest.raises(SystemExit, match="human act"):
+        main(["trim", "set", str(ep.root), "main", "--in", "1"])
+    monkeypatch.setattr(humanpresence, "is_human_terminal", lambda: True)
+    assert main(["trim", "set", str(ep.root), "main", "--in", "1"]) == 0
+    assert trim.confirmed(json.loads(ep.meta_path.read_text())["trim"]["main"])

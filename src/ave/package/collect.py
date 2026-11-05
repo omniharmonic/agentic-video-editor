@@ -16,8 +16,17 @@ from .. import editdoc, resources
 from ..episode import Episode, read_json
 
 DEFAULT_POLICY = resources.config_file("package.default.yaml")
-_FINAL = re.compile(r"^final(?:\.(?P<name>[A-Za-z0-9_-]+))?\.v(?P<n>\d+)\.(?P<preset>[A-Za-z0-9_-]+)\.mp4$")
-_SHORT = re.compile(r"^(?P<slug>.+)\.v(?P<v>\d+)\.(?P<plat>[a-z]+)$")
+_FINAL = re.compile(r"^final(?:\.(?P<name>[A-Za-z0-9_-]+))?\.v(?P<n>\d+)(?:~(?P<device>[a-z0-9]{4}))?\.(?P<preset>[A-Za-z0-9_-]+)\.mp4$")
+_SHORT = re.compile(r"^(?P<slug>.+)\.v(?P<v>\d+)(?:~(?P<device>[a-z0-9]{4}))?\.(?P<plat>[a-z]+)$")
+
+
+def _latest_label(ep: Episode, stage: str, name: str | None) -> str | None:
+    """The label of the edit this computer considers latest (`v8` or `v8~abcd`), or None."""
+    try:
+        v = editdoc.latest_version(ep, stage, name)
+    except (OSError, ValueError):
+        return None
+    return editdoc.label(v) if v is not None else None
 IMAGE_EXTS = {".png", ".jpg", ".jpeg"}
 
 
@@ -61,25 +70,31 @@ def find_final(ep: Episode) -> dict | None:
     """The latest final render: highest version of the unnamed final (a multi-session episode's combined one), else the
     latest of each named session's final (all returned, the first is `primary`)."""
     if read_json(ep.meta_path).get("workbench_project"):
-        from .. import editdoc
         latest=editdoc.latest_path(ep,"short")
         if latest and editdoc.effective_mode(editdoc.load(latest)) == "audio":
             raise ValueError("Audio-only episode packages are not supported yet. Use direct WAV, AAC or MP3 export; episode package adaptation is pending.")
     if not ep.exports.is_dir():
         return None
-    found: dict[str | None, list[tuple[int, int, float, Path]]] = {}
+    found: dict[str | None, list[tuple]] = {}
+    latest: dict[str | None, str | None] = {}
     for f in ep.exports.iterdir():
         m = _FINAL.match(f.name)
         if f.name.startswith(".") or not m or not f.is_file():
             continue
+        if m["name"] not in latest:
+            latest[m["name"]] = _latest_label(ep, "final", m["name"])
+        lab = editdoc.label(int(m["n"]), m["device"])
         rank = 0 if m["preset"] == "master" else (2 if "proxy" in m["preset"] else 1)
-        found.setdefault(m["name"], []).append((int(m["n"]), -rank, f.stat().st_size, f))
+        # the render of the latest final edit wins (two computers' v8 differ by tag); then the highest number
+        found.setdefault(m["name"], []).append((lab == latest[m["name"]], int(m["n"]), m["device"] or "", -rank, f.stat().st_size, f.name, f))
     if not found:
         return None
     best = {}
     for name, cands in found.items():
-        n, _, _, f = max(cands)
-        best[name] = {"name": name, "version": n, "path": f, "preset": _FINAL.match(f.name)["preset"]}
+        *_, f = max(cands, key=lambda c: c[:-1])
+        m = _FINAL.match(f.name)
+        best[name] = {"name": name, "version": int(m["n"]), "label": editdoc.label(int(m["n"]), m["device"]), "path": f,
+                      "preset": m["preset"]}
     primary = best.get(None) or best[sorted(k for k in best if k)[0]]
     return {"primary": primary, "all": best}
 
@@ -98,7 +113,7 @@ def final_edits(ep: Episode) -> dict[str | None, int]:
 
 def final_doc(ep: Episode, fin: dict) -> dict | None:
     try:
-        p = editdoc.path_for(ep, "final", fin["version"], fin["name"])
+        p = editdoc.path_for(ep, "final", fin.get("label") or fin["version"], fin["name"])
         if p.is_file():
             return editdoc.load(p)
         return editdoc.load_latest(ep, "final", fin["name"])
@@ -108,7 +123,7 @@ def final_doc(ep: Episode, fin: dict) -> dict | None:
 
 def find_srt(ep: Episode, fin: dict, doc: dict | None) -> Path | None:
     tag = f"final.{fin['name']}" if fin["name"] else "final"
-    exact = ep.exports / f"{tag}.v{fin['version']}.srt"
+    exact = ep.exports / f"{tag}.{fin.get('label') or 'v' + str(fin['version'])}.srt"
     if exact.is_file():
         return exact
     if doc and (doc.get("captions") or {}).get("srt"):
@@ -174,6 +189,8 @@ def find_shorts(ep: Episode) -> list[dict]:
     by_slug = {c.get("slug"): c for c in clips.values()}
     decisions = _decisions(ep)
     best: dict[tuple[str, str], tuple[int, Path, dict]] = {}
+    rank: dict[tuple[str, str], tuple] = {}
+    latest: dict[str, str | None] = {}
     for side in sorted(d.glob("*.json")):
         m = _SHORT.match(side.stem)
         if side.name.startswith(".") or not m:
@@ -182,8 +199,17 @@ def find_shorts(ep: Episode) -> list[dict]:
             sc = read_json(side)
         except (OSError, ValueError):
             continue
+        if m["slug"] not in latest:
+            try:
+                lp = editdoc.latest_path(ep, "short", m["slug"])
+            except (OSError, ValueError):
+                lp = None
+            latest[m["slug"]] = ep.rel(lp) if lp else None
         key = (m["slug"], m["plat"])
-        if key not in best or int(m["v"]) > best[key][0]:
+        # the export made from the latest short edit wins; then the highest number (two computers' v8 differ by tag)
+        r = (isinstance(sc, dict) and latest[m["slug"]] is not None and sc.get("edit") == latest[m["slug"]], int(m["v"]), m["device"] or "")
+        if key not in best or r > rank[key]:
+            rank[key] = r
             best[key] = (int(m["v"]), side, sc)
     out = []
     for (slug, plat), (ver, side, sc) in sorted(best.items()):

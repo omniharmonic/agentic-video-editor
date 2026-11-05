@@ -29,7 +29,8 @@ def test_window_lifecycle_and_cleanup(monkeypatch, failure):
         def __init__(self, st, **kw):
             assert kw["fixtures"]
             self.app = SimpleNamespace(pin=SimpleNamespace(reveal=lambda: "fixture-pin"))
-        def url(self): return "http://127.0.0.1:1234/?t=test"
+        def url(self): return "http://127.0.0.1:1234/tools/?t=test"
+        def app_url(self): return "http://127.0.0.1:1234/app/?t=test"
         def serve_forever(self): events.append("serve")
         def shutdown(self): events.append("shutdown")
         def server_close(self): events.append("close")
@@ -59,7 +60,7 @@ def test_window_lifecycle_and_cleanup(monkeypatch, failure):
 
 
 def test_launcher_quotes_paths_and_never_overwrites(tmp_path):
-    studio = tmp_path / "Tomas's studio $(touch nope)"
+    studio = tmp_path / "Imani's studio $(touch nope)"
     app = desktop.build_launcher(tmp_path / "AVE Studio.app", studio_path=studio)
     plist = plistlib.loads((app / "Contents/Info.plist").read_bytes())
     assert plist["CFBundleExecutable"] == "AVE Studio"

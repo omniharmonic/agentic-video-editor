@@ -1,12 +1,14 @@
 # Third-party notices
 
-The project's own code is MIT licensed (see [LICENSE](LICENSE)). It bundles two fonts, and it can fetch, build, or call several
+The project's own code is MIT licensed (see [LICENSE](LICENSE)). It bundles four font families, and it can fetch, build, or call several
 other tools and models on your machine. This file says what each one is, where it comes from, and under what terms. Nothing under
 "Fetched, not bundled" is committed in this repository; the separate engineering app described below explicitly packages selected inputs under their own terms.
 
 ## Standalone engineering app (2026-10-29)
 
 The arm64 engineering app includes CPython, installed Python dependencies, FFmpeg/ffprobe, the patched offline FluidAudio helper and resource bundles, pinned ASR/diarization models, Chromium, Playwright's Node/driver, and the fonts. Its `Contents/Resources/notices/` contains interpreter and dependency metadata/licenses, FFmpeg source inputs and notices, FluidAudio source/patch/notices, reproduction scripts, and exact model cards. `runtime/components.json` and `runtime/driver-files.json` inventory the final signed bytes; external build receipts record the complete bundle inventory.
+
+The app also bundles **Syncthing v2.1.7** (unmodified official macOS arm64 release, `runtime/sync/syncthing`), the transport that syncs projects between members' computers. It is licensed under the **Mozilla Public License 2.0**; the license text ships at `runtime/sync/LICENSE` and `Contents/Resources/notices/Syncthing/`. Source for the exact version: <https://github.com/syncthing/syncthing/tree/v2.1.7> (release archive `syncthing-source-v2.1.7.tar.gz` at <https://github.com/syncthing/syncthing/releases/tag/v2.1.7>). The release archive's SHA-256 (`2df075b4...af38`) was checked against Syncthing's OpenPGP-signed `sha256sum.txt.asc`; `SOURCE.md` beside the binary records the full hashes.
 
 This is a local ad-hoc signed verification artifact, not distribution clearance. In particular, Parakeet's conversion-card license declaration conflicts with the upstream model attribution terms, and historical conversion provenance remains qualified. Read the packaged `MODEL-TERMS.txt` and model notices. The older CLI setup table below describes separately installed developer tools; it does not supersede the app's exact component inventory.
 
@@ -25,9 +27,12 @@ This file is a good-faith inventory, not legal advice.
 |---|---|---|---|
 | Newsreader (variable font, `Newsreader-Variable.ttf`), Copyright 2020 The Newsreader Project Authors, designer Production Type | `motion-kit/brand/fonts/` | SIL Open Font License 1.1, text in `OFL-Newsreader.txt` | Verified (license file read; sha256 of the font and license match `SOURCES.md`; no Reserved Font Name is declared) |
 | Inter (variable font, `Inter-Variable.ttf`), Copyright 2020 The Inter Project Authors, designer Rasmus Andersson | `motion-kit/brand/fonts/` | SIL Open Font License 1.1, text in `OFL-Inter.txt` | Verified (same checks) |
+| Figtree (variable web font, latin and latin-ext subsets), Copyright 2022 The Figtree Project Authors, designer Erik Kennedy | `src/ave/app/static/fonts/` | SIL Open Font License 1.1, text in `OFL-Figtree.txt` | Verified (license file read; sha256 in `SOURCES.md` next to the fonts) |
+| Poppins (weights 500 and 600, latin and latin-ext subsets), Copyright 2020 The Poppins Project Authors, Indian Type Foundry | `src/ave/app/static/fonts/` | SIL Open Font License 1.1, text in `OFL-Poppins.txt` | Verified (same checks) |
 
-The fonts were fetched from the Google Fonts repository at a pinned commit and only renamed (bytes unchanged); provenance and hashes are
-in `motion-kit/brand/fonts/SOURCES.md`. The OFL allows bundling, embedding in rendered video and images, and redistribution with
+The brand fonts were fetched from the Google Fonts repository at a pinned commit and only renamed (bytes unchanged); provenance and hashes are
+in `motion-kit/brand/fonts/SOURCES.md`. The app's interface fonts (Figtree, Poppins) are Google Fonts' own WOFF2 files, recorded in
+`src/ave/app/static/fonts/SOURCES.md`. The OFL allows bundling, embedding in rendered video and images, and redistribution with
 the license text, but the fonts may not be sold on their own. If you change a font, keep its license file next to it.
 
 No other third-party code, images, audio, or video is committed. Test media is generated at test time. The two small JSON files in

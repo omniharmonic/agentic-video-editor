@@ -746,7 +746,7 @@ def make_captions(ep: Episode, stage: str = "rough", style_name: str = "podcast"
     With `burn_video`, also writes <video>.captions.mp4 and sets captions.burn in the new version. The ASS used for burning is
     regenerated at the video's real resolution if it differs from the doc canvas.
     """
-    path = editdoc.path_for(ep, stage, version, name) if version else editdoc.latest_path(ep, stage, name)
+    path = editdoc.path_for(ep, stage, version, name) if version else editdoc.latest_path(ep, stage, name)   # version: a number or label
     if not path or not path.exists():
         raise SystemExit(f"No {stage} edit{' ' + name if name else ''} yet for {ep.root.name}. Build it first (see `ave status`)." + sessions.hint(ep, name))
     doc = editdoc.load(path)
@@ -755,6 +755,10 @@ def make_captions(ep: Episode, stage: str = "rough", style_name: str = "podcast"
     if not cues:
         raise SystemExit("No speech falls inside this edit's dialogue, so there is nothing to caption.")
     tag = f"{stage}.{name}" if name else stage
+    if editdoc.device_tag(ep.root):
+        # adopted project: the caption files belong to the version about to be saved, so another computer's version (or an
+        # older one here) never has the files it needs rewritten under it
+        tag += "." + editdoc.next_label(ep, stage, name)
     srt = write_srt(cues, ep.captions / f"{tag}.srt")
     canvas = (doc["canvas"]["w"], doc["canvas"]["h"])
     info = write_ass(cues, style, canvas, ep.captions / f"{tag}.ass")
@@ -777,4 +781,4 @@ def make_captions(ep: Episode, stage: str = "rough", style_name: str = "podcast"
     ep.mark_stage("captions", edit=saved.name, style=style_name, cues=len(cues))
     return {"stage": stage, "style": style_name, "edit": saved.name, "srt": new["captions"]["srt"], "ass": new["captions"]["ass"],
             "cues": len(cues), "problems": problems, "font": info["font"], "font_size": info["font_size"],
-            "warnings": info["warnings"], "burned": burned}
+            "warnings": info["warnings"] + editdoc.saved_warnings(saved), "burned": burned}

@@ -32,7 +32,7 @@ ave studio tick                                   # a REHEARSAL: would_post / bl
    retime applies and is flagged `moved_after_approval`. Say which happened. Retiming never voids the approval; the TTL (14 days) still applies.
 4. Tell the human what to do, with the exact commands, then STOP:
    ```
-   Review and approve in your own terminal:   ! ave studio ui          (Review page: look at each post, then PIN)
+   Review and approve in AVE Studio:          Workspace › Approvals (look at each post, then the native sheet checks it is you)
                                               ! ave studio approve <post> <variant>     (typed hash, per item)
    Accept the proposed times:                 ! ave studio schedule apply sp_0001      (or on the calendar)
    When YOU want real posting:                ! ave studio account live <id> --on      then   ! ave studio run --send

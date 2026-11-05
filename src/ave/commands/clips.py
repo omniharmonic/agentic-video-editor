@@ -35,7 +35,9 @@ def _flag(a) -> str:
 
 
 def cmd_prepare(a) -> int:
-    _out(clips.prepare(_ep(a), a.stage, a.version, a.min_s, a.max_s, a.rubric, a.max_candidates, name=a.name, floor=a.floor))
+    from ..project.readiness import choosing
+    with choosing("--version", explicit=a.version is not None):
+        _out(clips.prepare(_ep(a), a.stage, a.version, a.min_s, a.max_s, a.rubric, a.max_candidates, name=a.name, floor=a.floor))
     return 0
 
 

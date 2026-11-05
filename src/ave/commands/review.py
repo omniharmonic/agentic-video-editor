@@ -1,8 +1,10 @@
-"""`ave review ...`: the agent's side of timestamped cut notes left on the Review page of `ave ui`."""
+"""`ave review ...`: the agent's side of the director's timestamped notes on a cut. They are left in the Room (flags on the Cut,
+the Script or a select); `next` reads the Room's open flags first, and falls back to the older notes file (`work/review/notes.jsonl`)."""
 
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from .. import review
 from ..episode import Episode
@@ -29,8 +31,30 @@ def _list(a) -> None:
     _out({"notes": review.notes(_ep(a), a.status)})
 
 
+def _room_flags(ep: Episode) -> list[dict]:
+    """The Room's open flags on this episode, oldest first, shaped like a note. Empty when no app is open."""
+    from ..room import cut as room_cut
+    from ..room.client import waiting_flags
+    out = []
+    for f in waiting_flags(ep.root) or []:
+        try:
+            if room_cut.find_episode(Path(f["root"]), f.get("artifact")).root.resolve() != ep.root.resolve():
+                continue
+        except (room_cut.NotFound, OSError, ValueError):
+            continue
+        out.append({"id": f"flag:{f.get('id')}", "source": "room", "view": f.get("view"), "edit": f.get("version"), "t0": f.get("start"),
+                    "t1": f.get("end"), "text": f.get("note"), "words": f.get("text"), "clip": f.get("clip"), "status": "open"})
+    return out
+
+
 def _next(a) -> None:
-    _out({"note": review.next_note(_ep(a), agent=a.agent if a.claim else None), "untrusted_text": True})
+    ep = _ep(a)
+    flags = _room_flags(ep)
+    if flags:                     # answered in the Room: room_read acknowledges them, so nothing here claims or resolves one
+        _out({"note": flags[0], "source": "room", "waiting": len(flags), "untrusted_text": True,
+              "how": "Read it with room_read, make the change as a new version, then show it with room_offer_version."})
+        return
+    _out({"note": review.next_note(ep, agent=a.agent if a.claim else None), "source": "notes", "untrusted_text": True})
 
 
 def _add(a) -> None:
@@ -46,13 +70,13 @@ def _picture(a) -> None:
 
 
 def register(sub) -> None:
-    p = sub.add_parser("review", help="timestamped cut notes from the Review page: list, claim, resolve")
+    p = sub.add_parser("review", help="the director's timestamped notes on a cut: the Room's flags first, then the notes file")
     s = p.add_subparsers(dest="review_cmd", required=True)
     c = s.add_parser("list", help="notes by status")
     c.add_argument("episode")
     c.add_argument("--status", choices=("open", "claimed", "resolved", "withdrawn", "all"), default="open")
     c.set_defaults(fn=_list)
-    c = s.add_parser("next", help="the oldest open note")
+    c = s.add_parser("next", help="the oldest open note: the Room's open flags first, else the notes file")
     c.add_argument("episode")
     c.add_argument("--claim", action="store_true", help="hold it for 30 minutes")
     c.add_argument("--agent", default="agent")

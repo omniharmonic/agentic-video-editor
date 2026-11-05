@@ -169,7 +169,7 @@ def test_queue_only_crash_reopen_native_ui_exact_operation(studio,tmp_path):
         with sync_playwright() as pw:
             browser=pw.chromium.launch();page=browser.new_page(viewport={'width':1024,'height':900});page.set_default_timeout(10000)
             errors=[];external=[];page.on('pageerror',lambda e:errors.append(str(e)))
-            page.route('**/*',lambda route:route.continue_() if route.request.url.startswith(server.url().split('/?')[0]) else (external.append(route.request.url),route.abort()))
+            page.route('**/*',lambda route:route.continue_() if route.request.url.startswith(f'http://127.0.0.1:{server.port}/') else (external.append(route.request.url),route.abort()))
             page.expose_function('fixtureNative',native)
             page.add_init_script('window.aveNative={connectionAction:(a,b)=>window.fixtureNative(a,b)}')
             page.goto(server.url()+f'#/post/{pid}')
@@ -203,6 +203,8 @@ def test_queue_only_crash_reopen_native_ui_exact_operation(studio,tmp_path):
 
 
 def test_default_reader_blocks_private_dns_before_sending_credentials(monkeypatch):
+    try: import requests  # noqa: F401  urllib3 probes IPv6 with a socket on first import; import before blocking sockets
+    except ImportError: pass
     monkeypatch.setattr(socket,'getaddrinfo',lambda *a,**k:[dns('169.254.169.254')])
     monkeypatch.setattr(socket,'socket',lambda *a,**k:pytest.fail('private socket dial'))
     with pytest.raises(VerificationError) as e:

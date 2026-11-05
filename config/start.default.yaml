@@ -1,0 +1,18 @@
+# `ave start` policy: the few numbers it uses when it decides something alone. Every such choice is recorded as a flagged
+# decision for the director, so these only set how sure it must be before it says "clear evidence" rather than "a guess".
+# Resolution (first found wins, merged over THIS file): <project>/policy/start.yaml > ~/.config/ave/start.yaml > this file.
+
+version: 1
+
+speakers:
+  min_share: 0.02          # a speaker id with less than this share of all talk time is probably a diarisation split: ask the director
+  min_agreement: 0.8       # diarisation that agrees with the mic channels less than this (transcript diarization_check) is ambiguous: ask
+
+map:
+  min_margin_db: 1.0       # the best camera-to-speaker mapping must beat the next by this much (camera sound level) to count as evidence
+
+assemble:
+  max_canvas: [1920, 1080] # the assembly canvas: the cameras' own size when smaller, else this
+
+render:
+  preset: proxy            # the draft render of the rough cut made for review

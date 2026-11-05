@@ -1,9 +1,9 @@
 // A local visual feed plan. Moving tiles never changes schedules or approvals.
-import { announce, clear, h, icon, store, thumbImg, humanWhen } from "./dom.js";
+import { announce, clear, h, icon, store, thumbImg, humanWhen } from "/app/shared/dom.js";
 import { KeyboardMover } from "./dnd.js";
-import { brandAccounts, brandsOf, filterBar, readFilters, writeFilters } from "./filters.js";
+import { brandAccounts, brandsOf, filterBar, readFilters, writeFilters } from "/app/shared/filters.js";
 import {mountEditor} from "./editor.js";
-import {makeCtx} from "./panels.js";
+import {makeCtx} from "/app/shared/panels.js";
 import {leaveSafely} from "./navigation-guard.js";
 import {dialog,input,select as makeSelect,field} from "./production-ui.js";
 import {openAssetPicker} from "./library.js";
@@ -50,7 +50,7 @@ export async function mount(root, ctx, route) {
     catch (e) { showError(e.message); add.disabled = false; }
   } }, icon("plus"), "Add draft");
   host.append(...[h("header", { class: "planner-heading" }, h("div", {}, h("h1", {}, "Feed planner"), h("p", {}, "Arrange your images. Find the flow.")),
-    h("div", { class: "planner-heading-actions" }, h("a", { class: "btn", "aria-label": "Phone preview", href: `#/phone/${encodeURIComponent(accountId || "local")}?surface=${surface}` }, "Preview"), add)),
+    h("div", { class: "planner-heading-actions" }, h("a", { class: "btn", "aria-label": "Phone preview", href: "/app/#/workspace" }, "Preview in the Workspace"), add)),
     brandsOf(ctx.accounts).length ? filterBar({ accounts: ctx.accounts, filters, showAccounts: false, label: "Brand", onChange: (next) => {
       filters = next; writeFilters(next); const first = brandAccounts(ctx.accounts, next)[0]; ctx.navigate(first ? `#/grid/${encodeURIComponent(first.id)}` : "#/grid/local");
     } }) : null,

@@ -64,7 +64,7 @@ Spec: `{"template","props","duration","fps","canvas","outro"}`; unknown template
 ## Failure modes
 
 - Multi-session episode: pass `--name s2` to `ave motion place` (it edits `rough.s2` / `final.s2`); without it only unnamed edits are visible.
-- Lower thirds: Maren/Tomas with title `CO-HOST` rendered cleanly bottom-left at 1080p, clear of faces and of the bottom-centre captions; keep the card inside one shot of that person's camera.
+- Lower thirds: Maren/Imani with title `CO-HOST` rendered cleanly bottom-left at 1080p, clear of faces and of the bottom-centre captions; keep the card inside one shot of that person's camera.
 
 - "Could not start Chromium": run `.venv/bin/python -m playwright install chromium`.
 - Fonts look generic: if `missing_brand_fonts` is not empty the bundled Newsreader/Inter are absent (see `motion-kit/brand/fonts/README.md`) and renders use fallbacks (rerender everything after adding them).

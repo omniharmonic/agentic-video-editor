@@ -27,6 +27,11 @@ def _mb(n: int) -> str:
 
 def cmd_package(a) -> int:
     args = list(a.args)
+    if len(args) in (1, 2):
+        from ..start import open_decisions_warning      # warns, never refuses
+        w = open_decisions_warning(_ep(args[-1]).root)
+        if w:
+            print(f"warning: {w}", file=sys.stderr)
     if args[0] == "queue":
         if len(args) != 2:
             raise SystemExit("usage: ave package queue <episode> [--package NAME] [--platforms a,b] [--visibility private] [--ai-disclosure yes|no] [--dry-run]")

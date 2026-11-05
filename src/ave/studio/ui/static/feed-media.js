@@ -1,5 +1,5 @@
 // The planner and phone view use the same media and surface rules.
-import { h, icon, thumbImg } from "./dom.js";
+import { h, icon, thumbImg } from "/app/shared/dom.js";
 
 export function onSurface(cell, surface = "feed") {
   const type = cell.post_type || "feed";

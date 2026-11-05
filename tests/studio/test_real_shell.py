@@ -1,4 +1,5 @@
-"""The REAL `StudioServer` serving the REAL static shell (index.html + app.js), walked page by page in headless Chromium (integration item g).
+"""The REAL `StudioServer` serving the More tools shell (index.html + app.js at /tools/), walked page by page in headless Chromium:
+the four older tools the app keeps unchanged (Production, Media tools, Feed planner, Post editor). Every other old page is gone.
 
 Two backends, same walk: the committed fixtures (`ave studio ui --fixtures`) and a real wired `Studio` over `build_studio` data. Each page must
 mount through app.js `mountPage` (its own root element appears, never the "not part of this build" / "could not be drawn" notice), with no
@@ -20,13 +21,9 @@ from studio_helpers import build_studio
 PIN = "424242"
 # route -> (selector proving the page itself mounted, heading text expected somewhere inside <main>)
 PAGES = [
-    ("#/calendar", ".cal-grid", None),
+    ("#/pipeline", ".production-table, .production-empty, main h1", None),
+    ("#/workbench", ".wb-heading", None),
     ("#/grid/ig-main", ".g-list", None),
-    ("#/review", ".st-page, .empty", None),
-    ("#/library", ".lib, .st-page", None),
-    ("#/feedback", ".st-page", None),
-    ("#/alerts", ".st-page", None),
-    ("#/accounts", ".st-page", None),
 ]
 NOT_MOUNTED = ("is not part of this build", "could not be drawn", "does not exist", "is not reachable")
 
@@ -77,61 +74,24 @@ class Walk:
 
 def walk_everything(w: Walk, post_id: str, *, accounts: int, caption: str):
     pg = w.page
-    pg.goto(w.srv.url() + "#/calendar")
-    pg.wait_for_selector(".cal-grid", timeout=10000)
-    assert pg.locator("main").get_attribute("data-page") == "calendar"
-    assert "Studio" in pg.title() or pg.title()
+    pg.goto(w.srv.url() + "#/pipeline")
+    pg.wait_for_selector("main[data-page=pipeline]", timeout=10000)
     for hash_, sel, _ in PAGES:
         w.mounted(hash_, sel)
         assert pg.locator("main").get_attribute("data-page") == hash_[2:].split("/")[0].split("?")[0]
-    # the pages carry REAL content, not just their frame
-    w.mounted("#/calendar", ".cal-grid")
-    pg.wait_for_selector("main .cal-sub, main .cal-title, main h1", timeout=5000)
-    assert "on the calendar" in pg.locator("main").inner_text()
     w.mounted("#/grid/ig-main", ".g-list")
     pg.wait_for_selector(".gcell", timeout=5000)
-    # Visual order now includes undated work directly in the plan. Assert its
-    # entire served inventory is reachable rather than requiring a removed tray.
-    w.mounted("#/grid/ig-main?surface=all", ".g-list")
-    plan = pg.request.get(f'http://127.0.0.1:{w.srv.port}/api/studio/feed-plan?account=ig-main').json()
-    visible = pg.locator('.planner-tile').evaluate_all('(tiles) => tiles.map(t => t.dataset.key)')
-    assert visible == [cell['key'] for cell in plan['cells']] and visible
-    if not plan.get('read_only'):
-        assert any(not cell.get('at') for cell in plan['cells'])
-    selected = next(c for c in plan['cells'] if c['post']==post_id)
-    tile = pg.locator(f'.planner-tile[data-key="{selected["key"]}"]')
-    tile.locator('.g-link').click()
-    composer = pg.get_by_role('complementary', name='Post composer', exact=True)
-    composer.wait_for()
-    composer.locator('.st-tab[aria-selected="true"]').wait_for()
-    from urllib.parse import parse_qs
-    query = parse_qs(pg.evaluate('location.hash').split('?',1)[1])
-    assert query['compose'] == [selected['post']] and query['variant'] == [selected['variant']]
-    assert composer.locator('.st-tab[aria-selected="true"]').get_attribute('data-variant') == selected['variant']
-    assert composer.evaluate('(el)=>el.contains(document.activeElement)')
-    pg.screenshot(path=f'/private/tmp/ave-integration-grid-composer-{str(w.srv.app.fixtures).lower()}.png')
-    composer.get_by_role('button',name='Close composer',exact=True).click()
-    composer.wait_for(state='detached')
-    assert 'compose=' not in pg.evaluate('location.hash')
-    assert tile.get_attribute('class').find('is-selected') >= 0
-    assert pg.evaluate('(key)=>document.activeElement?.closest(".planner-tile")?.dataset.key===key',selected['key'])
-    pg.screenshot(path=f'/private/tmp/ave-integration-grid-return-{str(w.srv.app.fixtures).lower()}.png')
-    w.mounted("#/review", ".rv-grid")
-    pg.wait_for_selector(".rv-li", timeout=5000)
-    assert pg.locator(".rv-li").count() >= 1 and "exact bytes" in pg.locator("main").inner_text()
-    w.mounted("#/library", ".lib-filters")
-    pg.wait_for_selector(".lib-card", timeout=5000)
-    assert pg.locator(".lib-card").count() >= 1
-    w.mounted("#/accounts", ".connections-layout")
-    pg.wait_for_selector(".connection-profile", timeout=5000)
-    assert pg.locator(".connection-profile").count() == accounts
     w.mounted(f"#/post/{post_id}", ".ed")                 # the editor (post route -> editor.js -> mountEditorFromHash)
     pg.locator('.ed textarea[data-path$=".copy.caption"]').wait_for(timeout=5000)
     assert caption in pg.locator('.ed textarea[data-path$=".copy.caption"]').input_value() + pg.locator("main").inner_text()
-    # the review page mounts from the nav too, and the nav marks the current page
-    pg.locator('#nav a[data-p="library"]').click()
-    pg.wait_for_selector("main[data-page=library]")
-    assert pg.locator('#nav a[aria-current="page"]').get_attribute("data-p") == "library"
+    # every retired page says it moved, and the nav names only the four tools and the way back
+    for gone in ("#/calendar", "#/review", "#/library", "#/feedback", "#/alerts", "#/accounts", "#/campaigns", "#/desk", "#/ideas", "#/phone"):
+        pg.evaluate("(h) => { location.hash = h }", gone[1:])
+        pg.wait_for_function("() => document.querySelector('main').innerText.includes('That page moved to the app')")
+    assert [t.strip() for t in pg.locator("#nav a").all_inner_texts()] == ["Production", "Media tools", "Feed planner", "Back to the Workspace"]
+    pg.locator('#nav a[data-p="workbench"]').click()
+    pg.wait_for_selector("main[data-page=workbench]")
+    assert pg.locator('#nav a[aria-current="page"]').get_attribute("data-p") == "workbench"
 
 
 def finish(w: Walk):

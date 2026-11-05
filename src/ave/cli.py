@@ -239,6 +239,12 @@ def main(argv: list[str] | None = None) -> int:
     except FileNotFoundError as e:   # a bad queue/clip/content id or a missing file: one line, not a traceback
         print(f"ave: error: {e}", file=sys.stderr)
         return 1
+    except Exception as e:           # a version number two computers both made: say which versions exist, not a traceback
+        from .editdoc import AmbiguousVersion
+        if not isinstance(e, AmbiguousVersion):
+            raise
+        print(f"ave: error: {e}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":

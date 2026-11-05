@@ -9,8 +9,8 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-STYLE = (ROOT / "src" / "ave" / "ui" / "static" / "style.css").read_text()
-PANELS = (ROOT / "src" / "ave" / "studio" / "ui" / "static" / "panels.css").read_text()
+STYLE = (ROOT / "src" / "ave" / "studio" / "ui" / "static" / "style.css").read_text()
+PANELS = (ROOT / "src" / "ave" / "app" / "static" / "shared" / "panels.css").read_text()
 
 
 def _tokens(block: str) -> dict[str, str]:

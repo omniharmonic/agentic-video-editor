@@ -1522,7 +1522,7 @@ def report_name(name: str | None) -> str:
 
 
 def run(ep: Episode, policy_path: Path | str | None = None, dry_run: bool = False, from_version: int | None = None,
-        home: Path | None = None, name: str | None = None, pacing: bool = True) -> dict:
+        home: Path | None = None, name: str | None = None, pacing: bool = True, actor: str | None = None) -> dict:
     """Detect, decide, mask, pace, and (unless dry_run) save the next rough EditDoc and work/cleanup.json.
     `pacing=False` skips the reaction-shot pass for this run (`ave cleanup --no-pacing`).
 
@@ -1534,7 +1534,10 @@ def run(ep: Episode, policy_path: Path | str | None = None, dry_run: bool = Fals
     ver = from_version if from_version is not None else versions[-1]
     if ver not in versions:
         raise SystemExit(f"assembly{'.' + name if name else ''} v{ver} does not exist (have: {', '.join(f'v{v}' for v in versions)})")
-    apath = editdoc.path_for(ep, "assembly", ver, name)
+    try:
+        apath = editdoc.latest_path(ep, "assembly", name) if from_version is None else editdoc.path_for(ep, "assembly", ver, name)
+    except editdoc.AmbiguousVersion as exc:
+        raise SystemExit(str(exc)) from exc
     assembly = editdoc.load(apath)
     if not ep.artifact("transcript.json").exists():
         raise SystemExit(f"No transcript. Run: ave transcribe {ep.root}")
@@ -1548,8 +1551,10 @@ def run(ep: Episode, policy_path: Path | str | None = None, dry_run: bool = Fals
               "decisions": a["decisions"], "cuts": a["cuts"], "warnings": a["warnings"]}
     if dry_run:
         return report
-    path = editdoc.save_new_version(ep, doc, name)
-    report["rough"] = {"file": str(path.relative_to(ep.root)), "version": editdoc.list_versions(ep, "rough", name)[-1]}
+    path = editdoc.save_new_version(ep, doc, name, actor=actor)
+    report["rough"] = {"file": str(path.relative_to(ep.root)), "version": int(editdoc.VERSION_RE.match(path.name)["n"]),
+                       "id": path.name[:-len(".json")]}
+    report["warnings"] += editdoc.saved_warnings(path)
     if name:
         report["name"] = name
     write_json(ep.artifact(report_name(name)), report)

@@ -82,7 +82,8 @@ project_settings(action="export_frame_as_still", params={"path": "<episode>/work
 ```
 
 Look at the image: is it the right camera, and is the person who is speaking on screen? Report: shots, average shot length,
-fallbacks, warnings. **Stop for human review.** Do not polish, export, or cut clips until they approve.
+fallbacks, warnings. The cut list is yours to decide (no pre-approval; flag your choices with `decision_record`). Do not polish
+for the final, export for release or cut clips until the director has reviewed the rough cut.
 
 ## Rough-cut taste notes (editor's defaults)
 

@@ -84,13 +84,18 @@ def future(value):
     except (ValueError,TypeError,AttributeError):raise IdentityError('identity_expired') from None
 
 
-def whois(obj,address):
+def whois(obj,address,*,shared_ok=False):
+    """The node and user behind `address`. The old editorial transport (shared_ok False) refuses tagged and shared nodes,
+    because there the Tailscale identity was the authentication. Project sync passes shared_ok: Syncthing's device id
+    authenticates the peer and Tailscale is only the network, so a node shared into this tailnet from another one, or a
+    tagged node, is fine. The result then says whether the node is shared."""
     try:
         node=obj['Node'];user=obj['UserProfile']
         if not isinstance(node,dict) or not isinstance(user,dict):raise ValueError()
         stable=node['StableID'];owner=node['User']
         if not isinstance(stable,str) or not 1<=len(stable)<=256 or type(owner) is not int or owner<=0 or type(user['ID']) is not int or user['ID']!=owner:raise ValueError()
-        if node.get('MachineAuthorized') is not True or node.get('Expired',False) is not False or node.get('Online') is False or node.get('Tags') or node.get('Sharer'):raise ValueError()
+        if node.get('MachineAuthorized') is not True or node.get('Expired',False) is not False or node.get('Online') is False:raise ValueError()
+        if not shared_ok and (node.get('Tags') or node.get('Sharer')):raise ValueError()
         future(node.get('KeyExpiry'))
         addresses=node['Addresses']
         if not isinstance(addresses,list) or not 1<=len(addresses)<=16:raise ValueError()
@@ -100,6 +105,7 @@ def whois(obj,address):
             if interface.network.prefixlen!=interface.max_prefixlen:raise ValueError()
             direct.append(ip(str(interface.ip)))
         if ip(address) not in direct:raise ValueError()
+        if shared_ok:return {'node':stable,'user':str(owner),'shared':bool(node.get('Sharer')),'name':str(node.get('ComputedName') or node.get('Name') or '')[:256]}
         return {'node':stable,'user':str(owner)}
     except (KeyError,TypeError,ValueError):raise IdentityError('identity_unqualified_peer') from None
 
@@ -135,9 +141,13 @@ class MacIdentity:
         self.executable=str(CLI)
         self.initial=None
 
-    def lookup(self,address,port):
+    def lookup(self,address,port,*,shared_ok=False):
         addr=ip(address);target=f'[{addr}]:{port}' if addr.version==6 else f'{addr}:{port}'
-        return whois(parse(bounded_command([self.executable,'whois','--json','--proto=tcp',target])),str(addr))
+        return whois(parse(bounded_command([self.executable,'whois','--json','--proto=tcp',target])),str(addr),shared_ok=shared_ok)
+
+    def sync_peer(self,address,port):
+        """For project sync: who is at this Tailscale address. Shared and tagged nodes are accepted (see whois)."""
+        return self.lookup(address,port,shared_ok=True)
 
     def local_identity(self):
         obj=parse(bounded_command([self.executable,'status','--json']))

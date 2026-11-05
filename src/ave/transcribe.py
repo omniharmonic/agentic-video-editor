@@ -46,7 +46,7 @@ def pick_source(ep: Episode, explicit: str | None) -> str:
 
 
 def _run(cmd: list[str]) -> str:
-    from .ui.jobs import child_env
+    from .jobs import child_env
     from .publish.safety import redact_obj
     proc = subprocess.run(cmd, capture_output=True, text=True, env=child_env())
     diagnostics = str(redact_obj((proc.stdout + "\n" + proc.stderr)[-4000:]))

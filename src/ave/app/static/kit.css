@@ -1,0 +1,48 @@
+/* Layout for /app/kit.html only (it also loads app.css, for the Room parts it shows). */
+html, body { height: auto; }
+body { background: var(--canvas); overflow: auto; }
+.kit-head { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--s-6); padding: var(--s-8) var(--s-8) var(--s-6);
+  background: var(--surface); border-bottom: 1px solid var(--divider); }
+.kit-head p { margin-top: var(--s-1); max-width: 64ch; }
+.kit-head-tools { display: flex; gap: var(--s-2); }
+.kit { display: grid; gap: var(--s-6); max-width: 1200px; margin: 0 auto; padding: var(--s-6) var(--s-8) var(--s-12); }
+.kit-section { display: grid; gap: var(--s-4); padding: var(--s-6); background: var(--surface); border-radius: var(--radius-card); border: 1px solid var(--divider); }
+.kit-section > h2 { font-size: var(--text-h3); line-height: var(--lh-h3); }
+.kit-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-4); }
+.kit-top { align-items: flex-start; }
+#buttons { overflow-x: auto; padding: 4px; }
+.kit-grid { display: grid; grid-template-columns: 120px repeat(6, minmax(0, 1fr)); gap: var(--s-3) var(--s-4); align-items: center; }
+.kit-label { color: var(--text-secondary); font-size: var(--text-sm); }
+.kit-type { display: grid; gap: var(--s-3); }
+.kit-type-row { display: grid; grid-template-columns: 180px minmax(0, 1fr); align-items: baseline; gap: var(--s-4); }
+.kit-type-meta { color: var(--text-secondary); font-size: var(--text-sm); }
+.kit-swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--s-3); }
+.kit-swatch { display: grid; gap: var(--s-1); font-size: var(--text-sm); }
+.kit-chip { height: 48px; border-radius: var(--radius-card); border: 1px solid var(--divider); }
+.kit-fields { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: start; }
+.kit-static { position: relative; animation: none; }
+.kit-board { overflow: auto; border-radius: var(--radius-card); }
+.kit-board .table { min-width: 720px; }
+.kit-group-title { color: var(--stage-refine); font: 500 18px/24px var(--font-title); margin: 0 0 var(--s-2); }
+.kit-scroll { width: 280px; height: 140px; overflow: auto; padding: var(--s-3); border: 1px solid var(--divider); border-radius: var(--radius-card); }
+.kit-skeleton-card { display: grid; gap: var(--s-2); width: 280px; padding: var(--s-4); border: 1px solid var(--divider); border-radius: var(--radius-card); }
+.kit-skeleton-row { display: flex; gap: var(--s-3); align-items: center; }
+.kit-toast-static { position: static; transform: none; }
+@media (max-width: 1100px) {
+  .kit-grid { grid-template-columns: 80px repeat(6, minmax(max-content, 1fr)); gap: var(--s-3); }
+  .kit-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kit, .kit-head { padding-left: var(--s-4); padding-right: var(--s-4); }
+}
+.kit-long { display: grid; gap: var(--s-4); min-width: 0; }
+.kit-long-title { max-width: 100%; font: 600 24px/30px var(--font-title); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kit-strip { padding: 0 var(--s-4); border: 1px solid var(--divider); border-radius: var(--radius-card); }
+.kit-timeline { border: 1px solid var(--divider); border-radius: var(--radius-card); overflow: hidden; }
+.kit-ws { display: grid; gap: var(--s-6); }
+.kit-ws h3 { font-size: var(--text-md); color: var(--text-secondary); font-family: var(--font-body); font-weight: var(--weight-medium); margin-bottom: var(--s-2); }
+.kit-ws .kit-states { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-4); }
+.kit-ws .kit-state { display: grid; justify-items: start; gap: var(--s-1); font-size: var(--text-xs); color: var(--text-secondary); }
+.kit-ws .ws-view-kit { overflow: auto; padding: 0 0 var(--s-2) var(--s-10); }
+.kit-ws .batch.kit-static { position: relative; left: auto; bottom: auto; transform: none; display: inline-flex; animation: none; }
+.kit-ws .side-panel.kit-static { position: relative; height: 380px; width: 560px; transform: none; box-shadow: var(--shadow-sm); border: 1px solid var(--divider); }
+.kit-ws .rail-kit { width: 232px; display: grid; gap: 2px; padding: var(--s-2); background: var(--canvas); border-radius: var(--radius-card); }
+.kit-ws .kb-col { max-height: none; }

@@ -374,7 +374,7 @@ def _send(sp, rep, now, pcfg, p, v, item, row, key, slot, ep, pubs) -> None:
             raise
     po = (qr.get("platforms") or {}).get(v["platform"], {})
     outcome = po.get("outcome")
-    if outcome in ("published", "recovered_published"):
+    if outcome in ("published", "recovered_published", "already_sent"):    # already_sent: this computer's own record says it went out
         def ok(x):
             x["result"] = {**po, "state": "published", "at": iso_utc(now), "platform": v["platform"], "account": v["account"]}
             x["attempts"] = [*x["attempts"], {"at": iso_utc(now), "outcome": "published", "detail": po.get("url") or ""}]

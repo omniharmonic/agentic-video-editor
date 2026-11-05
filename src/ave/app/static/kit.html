@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Design kit</title>
+<link rel="stylesheet" href="/app/tokens.css">
+<link rel="stylesheet" href="/app/components.css">
+<link rel="stylesheet" href="/app/app.css">
+<link rel="stylesheet" href="/app/workspace.css">
+<link rel="stylesheet" href="/app/kit.css">
+</head>
+<body>
+<header class="kit-head">
+  <div>
+    <h1>Design kit</h1>
+    <p class="secondary-text">Every control the Room and the Workspace use, in every state. Light is the Workspace, dark is the Room.</p>
+  </div>
+  <div class="kit-head-tools" id="theme-tools"></div>
+</header>
+
+<main class="kit" id="main">
+  <section class="kit-section" aria-labelledby="k-type">
+    <h2 id="k-type">Type</h2>
+    <div class="kit-type">
+      <p class="kit-type-row"><span class="kit-type-meta">H1, Poppins 32/40</span><span style="font: 600 32px/40px var(--font-title)">The Long Table, episode 12</span></p>
+      <p class="kit-type-row"><span class="kit-type-meta">H2, Poppins 24/30</span><span style="font: 600 24px/30px var(--font-title)">Rough cut review</span></p>
+      <p class="kit-type-row"><span class="kit-type-meta">H3, Poppins 18/24</span><span style="font: 500 18px/24px var(--font-title)">What came in this week</span></p>
+      <p class="kit-type-row"><span class="kit-type-meta">Body, Figtree 14/20</span><span>Claude tightened the opening and moved the question to the top. Keep it, or go back to the version before.</span></p>
+      <p class="kit-type-row"><span class="kit-type-meta">Small, Figtree 13/18</span><span style="font-size: 13px; line-height: 18px" class="secondary-text">Changed 2 minutes ago by Claude</span></p>
+    </div>
+  </section>
+
+  <section class="kit-section" aria-labelledby="k-colour">
+    <h2 id="k-colour">Colour</h2>
+    <div class="kit-swatches" id="swatches"></div>
+  </section>
+
+  <section class="kit-section" aria-labelledby="k-buttons">
+    <h2 id="k-buttons">Buttons</h2>
+    <div class="kit-grid" id="buttons"></div>
+  </section>
+
+  <section class="kit-section" aria-labelledby="k-split">
+    <h2 id="k-split">Split button and menu</h2>
+    <div class="kit-row" id="split"></div>
+  </section>
+
+  <section class="kit-section" aria-labelledby="k-fields">
+    <h2 id="k-fields">Text fields</h2>
+    <div class="kit-row kit-fields" id="fields"></div>
+  </section>
+
+  <section class="kit-section" aria-labelledby="k-pop">
+    <h2 id="k-pop">Popover and toast</h2>
+    <div class="kit-row kit-top" id="popovers"></div>
+  </section>
+
+  <section class="kit-section" aria-labelledby="k-tabs">
+    <h2 id="k-tabs">Tabs</h2>
+    <div id="tabs"></div>
+  </section>
+
+  <section class="kit-section" aria-labelledby="k-people">
+    <h2 id="k-people">Avatars and status</h2>
+    <div class="kit-row" id="people"></div>
+    <div class="kit-row" id="pills"></div>
+  </section>
+
+  <section class="kit-section" aria-labelledby="k-table">
+    <h2 id="k-table">Table cells</h2>
+    <div class="kit-board" id="table"></div>
+  </section>
+
+  <section class="kit-section" aria-labelledby="k-ws">
+    <h2 id="k-ws">Workspace</h2>
+    <div id="ws-kit" class="kit-ws"></div>
+  </section>
+
+  <section class="kit-section" aria-labelledby="k-long">
+    <h2 id="k-long">Long text and many items</h2>
+    <div id="long" class="kit-long"></div>
+  </section>
+
+  <section class="kit-section" aria-labelledby="k-loading">
+    <h2 id="k-loading">Loading and scrolling</h2>
+    <div class="kit-row kit-top" id="loading"></div>
+  </section>
+</main>
+<script type="module" src="/app/kit.js"></script>
+</body>
+</html>

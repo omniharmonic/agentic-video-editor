@@ -68,8 +68,7 @@ class Collaboration:
         return {'enabled':bool(ex and ex.enabled),'peer':peer['descriptor'] if peer else None,'pairing':pairing,
                 'outbox':list((state or {}).get('outbox',{}).values()),'inbox':inbox,'error':self.error or (ex.failure if ex else None),
                 'interface':ex.local_descriptor()['endpoint'][0] if ex and ex.enabled else None,
-                'files':list((state or {}).get('files',{}).values()),'received_files':[{k:r.get(k) for k in ('sha256','name','bytes','state','path')} for r in (state or {}).get('received',{}).values()],
-                'scope':'Editorial drafts and selected visual revisions, plus large files you choose one at a time. Received files stay in the exchange folder until you import them.',
+                'scope':'Editorial drafts and selected visual revisions. Footage and other large files reach the people on a project through its sync, not here.',
                 'posts':[{'id':pid,'text':content['copy'].get('base','')} for pid,content in C._load_posts(self.sp)] if self.sp else [],
                 'conflicts':[{k:v for k,v in r.items() if k!='file'} for r in C.status(self.sp)['conflicts']] if self.sp else []}
     def _path(self,digest):

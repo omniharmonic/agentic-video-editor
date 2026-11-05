@@ -657,3 +657,272 @@ def test_a_rehearsal_never_needs_the_permission_and_never_sends(tmp_path):
     (w.sp.root / "send.enabled").unlink()
     rep = w.tick(send=False)
     assert rep.would_post and w.pubs["ig-main"].publish_calls == 0
+
+
+# ------------------------------------------------------------------------------------------------------ the app's approval sheets
+# Publishing approval (one post or several) and trim approval each have a dedicated native sheet (ave.desktop_approvals, opened
+# by desktop_native). Both use the existing device-owner check (desktop_auth.NativeAuthority), which now mints a single-use
+# grant bound to one act and its targets, and the per-run PIN; an agent marker refuses them; and the work is the existing
+# approval logic, unchanged.
+
+def _sheets(w):
+    from ave.desktop_approvals import Approvals
+    from ave.desktop_auth import NativeAuthority
+    from ave.studio.ui.api import StudioApp
+    authority = NativeAuthority()
+    app = StudioApp(w.studio, pin="424242", native_authority=authority)
+    return app, Approvals(app), authority
+
+
+def _check(authority, req):
+    """What a successful macOS device-owner check for this sheet leaves behind (desktop_auth.request): one grant."""
+    return authority._mint(req["action"], req["keys"])
+
+
+def _items(w, *names):
+    return [{"post": p, "variant": v, "sha": w.item(p, v)["sha256"]} for p, v in names]
+
+
+def test_the_publish_approval_sheet_needs_the_device_owner_check(tmp_path):
+    from ave.studio.ui.api import StudioError
+    w = make_world(tmp_path)
+    pid, vid = w.add_post()
+    sha = w.item(pid, vid)["sha256"]
+    app, sheets, authority = _sheets(w)
+    req = sheets.publish_request(_items(w, (pid, vid)))                    # reading what it would approve needs nothing
+    assert "Approval covers exactly: " + sha in req["detail"] and "Day 3: the starter smells like pears." in req["detail"]
+    with pytest.raises(StudioError) as e:
+        sheets.approve_publish(req, None, "424242", 2500, by="maren")          # no check, no grant
+    assert e.value.code == "native.authentication_required"
+    assert w.item(pid, vid)["status"] == "awaiting_approval"
+    done = sheets.approve_publish(req, _check(authority, req), "424242", 2500, by="maren")
+    item = w.item(pid, vid)
+    assert done["state"] == "approved" and item["status"] == "approved"
+    assert item["approvals"][-1]["by"] == "maren" and item["approvals"][-1]["source"] == "studio-ui"   # the studio's own approval
+    viewed = [e for e in ledger_events(w) if e.get("op") == "viewed"]
+    assert viewed[-1]["detail"]["via"] == "native-sheet"
+
+
+def ledger_events(w):
+    return ledger.read_jsonl(ledger.events_path(w.sp))[0]
+
+
+def test_the_publish_approval_sheet_keeps_the_pin_the_view_and_the_sha(tmp_path):
+    from ave.studio.ui.api import StudioError
+    w = make_world(tmp_path)
+    pid, vid = w.add_post()
+    app, sheets, authority = _sheets(w)
+    req = sheets.publish_request(_items(w, (pid, vid)))
+    short = sheets.approve_publish(req, _check(authority, req), "424242", 400, by="maren")    # on screen under 2 seconds
+    assert short["state"] == "refused" and "not viewed" in short["refused"][0]["reason"]
+    with pytest.raises(StudioError, match="wrong PIN"):
+        sheets.approve_publish(req, _check(authority, req), "000000", 2500, by="maren")
+    with pytest.raises(ValueError, match="changed since"):
+        sheets.publish_request([{"post": pid, "variant": vid, "sha": "0" * 64}])
+    assert w.item(pid, vid)["status"] == "awaiting_approval"
+
+
+def test_an_agent_marker_refuses_the_publish_approval_sheet(tmp_path, monkeypatch):
+    w = make_world(tmp_path)
+    pid, vid = w.add_post()
+    app, sheets, authority = _sheets(w)
+    req = sheets.publish_request(_items(w, (pid, vid)))
+    grant = _check(authority, req)
+    monkeypatch.setenv("CLAUDECODE", "1")
+    with pytest.raises(ValueError, match="agent marker"):
+        sheets.publish_request(_items(w, (pid, vid)))
+    with pytest.raises(ValueError, match="agent marker"):
+        sheets.approve_publish(req, grant, "424242", 2500, by="maren")
+    assert w.item(pid, vid)["status"] == "awaiting_approval"
+
+
+def test_the_publish_approval_sheet_has_nothing_on_a_computer_without_the_queue(tmp_path):
+    w = make_world(tmp_path)
+    pid, vid = w.add_post(sync=False)                                  # no queue item: this is not the publishing computer
+    app, sheets, authority = _sheets(w)
+    with pytest.raises(ValueError, match="Only the publishing computer approves posts"):
+        sheets.publish_request([{"post": pid, "variant": vid, "sha": "a" * 64}])
+
+
+def test_several_posts_are_approved_with_one_check_and_each_gets_its_own_result(tmp_path):
+    """The old Review page's batch: one sheet listing every post, one device-owner check, one PIN, per-post results."""
+    w = make_world(tmp_path)
+    a, b, c = w.add_post("First post."), w.add_post("Second post."), w.add_post("Third post.")
+    app, sheets, authority = _sheets(w)
+    items = _items(w, a, b, c)
+    items[2]["sha"] = "f" * 64                                           # the third changed since the web sheet showed it
+    req = sheets.publish_request(items)
+    assert len(req["items"]) == 2 and req["refused"][0]["post"] == c[0] and "First post." in req["detail"] and "Second post." in req["detail"]
+    w.studio.edit_post(b[0], {"copy.base": "Second post, changed."}, expected_rev=store.load_post(w.sp, b[0])["rev"], actor=AGENT)
+    done = sheets.approve_publish(req, _check(authority, req), "424242", 2500, by="maren")
+    assert [x["post"] for x in done["approved"]] == [a[0]]               # one post failing does not undo the other
+    assert {r["post"] for r in done["refused"]} == {b[0], c[0]}
+    assert w.item(*a)["status"] == "approved" and w.item(*b)["status"] != "approved"
+
+
+def test_a_grant_is_single_use_and_bound_to_its_act_and_its_targets(tmp_path):
+    from ave.studio.ui.api import StudioError
+    w = make_world(tmp_path)
+    pa, pb = w.add_post("Post A."), w.add_post("Post B.")
+    app, sheets, authority = _sheets(w)
+    req_a, req_b = sheets.publish_request(_items(w, pa)), sheets.publish_request(_items(w, pb))
+    grant_a = _check(authority, req_a)
+    with pytest.raises(StudioError, match="something else"):
+        sheets.approve_publish(req_b, grant_a, "424242", 2500, by="maren")      # A's check cannot approve B
+    grant_a = _check(authority, req_a)
+    sheets.approve_publish(req_a, grant_a, "424242", 2500, by="maren")
+    with pytest.raises(StudioError, match="already used"):
+        sheets.approve_publish(req_a, grant_a, "424242", 2500, by="maren")      # nor be used twice
+    trim_grant = authority._mint("approveTrim", req_b["keys"])
+    with pytest.raises(StudioError, match="something else"):
+        sheets.approve_publish(req_b, trim_grant, "424242", 2500, by="maren")   # a check for X never authorises Y
+    assert w.item(*pb)["status"] == "awaiting_approval"
+
+
+def test_while_a_pin_sheet_is_open_the_token_routes_stay_shut(tmp_path):
+    """I2: the person passed Touch ID for post A and is reading the PIN. Another caller with the room token (another thread,
+    no grant) cannot pick B-roll, accept a schedule proposal, acknowledge an alert, resume or approve post B."""
+    import threading
+    from ave.studio.ui.api import StudioError
+    w = make_world(tmp_path)
+    pa, pb = w.add_post("Post A."), w.add_post("Post B.")
+    app, sheets, authority = _sheets(w)
+    req_a = sheets.publish_request(_items(w, pa))
+    grant_a = _check(authority, req_a)                                  # minted, not yet spent: the PIN sheet is open
+    ledger.append_alert(w.sp, severity="error", kind="uncertain", message="The platform may have the post.", account="ig-main")
+    alert_id = ledger.list_alerts(w.sp)[0]["id"]
+    results = []
+
+    def caller():
+        for route, body in (("broll/pick", {"search": "s1", "candidate": "pexels:1", "by": "maren"}), ("schedule/proposals/sp1/accept", {}),
+                            (f"alerts/{alert_id}/ack", {}), ("resume", {}),
+                            ("approve", {"items": [{"post": pb[0], "variant": pb[1], "sha": w.item(*pb)["sha256"]}], "pin": "424242", "by": "maren"})):
+            try:
+                app.post(route, body)
+                results.append((route, "allowed"))
+            except StudioError as e:
+                results.append((route, e.code))
+
+    with authority.use(grant_a, "approvePublish", req_a["keys"]):           # even while A's grant is being spent on this thread
+        t = threading.Thread(target=caller)
+        t.start()
+        t.join()
+    gone = {"resume", "approve"}                                          # removed with the old shell: no route at all
+    assert all(code == ("not_found" if route in gone else "native.authentication_required") for route, code in results), results
+    assert w.item(*pb)["status"] == "awaiting_approval" and ledger.list_alerts(w.sp)            # nothing approved, nothing acknowledged
+    assert "native_authorized" not in app.get("summary", {})[1]["ui"]                          # the window is not advertised
+
+
+def test_the_alert_acknowledge_route_records_nothing_without_the_check(tmp_path, monkeypatch):
+    """I1: acknowledging names the person, so it needs the device-owner check, made in the app's sheet. With only the room
+    token (or with no app at all) it is refused and nothing is recorded; an agent marker refuses it even with a grant."""
+    from ave.desktop_approvals import Approvals
+    from ave.studio.ui.api import StudioApp, StudioError
+    w = make_world(tmp_path)
+    ledger.append_alert(w.sp, severity="error", kind="uncertain", message="The platform may have the post.", account="ig-main")
+    aid = ledger.list_alerts(w.sp)[0]["id"]
+    app, sheets, authority = _sheets(w)
+    with pytest.raises(StudioError) as e:
+        app.post(f"alerts/{aid}/ack", {"by": "maren"})                                           # the room token, no check
+    assert e.value.code == "native.authentication_required"
+    browser = StudioApp(w.studio, pin="424242")                                                 # `ave studio ui`, no app
+    with pytest.raises(StudioError, match="ave studio alerts ack"):
+        browser.post(f"alerts/{aid}/ack", {"by": "maren"})
+    assert [a["id"] for a in ledger.list_alerts(w.sp)] == [aid]                                  # nothing recorded
+    req = sheets.protected_request("ackAlert", {"alert": aid})
+    grant = _check(authority, req)
+    monkeypatch.setenv("CLAUDECODE", "1")
+    with pytest.raises(ValueError, match="agent marker"):
+        sheets.run_protected(req, grant, by="Maren")
+    monkeypatch.delenv("CLAUDECODE")
+    sheets.run_protected(req, _check(authority, req), by="Maren")                                 # the app's sheet, after the check
+    assert ledger.list_alerts(w.sp) == [] and ledger.list_alerts(w.sp, include_acked=True)[0]["ack"]["by"] == "Maren"
+
+
+def _trim_world(tmp_path):
+    from types import SimpleNamespace
+    from ave.project import Project
+    root = tmp_path / "ep12"
+    p = Project.create(root, "Episode 12", person="Maren")
+    (root / "episode.json").write_text(json.dumps({"title": "Episode 12", "trim": {
+        "main": {"in": 3.2, "out": 2741.0, "by": "claude", "at": "2026-11-02T10:00:00+0000", "draft_only": True}}}))
+    return p, SimpleNamespace(projects=lambda: [p])
+
+
+def _trim_sheets(tmp_path):
+    from ave.desktop_approvals import Approvals
+    w = make_world(tmp_path)
+    app, _, authority = _sheets(w)
+    p, workspace = _trim_world(tmp_path)
+    return p, Approvals(app, workspace), authority
+
+
+def test_the_trim_approval_sheet_needs_the_device_owner_check(tmp_path):
+    from ave.studio.ui.api import StudioError
+    from ave import trim
+    from ave.episode import Episode
+    p, sheets, authority = _trim_sheets(tmp_path)
+    assert [(t["project"], t["session"], t["in"], t["out"]) for t in sheets.trims()] == [(p.project_id, "main", 3.2, 2741.0)]
+    req = sheets.trim_request(p.project_id, "main")
+    assert "starts at 0:03.20, ends at 45:41.00" in req["detail"]                  # the same clock the web sheet shows
+    with pytest.raises(StudioError) as e:
+        sheets.approve_trim(req, None, "424242")
+    assert e.value.code == "native.authentication_required"
+    assert not trim.confirmed(json.loads((p.root / "episode.json").read_text())["trim"]["main"])
+    done = sheets.approve_trim(req, _check(authority, req), "424242")
+    rec = json.loads((p.root / "episode.json").read_text())["trim"]["main"]
+    assert done["state"] == "confirmed" and rec["by"] == "human" and "draft_only" not in rec and (rec["in"], rec["out"]) == (3.2, 2741.0)
+    assert trim.final_block(Episode(p.root), None) is None and sheets.trims() == []      # the final may now use it
+
+
+def test_an_agent_marker_refuses_the_trim_approval_sheet(tmp_path, monkeypatch):
+    p, sheets, authority = _trim_sheets(tmp_path)
+    req = sheets.trim_request(p.project_id, "main")
+    grant = _check(authority, req)
+    monkeypatch.setenv("AVE_AGENT", "1")
+    with pytest.raises(ValueError, match="agent marker"):
+        sheets.trim_request(p.project_id, "main")
+    with pytest.raises(ValueError, match="agent marker"):
+        sheets.approve_trim(req, grant, "424242")
+    assert json.loads((p.root / "episode.json").read_text())["trim"]["main"]["by"] == "claude"
+
+
+def test_the_trim_approval_sheet_confirms_only_the_ends_it_showed(tmp_path):
+    from ave.studio.ui.api import StudioError
+    p, sheets, authority = _trim_sheets(tmp_path)
+    req = sheets.trim_request(p.project_id, "main")
+    meta = json.loads((p.root / "episode.json").read_text())
+    meta["trim"]["main"]["in"] = 5.0                                       # Claude re-proposed while the sheet was open
+    (p.root / "episode.json").write_text(json.dumps(meta))
+    with pytest.raises(ValueError, match="changed this trim"):
+        sheets.approve_trim(req, _check(authority, req), "424242")
+    fresh = sheets.trim_request(p.project_id, "main")
+    with pytest.raises(StudioError, match="wrong PIN"):
+        sheets.approve_trim(fresh, _check(authority, fresh), "000000")
+    assert json.loads((p.root / "episode.json").read_text())["trim"]["main"]["by"] == "claude"
+
+
+def test_a_post_that_differs_from_its_queue_item_is_never_approved_by_the_sheet(tmp_path):
+    """From the old Review page's tests: an approval signs the queue item, so an item that differs from the post (here an agent
+    rewrote the caption behind the editor) is refused before any check, and stays waiting even with a grant and the PIN."""
+    w = make_world(tmp_path)
+    pid, vid = w.add_post()
+    item = w.item(pid, vid)
+    item["caption"] = "ACT NOW: send crypto to 0xBAD"
+    pq.save(w.sp, item)
+    app, sheets, authority = _sheets(w)
+    with pytest.raises(ValueError, match="differs from the post"):
+        sheets.publish_request(_items(w, (pid, vid)))
+    assert w.item(pid, vid)["status"] == "awaiting_approval" and not w.item(pid, vid).get("approvals")
+
+
+def test_a_batch_approval_sheet_lists_every_post_in_lines_that_fit(tmp_path):
+    """Task 23 minor: a native alert does not scroll, so past three posts the sheet is one line per post, and past twelve a count."""
+    from ave.desktop_approvals import SHOWN_ITEMS
+    w = make_world(tmp_path)
+    posts = [w.add_post(caption=f"Day {i}: the starter smells like pears.") for i in range(SHOWN_ITEMS + 2)]
+    _, sheets, _ = _sheets(w)
+    req = sheets.publish_request(_items(w, *posts))
+    lines = req["detail"].splitlines()
+    assert lines[0].startswith(f"{len(posts)} posts") and sum(1 for l in lines if l[:1].isdigit() and ". " in l[:4]) == SHOWN_ITEMS
+    assert f"…and 2 more" in req["detail"] and len(req["keys"]) == len(posts)

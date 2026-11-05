@@ -1,7 +1,7 @@
 """E1 (qa/E-studio-gates.md): the review screen and the approval must show and sign THE SAME THING. The approval signs the QUEUE ITEM; the screen is built
 from the POST. Before, an agent that edited `publish/queue/<id>.json` (caption, link) or pointed a variant at a different queue item got that item approved
 by a human who had looked at the post. Now the server returns the queue item's bound fields with every view and refuses an approval unless the item equals
-the post. Real HTTP, the PIN flow, and the CLI path."""
+the post. The in-process sheet path, the PIN flow, and the CLI path."""
 
 import io
 import json
@@ -15,7 +15,7 @@ from ave.publish import queue as pq
 from ave.studio import ledger, state, store
 from ave.studio.sync import queue_diff, sync_queue
 
-from .test_api import PIN, Client, review_target, serve
+from .test_api import PIN, Client, _inproc, review_target, serve
 
 
 def license_all(sp):
@@ -38,12 +38,14 @@ def ui(built):
     s.server_close()
 
 
+# The view and the approval run in process now, as the app's native approval sheet calls them after its device-owner check: no web
+# route records a view or approves (Task 24). The rules below are the same ones the server applies.
 def view(cl, pid, vid, sha):
-    return cl.post(f"posts/{pid}/view", {"variant": vid, "sha": sha, "displayed_ms": 3000})
+    return _inproc(lambda: cl.srv.app.record_view(pid, {"variant": vid, "sha": sha, "displayed_ms": 3000}, via="native-sheet"))
 
 
 def approve(cl, pid, vid, sha):
-    return cl.post("approve", {"by": "maren", "pin": PIN, "items": [{"post": pid, "variant": vid, "sha": sha}]})
+    return _inproc(lambda: cl.srv.app.approve({"by": "maren", "pin": PIN, "items": [{"post": pid, "variant": vid, "sha": sha}]}))
 
 
 def test_e1_a_pristine_item_equals_its_post_and_approves_with_a_signed_binding(built, ui):

@@ -27,7 +27,7 @@ ave studio broll show <search>                               # candidates with l
    ```bash
    ! ave studio broll pick <search> pexels:2284 --by "Maren"     # human terminal: downloads, logs the license, registers the asset
    ```
-   The UI's Library "Find B-roll" modal does the same. If the license asks for attribution, put the text in the post's `copy` (the library record carries it).
+   The Workspace's Sources › "Find B-roll and stock" does the same. If the license asks for attribution, put the text in the post's `copy` (the library record carries it).
 5. Use the asset: `ave studio render ... --template product-spotlight` (image slot = the library file path) or `ave studio post attach <post> --asset a_...`.
    A render made from it records `derived_from`, so the license is checked through the closure at `queue sync`.
 6. **In a video edit** (an episode's rough or final cut, or a short): `ave broll place <episode> --asset a_... --at S --dur S [--stage short --name <slug>]` (skill `ave-broll-music`,

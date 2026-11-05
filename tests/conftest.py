@@ -1,3 +1,4 @@
+import os
 import re
 import shutil
 import sys
@@ -9,6 +10,10 @@ sys.path.insert(0, str(Path(__file__).parent))
 import fixtures  # noqa: E402
 
 needs_ffmpeg = pytest.mark.skipif(not shutil.which("ffmpeg"), reason="ffmpeg not installed")
+# Shared CI runners are slower and have no hardware video encoder: time budgets and long waits stretch by this much there.
+CI_SLOW = 3 if os.environ.get("CI") else 1
+# Frame-time budgets are a promise about a real Mac; a shared runner cannot keep them, so CI checks behaviour, not speed.
+PERF_BUDGETS = not os.environ.get("CI")
 
 
 def _ffmpeg_has_libass() -> bool:

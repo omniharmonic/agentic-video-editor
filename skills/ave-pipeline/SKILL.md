@@ -27,7 +27,7 @@ No `episode.json`? `ave init-episode <dir>` (safe on an existing folder: it only
 | 3 | sync cameras | `ave sync` | `work/sync.json` (skip for one camera) | `ave-multicam-sync` |
 | 4 | map cameras to speakers | edit `episode.json` | cameras + speakers set | `ave-map-cameras` |
 | 5 | plan cuts | `ave plan-cuts` | `work/cutlist.json` | `ave-rough-cut` |
-| 5b | real start/end (checkpoint) | `ave trim suggest` then, once the human agrees, `ave trim set` | `episode.json` `trim` | `ave-assembly` |
+| 5b | real start/end (yours for drafts, flagged; the director confirms before the final) | `ave trim suggest`, `ave trim propose`; the director runs `ave trim set` | `episode.json` `trim` | `ave-assembly` |
 | 6 | **assembly** | `ave assemble` | `edits/assembly.vN.json` | `ave-assembly` |
 | 7 | **rough cut** | `ave cleanup` | `edits/rough.vN.json` | `ave-cleanup` |
 | 7b | opening and closing (checkpoint: the human decides the show's grammar, then approves the plan) | `ave sequence plan`, `ave sequence preview`; the human runs `ave sequence approve` | `work/sequence.json` approved | `ave-intro-outro` |
@@ -37,15 +37,23 @@ No `episode.json`? `ave init-episode <dir>` (safe on an existing folder: it only
 | 10b | release package | `ave package <ep> --dry-run`, then `ave package`; `ave package queue <ep>` adds approved items to the publish queue as drafts | `<exports>/package/<date>/` | `ave-package` |
 | 11 | publish | `ave publish ...` | human-approved, sent | `ave-publish` |
 
-Side tools: `ave proxies` (review proxies for Resolve), `ave ui` (the human's review pages), `ave content ...` (opt-in quote posts, thumbnails, carousels; `ave-content-plan`).
+Side tools: `ave proxies` (review proxies for Resolve), AVE Studio (the human's Room and Workspace; `ave ui` is retired), `ave content ...` (opt-in quote posts, thumbnails, carousels; `ave-content-plan`).
 
 At every cut stage: `ave handoff <episode>` puts it in Resolve for the human. Stages 1-8 run entirely in FFmpeg/Python; only the handoff needs Resolve's bridge.
 
 **Several takes on one recorder?** `ave ingest` lists `sessions` (and warns when one audio file spans them); episode time is the recorder's timeline. Put `session` on each camera in `episode.json`, then `ave plan-cuts` and `ave assemble` produce one NAMED edit per session (`assembly.s1`...; `--combined` joins them), and `ave cleanup|final|render|handoff --name s1` carry each session through the later stages. Regions no camera covers are excluded. Sync measures and APPLIES per-camera clock drift. See `ave-ingest-transcribe`, `ave-multicam-sync`, `ave-map-cameras`, `ave-assembly`.
 
+**One go:** `ave start <folder>` runs stages 1 to 7 and a draft render (add `--clips` for clip candidates), resumable from disk: it
+reuses what exists and says which stages it reused or redid. It stops only to ask who is speaking (`--speaker S1=NAME` answers);
+every choice it made alone is a flagged decision on the board and every stage a task.
+
 ## 3. Checkpoints (stop and ask the human)
 
-After transcript (speaker names), camera mapping (with the stills as evidence), **assembly**, **rough cut** (show `ave cleanup explain`: what was cut, what is flagged), **opening and closing** (before the final: does the show open with a cold open and a title card, which hosts and titles, which links, the editor credit; the human approves `ave sequence plan`), **final cut**,
+Decided by you and flagged at review, not checkpoints you wait at (AGENTS.md rule 5): camera mapping, the sync reference, the
+draft trim, the **assembly** and the **rough cut**. Record each choice with `decision_record` and flag it when the director reviews
+the rough cut (show `ave cleanup explain`: what was cut, what is flagged).
+
+Stop and ask: after the transcript (speaker names), the director's trim (`ave trim set`) before the final, **opening and closing** (before the final: does the show open with a cold open and a title card, which hosts and titles, which links, the editor credit; the human approves `ave sequence plan`), **final cut**,
 clip selection (review page), and before anything is queued for publishing. Record what they are reviewing (`ave resume` shows it) and wait.
 
 ## 4. Single camera or audio-only

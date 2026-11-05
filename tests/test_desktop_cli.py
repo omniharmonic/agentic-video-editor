@@ -141,3 +141,81 @@ def test_native_library_import_refuses_links(tmp_path):
     (tmp_path / "link.png").symlink_to(tmp_path / "real.png")
     with pytest.raises(ValueError, match="not links"):
         import_library(built.studio, [tmp_path / "link.png"])
+
+
+# ---- the approval sheets: the web view may only name what to approve; the native side does the rest
+ORIGIN = "http://127.0.0.1:4100/"
+
+
+def _ask(action, args):
+    from ave.desktop_native import native_message
+    return native_message({"id": "1", "action": action, "args": args}, ORIGIN + "app/", ORIGIN)
+
+
+def test_the_approval_sheets_are_native_actions_that_take_only_what_to_approve():
+    from ave.desktop_approvals import approval_args
+    sha = "a" * 64
+    one = {"post": "p_1", "variant": "v_ig", "sha": sha}
+    assert _ask("approvePublish", {"items": [one]})[1] == "approvePublish"
+    assert approval_args("approvePublish", {"items": [one, {**one, "variant": "v_fb"}]})["items"][1]["variant"] == "v_fb"   # several at once
+    assert approval_args("approveTrim", {"project": "prj_abc", "session": "main"}) == {"project": "prj_abc", "session": "main"}
+    for extra in ({"pin": "424242"}, {"by": "maren"}, {"displayed_ms": 9000}):    # the page can never supply the PIN, a name or a view
+        with pytest.raises(ValueError):
+            approval_args("approvePublish", {"items": [one], **extra})
+        with pytest.raises(ValueError):
+            approval_args("approvePublish", {"items": [{**one, **extra}]})
+        with pytest.raises(ValueError):
+            approval_args("approveTrim", {"project": "prj_abc", "session": "main", **extra})
+    for bad in ({"items": []}, {"items": [one] * 51}, {"items": [one, one]}, {"items": [{**one, "sha": "abc"}]},
+                {"items": [{**one, "post": ".."}]}, {"items": [{**one, "variant": "."}]}):
+        with pytest.raises(ValueError):
+            approval_args("approvePublish", bad)
+    with pytest.raises(ValueError):
+        approval_args("approveTrim", {"project": "../../etc", "session": "main"})
+    assert approval_args("ackAlert", {"alert": "al_0001"}) == {"alert": "al_0001"}
+    assert approval_args("acceptProposal", {"proposal": "sp_1"}) == {"proposal": "sp_1"}
+    assert approval_args("pickBroll", {"search": "bs_1", "candidate": "pexels:123", "by": "Maren"})["candidate"] == "pexels:123"
+    relayed = {"artifact": "prj_abc:art_ep", "event": "01JB7Q3W6XN2V4Y8Z0A1B2C3D4"}
+    assert approval_args("confirmRelayed", relayed) == relayed and approval_args("undoRelayed", relayed) == relayed
+    for action, bad in (("confirmRelayed", {**relayed, "by": "Maren"}), ("confirmRelayed", {**relayed, "artifact": "../x"}),
+                        ("undoRelayed", {"artifact": "prj_abc:art_ep"}),
+                        ("ackAlert", {"alert": "al_1", "by": "Maren"}), ("pickBroll", {"search": "bs_1", "candidate": "pexels:1"}),
+                        ("pickBroll", {"search": "..", "candidate": "x", "by": "Maren"}), ("acceptProposal", {"proposal": "sp 1"})):
+        with pytest.raises(ValueError):
+            approval_args(action, bad)
+
+
+def test_the_bridge_offers_both_sheets_and_nothing_for_sequence_approval():
+    from ave.desktop_native import ACTIONS, BRIDGE_SCRIPT
+    assert "approvePublish:items=>ask('approvePublish',{items})" in BRIDGE_SCRIPT
+    for x in ("ackAlert:id=>ask('ackAlert',{alert:id})", "pickBroll:(search,candidate,by)=>ask('pickBroll',{search,candidate,by})",
+              "acceptProposal:id=>ask('acceptProposal',{proposal:id})", "confirmRelayed:(key,event)=>ask('confirmRelayed',{artifact:key,event})",
+              "undoRelayed:(key,event)=>ask('undoRelayed',{artifact:key,event})"):
+        assert x in BRIDGE_SCRIPT
+    assert "approveTrim:(project,session)=>ask('approveTrim',{project,session})" in BRIDGE_SCRIPT
+    assert not any("sequence" in a.lower() for a in ACTIONS)              # `ave sequence approve` stays a terminal act
+    with pytest.raises(ValueError, match="Unknown native action"):
+        _ask("approveSequence", {})
+
+
+def test_an_agent_marker_refuses_the_approval_sheets_before_anything_is_read(monkeypatch):
+    from ave.desktop_approvals import Approvals, refuse_agent
+    monkeypatch.setenv("CLAUDECODE", "1")
+    with pytest.raises(ValueError, match="agent marker"):
+        refuse_agent()
+    sheets = Approvals(app=None, workspace=None)                        # refuses before touching the studio
+    with pytest.raises(ValueError, match="agent marker"):
+        sheets.publish_request([{"post": "p_1", "variant": "v_ig", "sha": "a" * 64}])
+    with pytest.raises(ValueError, match="agent marker"):
+        sheets.trim_request("prj_abc", "main")
+
+
+def test_sequence_approve_is_unchanged_a_terminal_act(monkeypatch, tmp_path):
+    from ave import humanpresence
+    from ave.cli import main
+    for k in humanpresence.AGENT_MARKERS:
+        monkeypatch.delenv(k, raising=False)
+    monkeypatch.setenv("CLAUDECODE", "1")
+    with pytest.raises(SystemExit) as e:
+        main(["sequence", "approve", str(tmp_path)])
+    assert "human act" in str(e.value) and f"ave sequence approve {tmp_path}" in str(e.value)

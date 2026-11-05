@@ -17,7 +17,7 @@ from ave.episode import Episode, write_json
 QUOTE = "A goal is a wish and a system is a habit"
 LONG_QUOTE = ("The ground remembers what we do to it long after we have stopped paying attention to it and that is the whole reason "
               "we tend a field for a generation instead of a season")
-SPEAKERS = {"S1": {"name": "Maren Okafor", "channel": "left"}, "S2": {"name": "Tomas", "channel": "right"}}
+SPEAKERS = {"S1": {"name": "Maren Okafor", "channel": "left"}, "S2": {"name": "Imani", "channel": "right"}}
 FINAL_S = 40
 
 

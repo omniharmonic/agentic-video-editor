@@ -162,7 +162,7 @@ can spawn a pty and read the keychain. The real control is the harness deny rule
 
 | Command | Why it is yours |
 |---|---|
-| `ave studio approve <post> <variant>` / the UI's Review page | Approval of any post; typed hash or PIN after viewing the exact bytes. No auto-approve class exists |
+| `ave studio approve <post> <variant>` / the app's approval sheet (Workspace › Approvals) | Approval of any post; typed hash or PIN after viewing the exact bytes, and in the app the device-owner check. No web route approves. No auto-approve class exists |
 | `ave studio account live <id> --on\|--off` | Enabling real posting is an attested human act (you type the account handle) |
 | `ave studio account auth <id>` | Credentials go from a hidden prompt to the keychain, never argv or a file |
 | `ave studio resume` | Clearing a pause (any actor may pause) |
@@ -219,7 +219,7 @@ ave studio queue sync                                                           
 
 - **Human-kept clips only.** A clip counts when `clips.json` says `approved` AND the learning ledger's latest decision for it is `keep`, recorded by a named person from a terminal or the UI
   (`via: tty|ui`). A keep typed through an agent shell (`via: notty`), a later skip, a proposed clip and a status with no decision on record are refused, with the line for the human. Naming such
-  a clip in `--clips` refuses the whole run and creates nothing. (A human's browser decisions that an agent imported with `ave clips import-decisions` are `notty` too: confirm them in `ave ui`.)
+  a clip in `--clips` refuses the whole run and creates nothing. (A human's browser decisions that an agent imported with `ave clips import-decisions` are `notty` too: confirm them in the Room's Selects.)
 - **Only finished renders.** Latest cut only (a newer cut with no export is refused), not a draft, bytes equal to the sidecar's sha256, limits, encode and licenses ok, a complete statement without
   the `--allow-incomplete` override. `needs_review` is advisory (as in `ave publish queue --from-clips`): it is carried into the post's reason and the result's `warnings`.
 - **A post per clip, a variant per account** with that platform's export and post type (Instagram/Facebook `reel`, YouTube `short`, TikTok/X `video`; TikTok posts the Reels encode); accounts with no

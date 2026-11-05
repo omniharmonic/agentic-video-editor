@@ -34,7 +34,7 @@ def register(sub):
     p = ss.add_parser("export", help="create an immutable JSON bundle OUTSIDE the live studio")
     p.add_argument("output", help="new bundle file in an explicitly shared exchange folder")
     p.add_argument("--studio", metavar="DIR")
-    p.add_argument("--peer", required=True, help="stable local name for this collaborator, e.g. tomas")
+    p.add_argument("--peer", required=True, help="stable local name for this collaborator, e.g. imani")
     p.add_argument("--post", action="append", help="select a post (repeatable); default all, up to 500")
     p.add_argument("--include-media", action="store_true", help="include up to 20 MiB of referenced library media; no license/attestation is transferred")
     p.set_defaults(fn=command)

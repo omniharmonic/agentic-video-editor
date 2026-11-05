@@ -6,7 +6,7 @@ description: >-
 
 # The feedback loop: claim, apply, resolve
 
-The human reviews in the studio UI and presses "Send back to Claude" with a note and a kind. Each press is a line in `ledger/feedback.jsonl`; consuming it is
+The human reviews in AVE Studio (Workspace › Approvals, or the post editor under More tools) and presses "Ask for changes" with a note and a kind. Each press is a line in `ledger/feedback.jsonl`; consuming it is
 separate lines (`claim`, `resolve`), so history is never rewritten. An **open** note blocks sending that variant (dispatch refuses while a rework, retime or
 drop note is open), so resolving them is what unblocks the human's week.
 

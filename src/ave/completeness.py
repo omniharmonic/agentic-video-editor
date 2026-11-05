@@ -87,7 +87,10 @@ def audit_edges(ep: Episode, clip: dict, rubric: dict | None = None) -> dict | N
     src = clip.get("source")
     if not src:
         return None
-    p = editdoc.path_for(ep, src["stage"], src["version"], src.get("name"))
+    try:
+        p = editdoc.resolve(ep, src["stage"], src["version"], src.get("name"), id=src.get("id"))
+    except ValueError:      # ambiguous or malformed reference: the audit is skipped, as for a missing edit
+        return None
     if not p.exists():
         return None
     try:

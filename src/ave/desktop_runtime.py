@@ -13,6 +13,8 @@ import tempfile
 REQUIRED_MODULES = ('keyring.backends.macOS', 'requests', 'urllib3', 'cryptography.x509', 'yaml', 'numpy', 'scipy.signal', 'soundfile',
                     'PIL', 'pypdf', 'playwright', 'webview', 'mcp.server.fastmcp', 'Vision', 'LocalAuthentication', 'WebKit')
 
+REQUIRED_COMPONENTS = ('sync',)
+
 
 def frozen(): return bool(getattr(sys, 'frozen', False))
 
@@ -91,11 +93,15 @@ def diagnostics():
         try: path = component(name); out['components'][name] = {'ready': True, 'path': str(path)}
         except ValueError as exc: out['components'][name] = {'ready': False, 'problem': str(exc)}
     # Lazy imports are invisible to PyInstaller: a missing one otherwise surfaces only when someone reaches that feature.
+    for name in REQUIRED_COMPONENTS:
+        if name not in out['components']: out['components'][name] = {'ready': False, 'problem': f'{name}: component missing from the manifest; reinstall the verified runtime'}
     out['modules'] = {}
     for name in REQUIRED_MODULES:
         try: importlib.import_module(name); out['modules'][name] = True
         except Exception as exc: out['modules'][name] = False; out.setdefault('problems', []).append(f'{name}: {exc}')
     out['ok'] = all(c['ready'] for c in out['components'].values()) and all(out['modules'].values())
+    from .updates import diagnostics_section
+    out['updates'] = diagnostics_section()        # enabled or why not; never the private feed address
     return out
 
 

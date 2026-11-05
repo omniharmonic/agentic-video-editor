@@ -37,7 +37,7 @@ from .events import AGENT, Actor
 # studio platform -> (the `ave shorts export` platform whose file it posts, the studio post type)
 SHORT_FORMAT = {"instagram": ("reels", "reel"), "facebook": ("facebook", "reel"), "youtube": ("youtube", "short"),
                 "tiktok": ("reels", "video"), "x": ("x", "video")}
-_SIDE = re.compile(r"^(?P<slug>.+)\.v(?P<v>\d+)\.(?P<plat>[a-z0-9]+)\.json$")
+_SIDE = re.compile(r"^(?P<slug>.+)\.v(?P<v>\d+)(?:~(?P<device>[a-z0-9]{4}))?\.(?P<plat>[a-z0-9]+)\.json$")
 APPROVING_VIA = ("tty", "ui")
 
 
@@ -86,18 +86,32 @@ def exports_for(ep: Episode, slug: str) -> dict[str, dict]:
     from .. import shorts
     d = shorts.shorts_dir(ep)
     best: dict[str, dict] = {}
+    rank: dict[str, tuple] = {}
+    latest = _latest_edit(ep, slug)
     for f in sorted(d.glob(f"{slug}.v*.json")) if d.is_dir() else []:
         m = _SIDE.match(f.name)
         if not m or m["slug"] != slug:
             continue
         v = int(m["v"])
-        if m["plat"] not in best or v > best[m["plat"]]["version"]:
-            try:
-                side = read_json(f)
-            except (OSError, ValueError):
-                continue
+        try:
+            side = read_json(f)
+        except (OSError, ValueError):
+            continue
+        # the export of the latest edit wins; otherwise the highest number (two computers' v8 are told apart by their tag)
+        r = (isinstance(side, dict) and latest is not None and side.get("edit") == latest, v, m["device"] or "")
+        if m["plat"] not in best or r > rank[m["plat"]]:
+            rank[m["plat"]] = r
             best[m["plat"]] = {"version": v, "sidecar_path": f, "sidecar": side, "mp4": ep.root / side["video"] if side.get("video") else f.with_suffix(".mp4")}
     return best
+
+
+def _latest_edit(ep: Episode, slug: str) -> str | None:
+    from .. import editdoc
+    try:
+        p = editdoc.latest_path(ep, "short", slug)
+    except (OSError, ValueError):
+        return None
+    return str(p.relative_to(ep.root)) if p else None
 
 
 def render_problems(ep: Episode, clip: dict, ex: dict, latest_version: int | None) -> list[str]:
@@ -127,7 +141,8 @@ def render_problems(ep: Episode, clip: dict, ex: dict, latest_version: int | Non
                    "post it by hand, or pick a clip that passes")
     elif not comp.get("complete"):
         out.append("its cut is not a complete statement: " + "; ".join(comp.get("problems") or []))
-    if latest_version is not None and side.get("version") != latest_version:
+    latest_edit = _latest_edit(ep, clip["slug"]) if side.get("edit") else None
+    if latest_version is not None and (side.get("version") != latest_version or (latest_edit and side["edit"] != latest_edit)):
         out.append(f"a newer cut (short v{latest_version}) exists and has no export for this platform yet (this one is v{side.get('version')}): "
                    f"`ave shorts export <episode> --clip {clip['slug']}`")
     return out
@@ -318,8 +333,10 @@ def register_render(sp, ep: Episode, mp4: Path, sidecar: dict, derived: list[str
 
 # ---- the command -----------------------------------------------------------------------------------------------------------------------
 
-def _origin_ref(ep: Episode, clip: dict, version: int) -> str:
-    return f"{ep.root}::short::{clip['id']}::v{version}"
+def _origin_ref(ep: Episode, clip: dict, version) -> str:
+    """`version` is the short's label (v8, or v8~abcd in an adopted project) so each computer's v8 gets its own post."""
+    lab = version if isinstance(version, str) else f"v{int(version)}"
+    return f"{ep.root}::short::{clip['id']}::{lab}"
 
 
 def _existing(sp, ref: str) -> dict | None:
@@ -431,10 +448,11 @@ def shorts_ingest(studio, path: str | Path, *, clips: list[str] | None = None, a
         return report
     for c, variants, latest in plans:
         slug = c["slug"]
-        doc = editdoc.load(editdoc.path_for(ep, "short", latest, slug))
+        latest_p = editdoc.latest_path(ep, "short", slug)
+        doc = editdoc.load(latest_p)
         main_side = variants[0][3]["sidecar"]
         title = title_for(ep, c, main_side)
-        ref = _origin_ref(ep, c, latest)
+        ref = _origin_ref(ep, c, editdoc.label_of(latest_p))
         existing = _existing(sp, ref)
         entry: dict[str, Any] = {"clip": c["id"], "slug": slug, "short_version": latest, "title": title, "variants": [], "post": existing["id"] if existing else None,
                                  "created": False}
