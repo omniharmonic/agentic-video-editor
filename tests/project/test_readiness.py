@@ -527,7 +527,17 @@ def test_arriving_version_cannot_be_opened(page, room_server):
     imani_made(project, "rough.v2~jos0", {"edits/rough.v2~jos0.json": edit})
     put(project.root, "edits/rough.v2~jos0.json", wrong)
     room_server.offer("rough.v2~jos0", artifact="ep", summary="Opens on the question")
-    page.get_by_role("heading", name="This version arrived damaged").wait_for(timeout=15_000 * CI_SLOW)
+    try:
+        page.get_by_role("heading", name="This version arrived damaged").wait_for(timeout=15_000 * CI_SLOW)
+    except Exception:                                    # say what the server and the page believed, not only that time ran out
+        req = urllib.request.Request(f"http://127.0.0.1:{room_server.port}/api/room/cut?artifact=ep&version=rough.v2~jos0",
+                                     headers={"X-AVE-Token": room_server.token})
+        with urllib.request.urlopen(req) as r:
+            server = json.loads(r.read()).get("readiness")
+        local = R.details(project.state(), project.root).get("rough.v2~jos0")
+        shown = page.locator(".room-arrive").all_inner_texts(), page.locator("h1, h2, h3").all_inner_texts()
+        raise AssertionError(f"no 'arrived damaged': server={server} local={local} page={shown} "
+                             f"hasher_pending={len(R.HASHER._pending)} alive={bool(R.HASHER._thread and R.HASHER._thread.is_alive())}") from None
     assert page.get_by_text("Ask Imani to resend it.", exact=False).first.is_visible()
     assert page.locator(".room-arrive").inner_text() == "Damaged"
     assert page.get_by_role("button", name="Keep this").is_disabled()
