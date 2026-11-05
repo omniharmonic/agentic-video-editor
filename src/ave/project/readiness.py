@@ -24,7 +24,8 @@ What counts as a need:
 
 Cost. Each directory a need lives in is stat'ed once per look; a need's own stat is cached until that directory's mtime
 changes (Syncthing renames each file into place, which changes it), `invalidate()` names it (a sync event), or RECHECK_S has
-passed. Hashes live in memory first and in `.ave/local/index.sqlite` (table `hashes`, keyed on path, size and mtime_ns), read and
+passed; a directory changed in the last RACY_S is looked at afresh each time, since a second change in the same clock tick
+leaves its mtime as it was. Hashes live in memory first and in `.ave/local/index.sqlite` (table `hashes`, keyed on path, size and mtime_ns), read and
 written through one long-lived connection per thread. `readiness()` never hashes on the caller's thread unless asked
 (`wait=True`): an unknown hash is queued for the one background hasher and reads "arriving" (checking) until it is known. When a
 hash cannot be saved it is still kept in memory, and saving is retried with an exponential back-off (capped at BACKOFF_MAX_S),
@@ -76,6 +77,8 @@ TEMP_PATTERNS = (".syncthing.{}.tmp", "~syncthing~{}.tmp")      # Syncthing's te
 CHUNK = 1 << 20
 STUCK_S = 600.0              # a need unchanged this long, or a temp file this old, is stuck
 RECHECK_S = 60.0             # even an unchanged directory is looked at again this often
+RACY_S = 2.0                 # a directory whose mtime is this recent may change again inside the same clock tick (Linux
+                             # stamps in coarse ticks): its cached stats are not trusted, as git treats a "racily clean" file
 BACKOFF_MAX_S = 300.0
 
 SCHEMA = "CREATE TABLE IF NOT EXISTS hashes (path TEXT NOT NULL, size INTEGER NOT NULL, mtime_ns INTEGER NOT NULL, " \
@@ -321,10 +324,10 @@ drain = HASHER.drain
 
 # ---------------------------------------------------------------------------------------------------- stat cache
 class _Dir:
-    __slots__ = ("mtime_ns", "at", "names")
+    __slots__ = ("mtime_ns", "at", "names", "racy")
 
-    def __init__(self, mtime_ns, at):
-        self.mtime_ns, self.at, self.names = mtime_ns, at, {}
+    def __init__(self, mtime_ns, at, racy=False):
+        self.mtime_ns, self.at, self.names, self.racy = mtime_ns, at, {}, racy
 
 
 _DIRS: dict[str, _Dir] = _LRU(5_000)
@@ -347,10 +350,11 @@ class _Look:
         except OSError:
             mt = None
         now = time.monotonic()
+        racy = mt is not None and _now() - mt / 1e9 < RACY_S
         with _CACHE_LOCK:
             cur = _DIRS.get(key)
-            if cur is None or cur.mtime_ns != mt or mt is None or now - cur.at >= RECHECK_S:
-                cur = _DIRS[key] = _Dir(mt, now)
+            if cur is None or cur.racy or cur.mtime_ns != mt or mt is None or now - cur.at >= RECHECK_S:
+                cur = _DIRS[key] = _Dir(mt, now, racy)
         self.dirs[key] = cur
         return cur
 

@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 
 import pytest
+from conftest import CI_SLOW
 
 from ave.syncthing import SyncError, decide
 
@@ -322,15 +323,15 @@ def test_status_words_are_plain(page, ws):
     page.keyboard.press("Escape")
     # Live, with no reload: Imani comes online and is sent three files, then the drive goes away.
     ws.fake.now["commons"] = SyncStatus("syncing", members=[MemberStatus("imani", "sending", 3, 4_100_000)])
-    page.wait_for_function(f"() => document.querySelector('.grp .sync-pill[data-sync=\"{ws.pid}\"]')?.textContent === 'Sending 3 files to Imani'")
+    page.wait_for_function(f"() => document.querySelector('.grp .sync-pill[data-sync=\"{ws.pid}\"]')?.textContent === 'Sending 3 files to Imani'", timeout=30_000 * CI_SLOW)
     assert pill.get_attribute("data-tone") == "busy"
     ws.fake.now["commons"] = SyncStatus("drive_missing", error="folder path missing")
-    page.wait_for_function(f"() => document.querySelector('.grp .sync-pill[data-sync=\"{ws.pid}\"]')?.textContent === 'Drive not connected'")
+    page.wait_for_function(f"() => document.querySelector('.grp .sync-pill[data-sync=\"{ws.pid}\"]')?.textContent === 'Drive not connected'", timeout=30_000 * CI_SLOW)
     pill.click()
     assert page.get_by_role("dialog", name="Sync for The Long Table").get_by_text(W.DRIVE_NEXT).is_visible()
     page.keyboard.press("Escape")
     ws.fake.now["commons"] = SyncStatus("low_disk", free_bytes=2_400_000_000, min_free_bytes=5_000_000_000)
-    page.wait_for_function(f"() => document.querySelector('.grp .sync-pill[data-sync=\"{ws.pid}\"]')?.textContent === 'Paused: the drive is low on space'")
+    page.wait_for_function(f"() => document.querySelector('.grp .sync-pill[data-sync=\"{ws.pid}\"]')?.textContent === 'Paused: the drive is low on space'", timeout=30_000 * CI_SLOW)
     # A shared project whose drive is unplugged has no folder to read, so it shows as its own group saying so.
     ws.fake.extra = [{"id": "prj_OLD", "label": "Old interviews", "path": str(ws.root / "gone")}]
     gone = page.locator('.grp-missing[data-missing="prj_OLD"]')

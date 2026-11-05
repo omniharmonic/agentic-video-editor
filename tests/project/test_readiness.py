@@ -362,6 +362,9 @@ def test_repeated_looks_cost_a_stat_per_folder(ep, monkeypatch):
     st = ep.state()
     assert all(v == "ready" for v in settled(ep).values())
     calls, real = [], R._stat
+    clock = time.time() + R.RACY_S + 1                       # the folders have settled: none changed in the last RACY_S
+    monkeypatch.setattr(R, "_now", lambda: clock)
+    R.readiness(st, ep.root)                                 # the look that replaces what was cached while they were still racy
     monkeypatch.setattr(R, "_stat", lambda p: calls.append(str(p)) or real(p))
     hashed0 = R.HASHER.hashed
     for _ in range(10):
@@ -670,3 +673,16 @@ def test_caches_are_bounded():
     assert list(lru) == [8, 10] or list(lru) == [9, 8, 10]
     assert len(lru) == 3
     assert isinstance(R._MEM, R._LRU) and isinstance(R._SEEN, R._LRU) and isinstance(R._DIRS, R._LRU)
+
+
+def test_a_folder_changed_twice_in_one_clock_tick_is_looked_at_again(tmp_path):
+    """Linux stamps file times in coarse ticks: a log entry and the file it names can land in the same tick, leaving the
+    folder's mtime unchanged. A folder that changed too recently to trust is looked at again, not served from the cache."""
+    d = tmp_path / "edits"
+    d.mkdir()
+    p = d / "rough.v2.json"
+    assert R._Look().stat(p) is None                      # missing, and cached against the folder's mtime
+    before = os.stat(d).st_mtime_ns
+    p.write_text("{}")
+    os.utime(d, ns=(before, before))                       # the second change lands in the same tick as the first
+    assert R._Look().stat(p) is not None

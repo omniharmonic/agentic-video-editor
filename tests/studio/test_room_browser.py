@@ -241,6 +241,8 @@ def test_every_visible_button_does_something(page, room_server):
     offer_v9(room_server, page, span=(10, 20), wait_ready=True)
     page.evaluate("document.querySelector('video').pause()")                     # the change autoplays; start from a still frame
     page.get_by_role("button", name="Play", exact=True).wait_for()
+    page.evaluate("""() => new Promise(done => { const v = document.querySelector('video');   // mid-clip, so Back 5 seconds can move:
+        v.addEventListener('seeked', done, {once: true}); v.currentTime = 15; })""")         # a slow machine may not have started it
     names = page.evaluate("""() => [...document.querySelectorAll('.room button:not([role=tab])')].filter(b => b.offsetParent && !b.disabled)
         .map(b => b.getAttribute('aria-label') || b.textContent.trim())""")
     last = ["Watch the full cut", "Go back", "Keep this"]
@@ -713,7 +715,7 @@ def test_every_visible_control_in_script_and_selects_does_something(page, room_s
             el.fill("the")
         else:
             el.click()
-        page.wait_for_function(f"(sel) => ({VIEW_SIGNATURE})(sel) !== {json.dumps(before)}", arg=sel, timeout=5000)
+        page.wait_for_function(f"(sel) => ({VIEW_SIGNATURE})(sel) !== {json.dumps(before)}", arg=sel, timeout=5000 * CI_SLOW)
         page.keyboard.press("Escape")
         page.evaluate("() => document.querySelectorAll('video').forEach(v => v.pause())")
 
